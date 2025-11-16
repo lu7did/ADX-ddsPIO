@@ -4,6 +4,7 @@
  * Defines the USB device as an audio device
  */
 
+#include <string.h>
 #include "tusb.h"
 
 // Device descriptor
