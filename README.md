@@ -1,15 +1,32 @@
-# ADX-rp2040-DDS
-ADX class FT8 transceiver with direct digital synthesis
+# ADX-ddsPIO
 
-This is an experimental project to implement an ADX class digital transceiver
-for the HF spectrum based on the rp2040 architecture.
+This is a project aimed to achieve several (experimental) goals:
 
-The main characteristic is directly synthesize the modulated output frequency
-and the receiver local oscilator out of the rp2040 processor without using 
-a Si5351 chip.
+* Port the ADX firmware to the rp2040 (already done with ADX-rp2040).
+* Implement a USB digital audio interface.
+* Implement an all Raspberry Pico based DDS generation.
 
-Also implements a digital audio interface thru USB instead of the analog
-processing.
+Once implemented an ADX class FT8 digital transceiver can be created using
+different hardware strategies.
+
+This project relies *heavily* on the superb work made by Roman (R2BDT) with his
+pico-WSPR-tx project (link) which in turns relies on his pico-hf-oscillator (link)
+project.
+
+Most of the USB digital interface work couldn't have been done without the 
+insights provided by Hitoshi-san (JE1RAV) with his QP-7C_RP2040 project (link).
+
+The ADX architecture has been originally developed and promoted by Barb
+(WB2CBA) and had been spinned off by dozens of experimental implementations, most
+of the transceiver hardware is rooted on his signature original design.
+
+The ADX-rp2040 firmware was originally developed by me as an adaptation of the
+ADX Arduino firmware ported to the rp2040 architecture, most of the actual code
+was refactored in the process.
+
+With enough luck and cooperation this project might turn into a system which
+includes the different components in order to be reproduced, lots of work needs
+to occur for this to happen.
 
 The project it is in the very preliminary stages, no firm designs nor firmware
 is yet available.
