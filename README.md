@@ -9,6 +9,14 @@ This is a project aimed to achieve several (experimental) goals:
 Once implemented an ADX class FT8 digital transceiver can be created using
 different hardware strategies.
 
+Basic specs for this transceiver would be:
+
+* Operate in any of the HF bands (160m to 10m), attempts to marginal use on 6m will be made.
+* 2-3W output (WSPR,FT8;JS8,FT4).
+* Different alternatives for receiver: DC (CD2003GP), superhet (CD20023GP) and digital (Si4732)
+* SWR protection.
+* Beacon mode (WSPR,FT8).
+
 This project relies *heavily* on the superb work made by Roman (R2BDT) with his
 pico-WSPR-tx project (link) which in turns relies on his pico-hf-oscillator (link)
 project.
