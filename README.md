@@ -16,6 +16,8 @@ Basic specs for this transceiver would be:
 * Different alternatives for receiver: DC (CD2003GP), superhet (CD20023GP) and digital (Si4732)
 * SWR protection.
 * Beacon mode (WSPR,FT8).
+* ATU reset output.
+* PA SWR protection (zener diode).
 
 This project relies *heavily* on the superb work made by Roman (R2BDT) with his
 pico-WSPR-tx project (link) which in turns relies on his pico-hf-oscillator (link)
