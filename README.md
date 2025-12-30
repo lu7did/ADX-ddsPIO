@@ -42,3 +42,10 @@ is yet available.
 73 de Pedro (LU7DZ/LT7D)
 
 
+# Circuit Schematics
+
+## Circuit Design (version 0.x)
+
+This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA)).
+![Alt Text](doc/ADX-ddsPIO.png?raw=true "Transceiver Circuit (Version 0.x)")
+
