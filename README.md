@@ -49,6 +49,14 @@ is yet available.
 This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA)).
 ![Alt Text](doc/ADX-ddsPIO.png?raw=true "Transceiver Circuit (Version 0.x)")
 
+The main differences with the original ADX circuit are:
+
+* Si5351 module no longer present.
+* Audio signal from SPKR processed to generate a on/off signal.
+* Additional SYNC button (for future time sync).
+* Additional BEACON jumper (for future automatic beacon).
+
+
 The pinout assignment for this version is shown in the following table:
 
 
