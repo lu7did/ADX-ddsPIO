@@ -49,3 +49,5 @@ is yet available.
 This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA)).
 ![Alt Text](doc/ADX-ddsPIO.png?raw=true "Transceiver Circuit (Version 0.x)")
 
+The pinout assignment for this version is shown in the following table:
+![Alt Text](doc/ADX-ddsPIO.png?raw=true "Transceiver Circuit (Version 0.x)")
