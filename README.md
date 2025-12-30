@@ -20,19 +20,18 @@ Basic specs for this transceiver would be:
 * PA SWR protection (zener diode).
 
 This project relies *heavily* on the superb work made by Roman (R2BDT) with his
-pico-WSPR-tx project (link) which in turns relies on his pico-hf-oscillator (link)
+pico-WSPR-tx project (link) which in turns relies on his pico-hf-oscillator [link](https://github.com/RPiks/pico-hf-oscillator)
 project.
 
 Most of the USB digital interface work couldn't have been done without the 
-insights provided by Hitoshi-san (JE1RAV) with his QP-7C_RP2040 project (link).
+insights provided by Hitoshi-san (JE1RAV) with his QP-7C_RP2040 project [link](https://github.com/je1rav/QP-7C_RP2040).
 
 The ADX architecture has been originally developed and promoted by Barb
 (WB2CBA) and had been spinned off by dozens of experimental implementations, most
 of the transceiver hardware is rooted on his signature original design.
 
-The ADX-rp2040 firmware was originally developed by me as an adaptation of the
-ADX Arduino firmware ported to the rp2040 architecture, most of the actual code
-was refactored in the process.
+The ADX-rp2040 firmware [link](https://github.com/lu7did/ADX-rp2040) was originally developed by me as an adaptation of the
+ADX Arduino firmware ported to the rp2040 architecture, most of the actual code was refactored in the process.
 
 With enough luck and cooperation this project might turn into a system which
 includes the different components in order to be reproduced, lots of work needs
