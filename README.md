@@ -50,4 +50,4 @@ This circuit is largely based on the original ADX transceiver [link](https://git
 ![Alt Text](doc/ADX-ddsPIO.png?raw=true "Transceiver Circuit (Version 0.x)")
 
 The pinout assignment for this version is shown in the following table:
-![Alt Text](doc/ADX-ddsPIO-pinout.png?raw=true "Raspberry Pi Pico pinout assignment")
+![Alt Text](doc/ADX-ddsPIO_pinout.png?raw=true "Raspberry Pi Pico pinout assignment")
