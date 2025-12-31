@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libmodel.a CMakeFiles/model.dir/model.cpp.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libmodel.a
