@@ -16,14 +16,14 @@ set(CMAKE_C_COMPILER "/opt/homebrew/bin/arm-none-eabi-gcc")
 set(CMAKE_CXX_COMPILER "/opt/homebrew/bin/arm-none-eabi-gcc")
 
 set(PICO_BOARD pico CACHE STRING "Board type")
-set(PROJECT ADX-ddsPIO)
+set(PROJECT testDDS)
 cmake_minimum_required(VERSION 3.12)
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 project(${PROJECT} C CXX ASM)
 pico_sdk_init()
 add_executable(${PROJECT} testDDS.c)
 
-target_sources(ADX-ddsPIO PUBLIC
+target_sources(testDDS PUBLIC
 	    ${CMAKE_CURRENT_LIST_DIR}/lib/assert.c
         ${CMAKE_CURRENT_LIST_DIR}/piodco/piodco.c
         ${CMAKE_CURRENT_LIST_DIR}/gpstime/GPStime.c
@@ -40,7 +40,7 @@ add_compile_options(-Wall)
 
 # Add any user requested libraries
 target_link_libraries(
-        ADX-ddsPIO
+        testDDS
         pico_stdlib
         pico_sync
         pico_multicore
@@ -54,7 +54,7 @@ pico_add_extra_outputs(${PROJECT})
 pico_enable_stdio_usb(${PROJECT} 1)
 pico_enable_stdio_uart(${PROJECT} 0)
 
-target_include_directories(ADX-ddsPIO PUBLIC
+target_include_directories(testDDS PUBLIC
   ${CMAKE_CURRENT_LIST_DIR}
   ${CMAKE_CURRENT_LIST_DIR}/gpstime
   ${CMAKE_CURRENT_LIST_DIR}/hfconsole
