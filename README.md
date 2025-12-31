@@ -65,9 +65,9 @@ The pinout assignment for this version is shown in the following table:
 
 
 
-# Digital controlled radio frequency oscillator for Raspberry Pi Pico 
+# DCO for Raspberry Pi Pico 
 
-(Excerpts from the original package pico-hf-oscillator by Roman Piksaykin (R2BDY)
+(Excerpts from the original **package pico-hf-oscillator** by Roman Piksaykin (R2BDY)
 https://www.qrz.com/db/R2BDY
 
 The *pico-hf-oscillator* library for Raspberry Pi Pico includes the headers and source code and all 

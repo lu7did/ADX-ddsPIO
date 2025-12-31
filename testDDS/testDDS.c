@@ -98,29 +98,52 @@
 #include <hfconsole.h>
 
 #include "protos.h"
+#include "testDDS.h"
 
 //#define GEN_FRQ_HZ 32333333L
-#define GEN_FRQ_HZ 29977777L
+//#define GEN_FRQ_HZ 29977777L
+
+/* This is the generator frequency                        */
+
+
+
 
 PioDco DCO; /* External in order to access in both cores. */
 
 int main() 
 {
+    //* Set system clock to maximum (270 MHz)
     const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
     set_sys_clock_khz(clkhz / 1000L, true);
 
+    //* Initialize stdio and other hardware elements
     stdio_init_all();
     sleep_ms(1000);
-    printf("Start\n");
+    
+    #ifdef DEBUG
+
+         stdio_usb_init();
+         while (!stdio_usb_connected()) {}
+    
+    #endif
+
+    _INFOLIST("Starting DDS generator\n");
+    printf("Starting DDS generator\n");
 
     HFconsoleContext *phfc = HFconsoleInit(-1, 0);
     HFconsoleSetWrapper(phfc, ConsoleCommandsWrapper);
 
+    //*--- Initialize the default LED (board) pin
+
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
+    //*--- Launch the dedicated core for DCO operation
+
     multicore_launch_core1(core1_entry);
 
+    //*--- 
+    /*
     for(;;)
     {
         gpio_put(PICO_DEFAULT_LED_PIN, 0);
@@ -129,30 +152,43 @@ int main()
         gpio_put(PICO_DEFAULT_LED_PIN, 1);
         sleep_ms(1);
     }
-
+    */
+    
+    /* Just launch the DDS at the required frequency */
+    /*
     for(;;)
     {
         sleep_ms(100);
         int chr = getchar_timeout_us(100);//getchar();
         printf("%d %c\n", chr, (char)chr);
     }
-  
+    */
+
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
+    _INFOLIST("Launching core 1 for DCO worker...\n");
+    printf("Launching core 1 for DCO worker...\n");
+
     multicore_launch_core1(core1_entry);
+    
+    _INFOLIST("Launching core 0 Generator\n");
+    printf("Launching core 0 Generator\n");
+    DDSGenerator();
 
     //SpinnerDummyTest();
     //SpinnerSweepTest();
     //SpinnerMFSKTest();
-    SpinnerRTTYTest();
+    //SpinnerRTTYTest();
     //SpinnerMilliHertzTest();
     //SpinnerWide4FSKTest();
     //SpinnerGPSreferenceTest();
 }
-
-/* This is the code of dedicated core. 
-   We deal with extremely precise real-time task. */
+/*============================================================================*/
+/*                              CORE 1 PROCESSOR                              */
+/* This is the code of dedicated core.                                        */
+/* We deal with extremely precise real-time task.                             */
+/*============================================================================*/
 void core1_entry()
 {
     const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
@@ -170,145 +206,24 @@ void core1_entry()
     PioDCOWorker2(&DCO);
 }
 
-void RAM (SpinnerMFSKTest)(void)
+/*============================================================================*/
+/*                              CORE 0 PROCESSOR                              */
+/* This is the code to setup and launch the generator                         */                              
+/*============================================================================*/
+
+void RAM (DDSGenerator)(void)
 {
-    uint32_t rndval = 77777777;
     for(;;)
     {
-        /* This example sets new RND frequency every ~250 ms.
-           Frequency shift is 5 Hz for each step.
-        */
-        PioDCOSetFreq(&DCO, GEN_FRQ_HZ - 5*(rndval & 7), 0u);
-
-        /* LED signal */
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        sleep_ms(250);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
-        sleep_ms(250);
-
-        PRN32(&rndval);
-    }
-}
-
-void RAM (SpinnerSweepTest)(void)
-{
-    int i = 0;
-    for(;;)
-    {
-        /* This example sets new frequency every ~250 ms.
-           Frequency shift is 5 Hz for each step.
-        */
-        PioDCOSetFreq(&DCO, GEN_FRQ_HZ - 5*i, 0u);
-
-        /* LED signal */
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        sleep_ms(500);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
-        sleep_ms(500);
-
-        /* Return to initial freq after 20 steps (100 Hz). */
-        if(++i == 20)
-            i = 0;
-    }
-}
-
-void RAM (SpinnerRTTYTest)(void)
-{
-    int32_t df = 170;   /* 170 Hz freq diff. */
-    uint32_t rndval = 77777777;
-    for(;;)
-    {
-        /* This example sets new PRN frequency every ~22 ms.
-           Note: You should use precise timing while building a real transmitter.
-        */
-        PioDCOSetFreq(&DCO, GEN_FRQ_HZ - df*(rndval & 1), 0u);
+       /* This generates a fixed frequency signal set by GEN_FRQ_HZ. */
+       
+        PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0u);
 
         /* LED signal */
         gpio_put(PICO_DEFAULT_LED_PIN, 1);
         sleep_ms(22);
         gpio_put(PICO_DEFAULT_LED_PIN, 0);
         sleep_ms(22);
-
-        PRN32(&rndval);
     }
 }
 
-void RAM (SpinnerMilliHertzTest)(void)
-{
-    int i = 0;
-    for(;;)
-    {
-        /* This example sets new frequency every ~1s.
-           Frequency shift is 0.99 Hz for each step.
-        */
-        PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 990*(++i&1));
-
-        /* LED signal */
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        sleep_ms(1000);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
-        sleep_ms(1000);
-    }
-}
-
-void RAM (SpinnerWide4FSKTest)(void)
-{
-    int32_t df = 100;   /* 100 Hz freq diff * 4 = 400 Hz. */
-    uint32_t rndval = 77777777;
-    for(;;)
-    {
-        /* This example sets new PRN frequency every ~20 ms.
-           Note: You should use precise timing while building a real transmitter.
-        */
-        PioDCOSetFreq(&DCO, GEN_FRQ_HZ - df*(rndval & 3), 0u);
-
-        /* LED signal */
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        sleep_ms(20);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
-        sleep_ms(20);
-
-        PRN32(&rndval);
-    }
-}
-
-/* This example sets the OUT frequency to 5.555 MHz.
-   Next every ~1 sec the shift of the OUT frequency relative to GPS
-   reference is calculated and the OUT frequency is corrected.
-   The example is working only when GPS receiver provides an
-   accurate PPS output (pulse per second). If no such option,
-   the correction parameter is zero.
-*/
-void RAM (SpinnerGPSreferenceTest)(void)
-{
-    const uint32_t ku32_freq = 5555000UL;
-    const int kigps_pps_pin = 2;
-
-    int32_t i32_compensation_millis = 0;
-
-    GPStimeContext *pGPS = GPStimeInit(0, 9600, kigps_pps_pin);
-    assert_(pGPS);
-    DCO._pGPStime = pGPS;
-    int tick = 0;
-    for(;;)
-    {
-        PioDCOSetFreq(&DCO, ku32_freq, -2*i32_compensation_millis);
-
-        /* LED signal */
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        sleep_ms(2500);
-
-        i32_compensation_millis = 
-            PioDCOGetFreqShiftMilliHertz(&DCO, (uint64_t)(ku32_freq * 1000LL));
-
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
-        sleep_ms(2500);
-
-        if(0 == ++tick % 6)
-        {
-            //stdio_set_driver_enabled(&stdio_uart, false);
-            GPStimeDump(&(pGPS->_time_data));
-            //stdio_set_driver_enabled(&stdio_uart, true);
-        }
-    }
-}
