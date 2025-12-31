@@ -1,0 +1,32 @@
+
+# ddsPIO Application Roadmap
+
+
+```
+(pico-hf-oscillator)      [test.c]           ---->    [testDDS.c] environment clean up and argument consolidation, manual time sync
+                                                      |    
+                                                      |    
+                                                      |    
+(ft8_lib)                 [pift8]            ---->    [testFT8.c] FT8 generation 
+                                                      |    
+                                                      |    
+                                                      |    
+(pico-hf-oscillator)      [test.c]           ---->    [testGPS.c] GPS time sync     
+                                                      |    
+                                                      |    
+                                                      |    
+(ADX-rp2040)              [adx-rp2040.c]     ---->    [ADX-ddsPIO.c] (Version 0.x) FSK decoding and ADX board management     
+                                                      |    
+                                                      |    
+                                                      |    
+(QP_7C)                   [QP_7C-rp2040]     ---->    [ADX-ddsPIO]   (Version 1.x) USB Audio (both DC and Superhet)
+                                                      |    
+                                                      |    
+                                                      |    
+(ADX-rp2040)              [adx-rp2040,c]     ---->    [ADX-ddsPIO]   (Version 2.x) CAT Command Support
+                                                      |    
+                                                      |    
+                                                      |    
+(ADX-rp2040)              [adx-rp2040,c]     ---->    [ADX-ddsPIO]   (Version 3.x) Si4732 Receiver Support
+
+```
