@@ -3,16 +3,16 @@
 
 
 ```
-(pico-hf-oscillator)      [test.c]           ---->    [testDDS.c] environment clean up and argument consolidation, manual time sync
+(pico-hf-oscillator)      [test.c]           ---->    [testDDS.c] clean up
                                                       |    
                                                       |    
                                                       |    
-(ft8_lib)                 [pift8]            ---->    [testFT8.c] FT8 generation 
+(ft8_lib)                 [pift8]            ---->    [testFT8.c] FT8 generation, manual time sync, basic ADX board 
                                                       |    
                                                       |    
                                                       |    
-(pico-hf-oscillator)      [test.c]           ---->    [testGPS.c] GPS time sync     
-                                                      |    
+(pico-hf-oscillator)      [test.c]           ---->    [testGPS.c] GPS time sync, basic ADX board features     
+(ADX-rp2040)              [adx-rp2040.c]              |    
                                                       |    
                                                       |    
 (ADX-rp2040)              [adx-rp2040.c]     ---->    [ADX-ddsPIO.c] (Version 0.x) FSK decoding and ADX board management     
