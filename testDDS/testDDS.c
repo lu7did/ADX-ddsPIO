@@ -100,18 +100,22 @@
 #include "protos.h"
 #include "testDDS.h"
 
-//#define GEN_FRQ_HZ 32333333L
 //#define GEN_FRQ_HZ 29977777L
 
-/* This is the generator frequency                        */
-
-
-
-
 PioDco DCO; /* External in order to access in both cores. */
-
-int main() 
+//*============================================================================*/
+//*                              Service Functions                             */
+//*============================================================================*/
+void blinkLED(int ms)
 {
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    sleep_ms(ms);
+    gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    sleep_ms(ms);
+}
+//*----------------------------------------------------------------------------*/
+void initBoard(){
+    
     //* Set system clock to maximum (270 MHz)
     const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
     set_sys_clock_khz(clkhz / 1000L, true);
@@ -119,70 +123,42 @@ int main()
     //* Initialize stdio and other hardware elements
     stdio_init_all();
     sleep_ms(1000);
-    
-    #ifdef DEBUG
-
-         stdio_usb_init();
-         while (!stdio_usb_connected()) {}
-    
-    #endif
-
-    _INFOLIST("Starting DDS generator\n");
-    printf("Starting DDS generator\n");
-
-    HFconsoleContext *phfc = HFconsoleInit(-1, 0);
-    HFconsoleSetWrapper(phfc, ConsoleCommandsWrapper);
 
     //*--- Initialize the default LED (board) pin
-
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
-    //*--- Launch the dedicated core for DCO operation
 
-    multicore_launch_core1(core1_entry);
+}
+//*============================================================================*/
+//*                              Main body                                     */
+//*============================================================================*/
+int main() 
+{
 
-    //*--- 
-    /*
-    for(;;)
-    {
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
-        sleep_ms(5);
-        int r = HFconsoleProcess(phfc, 10);
+    //*----------- Initial Processor board initialization & setup ---------------*
+    initBoard();
+
+    stdio_usb_init();
+    while (!stdio_usb_connected()) {
         gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        sleep_ms(1);
-    }
-    */
+        sleep_ms(22);
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        sleep_ms(22);
+   }
+   
+    _INFOLIST("%s Firmware %s version(%s) build(%s)\n",__func__,PROGNAME,VERSION,BUILD);
+
+    //*------------------------------------------------------------
+    _INFOLIST("%s Hardware initialization\n",__func__);
     
-    /* Just launch the DDS at the required frequency */
-    /*
-    for(;;)
-    {
-        sleep_ms(100);
-        int chr = getchar_timeout_us(100);//getchar();
-        printf("%d %c\n", chr, (char)chr);
-    }
-    */
-
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-
-    _INFOLIST("Launching core 1 for DCO worker...\n");
-    printf("Launching core 1 for DCO worker...\n");
-
+//*-------------------------------------------------------
+    _INFOLIST("%s Launching core 1 for DCO worker...\n",__func__);
     multicore_launch_core1(core1_entry);
-    
-    _INFOLIST("Launching core 0 Generator\n");
-    printf("Launching core 0 Generator\n");
-    DDSGenerator();
 
-    //SpinnerDummyTest();
-    //SpinnerSweepTest();
-    //SpinnerMFSKTest();
-    //SpinnerRTTYTest();
-    //SpinnerMilliHertzTest();
-    //SpinnerWide4FSKTest();
-    //SpinnerGPSreferenceTest();
+//*-------------------------------------------------------
+    _INFOLIST("%s Launching core 0 Generator\n",__func__);
+    DDSGenerator();
 }
 /*============================================================================*/
 /*                              CORE 1 PROCESSOR                              */
@@ -218,12 +194,6 @@ void RAM (DDSGenerator)(void)
        /* This generates a fixed frequency signal set by GEN_FRQ_HZ. */
        
         PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0u);
-
-        /* LED signal */
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        sleep_ms(22);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
-        sleep_ms(22);
+        blinkLED(1000);
     }
 }
-
