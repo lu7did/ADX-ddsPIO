@@ -83,5 +83,4 @@ CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/tusb.c.o
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/class/vendor/vendor_device.h \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/common/tusb_private.h \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/device/usbd_pvt.h \
- /Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/common/tusb_private.h \
- /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/ctype.h
+ /Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/common/tusb_private.h

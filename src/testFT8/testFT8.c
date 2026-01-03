@@ -156,12 +156,14 @@ int FT8GenerateSymbols()
 {
 int rc = pack77(message, packed);
 
+printf("Packing message: '%s'\n",message);
+
 if (rc < 0) {
     printf("Cannot parse message! RC=%d\n",rc);
     return -2;
 }
 
-printf("Packed data: \n");
+printf("Packed data: ");
 
 for (int j = 0; j < 10; ++j) {
     printf("%02x ", packed[j]);
@@ -172,7 +174,7 @@ printf("\n");
 // Second, encode the binary message as a sequence of FSK tones
 ft8_encode(packed, tones);
 
-printf("FSK tones: \n");
+printf("FSK tones: ");
 
 for (int j = 0; j < FT8_NN; ++j) {
     printf("%d", tones[j]);
@@ -182,12 +184,8 @@ printf("\n");
 
 for(size_t i=0;(i<FT8_NN);i++)
 {
-	//for(int j=0;j<Upsample;j++)
     ft8msg[i]=tones[i];
-    printf("Freq %f\n",ft8msg[i]);
 }
-
-printf("Wait next slot\n");
 return 0;
 }
 
@@ -216,18 +214,13 @@ void initBoard(){
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
-    stdio_usb_init();
-    while (!stdio_usb_connected()) {
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        sleep_ms(22);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
-        sleep_ms(22);
-   }
 
 }
+//*----------------------------------------------------------------------------*/
 void ADXsetup(){
 
- 
+ //*----------------------------------------------------------------------------*/
+    
     gpio_init(RXSW);
     gpio_set_dir(RXSW, GPIO_OUT);   
     gpio_put(RXSW, 0); //Set RX mode
@@ -235,7 +228,7 @@ void ADXsetup(){
     gpio_init(FT8);
     gpio_set_dir(FT8, GPIO_OUT);   
     gpio_put(FT8, 0); //Turn OFF FT8 LED
-    
+ 
     gpio_init(FT4);
     gpio_set_dir(FT4, GPIO_OUT);   
     gpio_put(FT4, 0); //Turn OFF FT4 LED
@@ -251,6 +244,8 @@ void ADXsetup(){
     gpio_init(TX);
     gpio_set_dir(TX, GPIO_OUT);
     gpio_put(TX, 0); //Set RX mode (off)
+
+//*--- (Mark)
 
     gpio_init(UP);
     gpio_set_dir(UP, GPIO_IN);
@@ -268,7 +263,7 @@ void ADXsetup(){
     gpio_set_dir(BEACON, GPIO_IN);
     //*--- End of ADX control board initialization
 
-    _INFOLIST("%s ADX control board initialized\n",__func__);
+    printf("%s ADX control board initialized\n",__func__);
 
 }
 //*============================================================================*/
@@ -280,11 +275,36 @@ int main()
     //*----------- Initial Processor board initialization & setup ---------------*
     initBoard();
 
+    stdio_usb_init();
+    while (!stdio_usb_connected()) {
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
+        sleep_ms(22);
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        sleep_ms(22);
+   }
+
    
-    _INFOLIST("%s Firmware %s version(%s) build(%s)\n",__func__,PROGNAME,VERSION,BUILD);
+    //_INFOLIST("%s Firmware %s version(%s) build(%s)\n",__func__,PROGNAME,VERSION,BUILD);
+    printf("Firmware %s version(%s) build(%s)\n",PROGNAME,VERSION,BUILD);
+    printf("Config: FT8(%d) FT4(%d) JS8(%d) WSPR(%d) RFOUT(%d)\n",FT8,FT4,JS8,WSPR, RFOUT);
+    fflush(stdout);
+
+    static_assert(FT8 == 4, "FT4 no es GPIO4");
+    static_assert(FT4 == 5, "FT4 no es GPIO5");
+    static_assert(JS8 == 6, "FT4 no es GPIO6");
+    static_assert(WSPR == 7, "FT4 no es GPIO7");
+    static_assert(RFOUT == 18, "RFOUT no es GPIO18");
 
     //*------------------------------------------------------------
-    _INFOLIST("%s Hardware initialization\n",__func__);
+    //_INFOLIST("%s Hardware initialization\n",__func__);
+
+    //*** Initialize DCO on core 1 ***/
+    const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
+    printf("Core 1 started. DCO worker initializing...\n");
+    assert_(0 == PioDCOInit(&DCO, RFOUT, clkhz));
+
+    //* *** Initialize ADX control board */
+    printf("Initializing ADX control board...\n");
     ADXsetup();
 
 //*-------------------------------------------------------
@@ -292,11 +312,13 @@ int main()
     FT8GenerateSymbols();
 
 //*-------------------------------------------------------
-    _INFOLIST("%s Launching core 1 for DCO worker...\n",__func__);
+    //_INFOLIST("%s Launching core 1 for DCO worker...\n",__func__);
+    printf("launching DCO worker on core 1...\n");
     multicore_launch_core1(core1_entry);
 
 //*-------------------------------------------------------
-    _INFOLIST("%s Launching core 0 Generator\n",__func__);
+    //_INFOLIST("%s Launching core 0 Generator\n",__func__);
+    printf("launching DDS Generator...\n");
     DDSGenerator();
 }
 //sudo pift8 -f "$OUTPUT_FREQ"e6 -m "CQ $OUTPUT_CALL $OUTPUT_GRID" -o "$OUTPUT_OFFSET" -s "$TIMESLOT" 
@@ -308,16 +330,20 @@ int main()
 /*============================================================================*/
 void core1_entry()
 {
-    const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
-
-    /* Initialize DCO */
-    //assert_(0 == PioDCOInit(&DCO, 6, clkhz));
-    assert_(0 == PioDCOInit(&DCO, RFOUT, clkhz));
+    // *** const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
+    // ***printf("Core 1 started. DCO worker initializing...\n");
+    // *** Initialize DCO */
+    // *** assert_(0 == PioDCOInit(&DCO, RFOUT, clkhz));
+    //assert_(0 == PioDCOInit(&DCO, RFOUT, clkhz));
+     
 
     /* Run DCO. */
     PioDCOStart(&DCO);
 
     /* Set initial freq. */
+    printf("Setting initial frequency to %lu Hz\n", GEN_FRQ_HZ);
+    fflush(stdout);
+
     assert_(0 == PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0u));
 
     /* Run the main DCO algorithm. It spins forever. */
@@ -331,11 +357,13 @@ void core1_entry()
 
 void RAM (DDSGenerator)(void)
 {
+   
     for(;;)
     {
        /* This generates a fixed frequency signal set by GEN_FRQ_HZ. */
        
         PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0u);
         blinkLED(1000);
+        
     }
 }

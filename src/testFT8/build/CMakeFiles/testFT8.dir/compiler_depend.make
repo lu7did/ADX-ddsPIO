@@ -957,7 +957,6 @@ CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/tusb.c.o
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/_ansi.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/_newlib_version.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/assert.h \
-  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/ctype.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/inttypes.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/_default_types.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/_types.h \
@@ -4689,10 +4688,6 @@ dco2.pio.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_uart/include/hardware/uart.h:
 
-/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_binary_info/include/pico/binary_info/structure.h:
-
-/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/uart.h:
-
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_float/float_math.c:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/uart.h:
@@ -4910,8 +4905,6 @@ dco2.pio.h:
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/include/hardware/sync.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/timer.h:
-
-/Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/ctype.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_bootrom/bootrom.c:
 
@@ -5144,6 +5137,10 @@ generated/pico_base/pico/config_autogen.h:
 /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/inttypes.h:
 
 /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/assert.h:
+
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_binary_info/include/pico/binary_info/structure.h:
+
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/uart.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/io_qspi.h:
 
