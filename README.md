@@ -48,7 +48,7 @@ is yet available.
 ## Circuit Design (version 0.x)
 
 This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA)).
-![Alt Text](doc/ADX-ddsPIO.png?raw=true "Transceiver Circuit (Version 0.x)")
+![Alt Text](doc/ADX-ddsPIO-Schematic.png?raw=true "Transceiver Circuit (Version 0.x)")
 
 The main differences with the original ADX circuit are:
 
