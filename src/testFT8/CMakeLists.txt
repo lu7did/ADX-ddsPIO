@@ -28,6 +28,12 @@ target_sources(testFT8 PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/piodco/piodco.c
         ${CMAKE_CURRENT_LIST_DIR}/gpstime/GPStime.c
         ${CMAKE_CURRENT_LIST_DIR}/debug/logutils.c
+        ${CMAKE_CURRENT_LIST_DIR}/ft8_lib/ft8/constants.c
+        ${CMAKE_CURRENT_LIST_DIR}/ft8_lib/ft8/text.c
+        ${CMAKE_CURRENT_LIST_DIR}/ft8_lib/ft8/pack.c
+        ${CMAKE_CURRENT_LIST_DIR}/ft8_lib/ft8/encode.c
+        ${CMAKE_CURRENT_LIST_DIR}/ft8_lib/ft8/crc.c
+        ${CMAKE_CURRENT_LIST_DIR}/ft8_lib/common/wave.c
         ${CMAKE_CURRENT_LIST_DIR}/testFT8.c 
         ${CMAKE_CURRENT_LIST_DIR}/conswrapper.c
         ${CMAKE_CURRENT_LIST_DIR}/hfconsole/hfconsole.c

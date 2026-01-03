@@ -47,36 +47,40 @@ void core1_entry(void);
 //* (see documentation for the hardware schematic and pinout
 //***********************************************************************************************
 /*----
+   RF and signal pin
+*/
+#define RFOUT           0  //RF Output Enable
+#define RFVFO           1  //RF RX VFO
+#define FSKpin         27  //Frequency counter algorithm, signal input PIN (warning changes must also be done in freqPIO)
+
+/*----
    Output control lines
 */
-#define RXSW            2  //RXSW Switch
+#define RXSW            2  //RXSW Switch (RX/TX control)
 
 /*---
    LED
 */
-#define WSPR            8  //WSPR LED
-#define JS8             7  //JS8 LED
-#define FT4             5  //FT4 LED
-#define FT8             4  //FT8 LED
-
-
 #define TX              3  //TX LED
+
+#define FT8             4  //FT8 LED
+#define FT4             5  //FT4 LED
+#define JS8             6  //JS8 LED
+#define WSPR            7  //WSPR LED
+
+
 #define CAL             9  //Calibration   
 /*---
    Switches
 */
-#define UP             11  //UP Switch
-#define DOWN           12  //DOWN Switch
-#define TXSW           10  //RX-TX Switch
+#define TXSW            8  //RX-TX Switch
+
+#define UP             10  //UP Switch
+#define DOWN           11  //DOWN Switch
+
 #define SYNC           13  //Time SYNC Switch
 #define BEACON         14  //BEACON Jumper
 
-/*---
-   Signal input/output pin
-*/
-
-#define RFOUT           6  //DDS Signal output PIN
-#define FSKpin         27  //Frequency counter algorithm, signal input PIN (warning changes must also be done in freqPIO)
 
 
 

@@ -100,12 +100,27 @@
 
 #include <hfconsole.h>
 
+#include "./ft8_lib/common/wave.h"
+#include "./ft8_lib/ft8/pack.h"
+#include "./ft8_lib/ft8/encode.h"
+#include "./ft8_lib/ft8/constants.h"
+
+
 #include "protos.h"
 #include "testFT8.h"
 
 //#define GEN_FRQ_HZ 29977777L
 
 PioDco DCO; /* External in order to access in both cores. */
+
+//* FT8 related variables */
+
+const int FifoSize=FT8_NN;
+const char *message="CQ LU7DZ GF11"; //Test message
+uint8_t packed[FTX_LDPC_K_BYTES];
+uint8_t tones[FT8_NN];          // FT8_NN = 79, lack of better name at the moment
+unsigned char ft8msg[FT8_NN];
+
 
 
 //**********************************[ BAND SELECT ]************************************************
@@ -134,6 +149,48 @@ long unsigned int Bands[NBANDS][NMODES] = {
               {28124600,28078000,28180000,28074000}};
 
 //**********************************[ END BAND SELECT ]********************************************
+//*============================================================================*/
+//*                              FT8 Functions                                 */
+//*============================================================================*/
+int FT8GenerateSymbols()
+{
+int rc = pack77(message, packed);
+
+if (rc < 0) {
+    printf("Cannot parse message!\n");
+    printf("RC = %d\n", rc);
+    return -2;
+}
+
+printf("Packed data: ");
+
+for (int j = 0; j < 10; ++j) {
+    printf("%02x ", packed[j]);
+}
+
+printf("\n");
+
+// Second, encode the binary message as a sequence of FSK tones
+ft8_encode(packed, tones);
+
+printf("FSK tones: ");
+
+for (int j = 0; j < FT8_NN; ++j) {
+    printf("%d", tones[j]);
+}
+
+printf("\n");
+
+for(size_t i=0;(i<FT8_NN);i++)
+{
+	//for(int j=0;j<Upsample;j++)
+    ft8msg[i]=tones[i];
+    printf("Freq %f\n",ft8msg[i]);
+}
+
+printf("Wait next slot\n");
+return 0;
+}
 
 //*============================================================================*/
 //*                              Service Functions                             */
@@ -230,7 +287,11 @@ int main()
     //*------------------------------------------------------------
     _INFOLIST("%s Hardware initialization\n",__func__);
     ADXsetup();
-    
+
+//*-------------------------------------------------------
+
+    FT8GenerateSymbols();
+
 //*-------------------------------------------------------
     _INFOLIST("%s Launching core 1 for DCO worker...\n",__func__);
     multicore_launch_core1(core1_entry);
@@ -239,6 +300,8 @@ int main()
     _INFOLIST("%s Launching core 0 Generator\n",__func__);
     DDSGenerator();
 }
+//sudo pift8 -f "$OUTPUT_FREQ"e6 -m "CQ $OUTPUT_CALL $OUTPUT_GRID" -o "$OUTPUT_OFFSET" -s "$TIMESLOT" 
+
 /*============================================================================*/
 /*                              CORE 1 PROCESSOR                              */
 /* This is the code of dedicated core.                                        */
@@ -249,7 +312,8 @@ void core1_entry()
     const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
 
     /* Initialize DCO */
-    assert_(0 == PioDCOInit(&DCO, 6, clkhz));
+    //assert_(0 == PioDCOInit(&DCO, 6, clkhz));
+    assert_(0 == PioDCOInit(&DCO, RFOUT, clkhz));
 
     /* Run DCO. */
     PioDCOStart(&DCO);
