@@ -157,12 +157,11 @@ int FT8GenerateSymbols()
 int rc = pack77(message, packed);
 
 if (rc < 0) {
-    printf("Cannot parse message!\n");
-    printf("RC = %d\n", rc);
+    printf("Cannot parse message! RC=%d\n",rc);
     return -2;
 }
 
-printf("Packed data: ");
+printf("Packed data: \n");
 
 for (int j = 0; j < 10; ++j) {
     printf("%02x ", packed[j]);
@@ -173,7 +172,7 @@ printf("\n");
 // Second, encode the binary message as a sequence of FSK tones
 ft8_encode(packed, tones);
 
-printf("FSK tones: ");
+printf("FSK tones: \n");
 
 for (int j = 0; j < FT8_NN; ++j) {
     printf("%d", tones[j]);
