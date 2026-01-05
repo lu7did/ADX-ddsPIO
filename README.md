@@ -77,21 +77,24 @@ RF probe is feed into a wire for local "on the air" tests.
 ### testDDS utility
 
 This utility is a reduced firmware implementing the DDS using a fixed frequency given
-by the GEN_FRQ_HZ parameter in the ddsTest.h file.
+by the GEN_FRQ_HZ parameter in the ddsTest.h file. It's main purpose is to explore
+the concept and the initial measurements using the Raspberry Pi Pico as an RF generator.
+Also to integrate the code originally on the *pico-hf-oscillator* package on this
+project.
 
-'''
+```
 This code is a crude porting of the test.c program from the pico-hf-oscillator package
-'''
+```
 
 ### testFT8 utility
 
 This utility has been created as a reduced scope test bed for the board and some of the
 DDS functions applied to the generation of FT8 signals.
 
-* When boot if the SYNC button is *NOT* pressed the firmware enters the LED test mode
+* When boot if the SYNC button is **NOT** pressed the firmware enters the LED test mode
   where when each of the buttons are pressed a different LED is lit.
-  Meanwhile the DDS generates RF at the frequency indicated by the GEN_FRQ_HZ parameter.
-* When boot if the SYNC button is pressed the firmware enters the FT8 test mode, it's 
+  Meanwhile the DDS generates RF at the frequency indicated by the *GEN_FRQ_HZ* parameter.
+* When boot if the SYNC button **IS KEPT** pressed the firmware waits and upon release enters the FT8 test mode, it's 
   important the SYNC button is released as close to the top of the minute (sec=0) of
   any minute. In this way the internal clock is set at a random date time but the 
   second is synchronized. At the start of each minute a fixed message is sent using
@@ -101,11 +104,11 @@ The following figure shows how WSJT-X receives the local message
 ![Alt Text](doc/testFT8_test.png?raw=true "testFT8 Test")
 
 
-'''
+```
 When using a wire out of the GPIO 18 pin to transmit "on the air" signals the spectrum
 is *extremely* dirty. Do not put this signal into any meaningful antenna and use it
 only by short evaluation tests.
-'''
+```
 
 # DCO for Raspberry Pi Pico 
 
