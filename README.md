@@ -98,7 +98,10 @@ DDS functions applied to the generation of FT8 signals.
   important the SYNC button is released as close to the top of the minute (sec=0) of
   any minute. In this way the internal clock is set at a random date time but the 
   second is synchronized. At the start of each minute a fixed message is sent using
-  FT8.
+  FT8. The message to be sent can be changed by modifying the *message* memory area, the 
+  base frequency (and band) can be set changing the *GEN_FRQ_HZ* (in Hz) parameter and the
+  shift within the FT8 sub-band changing the *FT8_BASE_HZ* (in HZ) parameter.
+  While activated in this mode the TX can be turned on by pressing the **TX** button.
 
 The following figure shows how WSJT-X receives the local message
 ![Alt Text](doc/testFT8_test.png?raw=true "testFT8 Test")
