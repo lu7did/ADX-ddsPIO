@@ -26,8 +26,11 @@
 #define BUILD     "00"
 
 #define DEBUG    1
-#define GEN_FRQ_HZ 14074000L               /*Generator Frequency (in Hz)*/
-#define FT8_BASE_HZ    1000L               /* FT8 base frequency (in Hz) */
+#define TRACE    1
+//#define FT8TEST  1
+
+#define GEN_FRQ_HZ    14074000L               /*Generator Frequency (in Hz)*/
+#define FT8_BASE_HZ       1000L               /* FT8 base frequency (in Hz) */
 
 char hi[128];
 
@@ -82,24 +85,3 @@ void core1_entry(void);
 #define DOWN           11  //DOWN Switch
 #define BEACON         12  //BEACON Jumper
 #define SYNC           13  //Time SYNC Switch
-
-
-/*
-#ifndef DATETIME_H
-#define DATETIME_H
-
-typedef struct {
-    int year;
-    int month;
-    int day;
-    int hour;
-    int min;
-    int sec;
-} datetime_t;
-
-#endif
-*/
-
-
-
-

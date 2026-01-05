@@ -113,10 +113,6 @@
 #include "protos.h"
 #include "testFT8.h"
 
-
-
-//#define GEN_FRQ_HZ 29977777L
-
 PioDco DCO; /* External in order to access in both cores. */
 
 //* Operating mode flags */
@@ -147,6 +143,7 @@ uint8_t tones[FT8_NN];          // FT8_NN = 79, lack of better name at the momen
 unsigned char ft8msg[FT8_NN];
 bool bTX = false;
 
+#ifdef FT8TEST
 
 const uint8_t ft8_tones_cq_lu7dz_gf11[79] = {
     03, 01, 04, 00, 06, 05, 02, 00, 00, 00,
@@ -158,6 +155,7 @@ const uint8_t ft8_tones_cq_lu7dz_gf11[79] = {
     04, 02, 00, 05, 07, 01, 03, 06, 00, 05,
     01, 03, 01, 04, 00, 06, 05, 02, 02
 };
+#endif //FT8TEST
 
 //**********************************[ BAND SELECT ]************************************************
 // ADX can support up to 4 bands on board. Those 4 bands needs to be assigned to Band1 ... Band4
@@ -176,13 +174,13 @@ int Band_slot = SLOT;                  //This is the default band Band1=1,Band2=
 int Band      =   10;                  //This is the default band
 
 long unsigned int Bands[NBANDS][NMODES] = {
-              { 3568600, 3578000, 3575000, 3573000},
-              { 7038600, 7078000, 7047500, 7074000},
-              {10138700,10130000,10140000,10136000},
-              {14095600,14078000,14080000,14074000},
-              {18104600,18104000,18104000,18100000},
-              {21094600,21078000,21140000,21074000},
-              {28124600,28078000,28180000,28074000}};
+                                          { 3568600, 3578000, 3575000, 3573000},
+                                          { 7038600, 7078000, 7047500, 7074000},
+                                          {10138700,10130000,10140000,10136000},
+                                          {14095600,14078000,14080000,14074000},
+                                          {18104600,18104000,18104000,18100000},
+                                          {21094600,21078000,21140000,21074000},
+                                          {28124600,28078000,28180000,28074000}};
 
 //**********************************[ END BAND SELECT ]********************************************
 //*============================================================================*/
@@ -215,18 +213,18 @@ for (int j = 0; j < FT8_NN; ++j) {
 
 printf("\n");
 
+#ifdef FT8TEST
 for(size_t i=0;(i<FT8_NN);i++)
 {
     tones[i]=ft8_tones_cq_lu7dz_gf11[i];
 }
 
 printf("FSK tones (forced): ");
-
 for (int j = 0; j < FT8_NN; ++j) {
     printf("%d", tones[j]);
 }
-
 printf("\n");
+#endif //FT8TEST
 
 return 0;
 }
@@ -308,7 +306,7 @@ void ADXsetup(){
 
 }
 //*----------------------------------------------------------------------------*/
-//* Sync time when SYNC button is pressed                                      */
+//* Sync time when SYNC button is pressed and set the FT8 mode                 */
 //*----------------------------------------------------------------------------*/
 bool syncTime() {
     bool bFT8=false;
@@ -336,14 +334,21 @@ bool syncTime() {
      
 }
 /*----------------------------------------------------------------------------*/
+/* Test a single button                                                       */
+/*----------------------------------------------------------------------------*/
+bool testButton(uint gpio) {
+    bool bstate = gpio_get(gpio);
+    return bstate;
+}
+/*----------------------------------------------------------------------------*/
 /* Test buttons and light LEDs accordingly                                    */
 /*----------------------------------------------------------------------------*/
 void testLED() {
 
-upButton = gpio_get(UP);
-downButton = gpio_get(DOWN);
-txButton = gpio_get(TXSW);
-syncButton = gpio_get(SYNC);
+upButton = testButton(UP);
+downButton = testButton(DOWN);
+txButton = testButton(TXSW);
+syncButton = testButton(SYNC);
 
 if (upButton == false) {
     if (prevUpButton == true) {
@@ -404,7 +409,7 @@ if (syncButton == false) {
        
 }
 /*----------------------------------------------------------------------------*/
-/* Control transmitter                                                        */
+/* Control transmitter TX status and LED                                      */
 /*----------------------------------------------------------------------------*/
 void setTX(bool state) {
     if (state) {
@@ -419,18 +424,18 @@ void setTX(bool state) {
 /* Multiply the tone shift accounting for the Hz and milliHz                  */                                         
 /*----------------------------------------------------------------------------*/
 void computeFSK(uint8_t index,
-                uint32_t *parte_entera,
-                uint32_t *parte_milesimas)
+                uint32_t *Hz,
+                uint32_t *mHz)
 {
-    /* Parte entera: index * 6 */
-    *parte_entera = index * 6;
+    /* This is the FT8 FSK whole index {0..7} * 6*/
+    *Hz = index * 6;
 
-    /* Parte fraccional: index * 0.25 = (index % 4) * 250 milésimas */
-    *parte_milesimas = (index * 250) % 1000;
+    /* Fractional part: index * 0.25 = (index % 4) * 250 milliseconds */
+    *mHz = (index * 250) % 1000;
 
-    /* Ajuste si la fracción supera 1 unidad */
+    /* Adjust if the fraction exceeds 1 unit */
     if (index >= 4) {
-        *parte_entera += index / 4;
+        *Hz += index / 4;
     }
 }
 //*============================================================================*/
@@ -520,12 +525,6 @@ void core1_entry()
     /* Run DCO. */
     PioDCOStart(&DCO);
 
-    /* Set initial freq. */
-    printf("Setting initial frequency to %lu Hz\n", GEN_FRQ_HZ);
-    fflush(stdout);
-
-    assert_(0 == PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0u));
-
     /* Run the main DCO algorithm. It spins forever. */
     PioDCOWorker2(&DCO);
 }
@@ -546,51 +545,59 @@ void RAM (DDSGenerator)(void)
     uint32_t intHz, fracHz;
     static absolute_time_t t0;
     bool bFT8 = false;
-    /* Initial frequency setup */
-
-    PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0u);
+    bool manualTX = false;
 
     for(;;)
     {
        /* This generates a fixed frequency signal set by GEN_FRQ_HZ. */
        
         if (!bFT8mode) {
+            PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0u);
             testLED();
             continue;
         }
 
         // Get the current datetime from the RTC
         rtc_get_datetime(&tcpu);
-        //rtc_get_datetime(&tcpu);
+
         // Access the seconds member directly
         uint8_t current_seconds = tcpu.sec;
         
-        if (tcpu.sec == 0 && bTX == false) {
+        if ((tcpu.sec == 0) && bTX == false) {
             // Start of a new minute
             printf("FT8 frame windows started: %02d:%02d TX turned on\n", tcpu.hour, tcpu.min);
+
             // Here you would trigger the FT8 transmission for the new minute
+            PioDCOStart(&DCO);
             setTX(true);
             bFT8=false;
             iFT8=0;
             t0 = get_absolute_time();
         } else {
-            if ((tcpu.sec == 15 || iFT8 >= FT8_NN) && bTX == true) {
+            if (((tcpu.sec == 15) || iFT8 >= FT8_NN) && bTX == true) {
                 setTX(false);
                 printf("FT8 frame window ended: %02d:%02d TX turned off\n", tcpu.hour, tcpu.min);
+                PioDCOStop(&DCO);
                 bFT8=false;
+                iFT8=0;
                 gpio_put(FT8, bFT8);
             }
         }
 
 
-        if (bTX) {
+        if (bTX && !manualTX) {
                computeFSK(tones[iFT8], &intHz, &fracHz);
                uint32_t f = frqFT8 + baseFT8 + intHz;
+               PioDCOStart(&DCO);
                PioDCOSetFreq(&DCO, f, fracHz);
+               #ifdef TRACE
                printf("FT8symbol[%d] tone[%d] shift(%lu/%lu) f[%lu Hz]\n", iFT8, tones[iFT8],intHz,fracHz,f); 
+               #endif //TRACE
+               
                sleep_ms(160);
                iFT8++;
         } else {
+
                int64_t diff_us = absolute_time_diff_us(t0, get_absolute_time());
                if (diff_us >= 100000) {
                    t0 = get_absolute_time();
@@ -601,6 +608,24 @@ void RAM (DDSGenerator)(void)
                    }
                    gpio_put(FT8, bFT8);
                }
+
+               if (testButton(TXSW) == false && manualTX==false) {
+                   printf("Manual TX button pressed. Starting TX...\n");
+                   fflush(stdout);
+                   PioDCOStart(&DCO);
+                   PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0UL);
+                   setTX(true);
+                   manualTX = true;
+               } else {
+                    if (testButton(TXSW) == true && manualTX == true) {
+                      printf("Manual TX button released. Stopping TX...\n");
+                      fflush(stdout);
+                      PioDCOStop(&DCO);
+                      setTX(false);
+                      manualTX = false;
+                    }
+               }
+               
         }
     }  
 }   
