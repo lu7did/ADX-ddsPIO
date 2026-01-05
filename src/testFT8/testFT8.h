@@ -27,6 +27,7 @@
 
 #define DEBUG    1
 #define GEN_FRQ_HZ 14074000L               /*Generator Frequency (in Hz)*/
+#define FT8_BASE_HZ    1000L               /* FT8 base frequency (in Hz) */
 
 char hi[128];
 
@@ -50,7 +51,7 @@ void core1_entry(void);
    RF and signal pin
 */
 #define RFOUT          18  //RF Output Enable
-#define RFVFO           1  //RF RX VFO
+#define RFVFO          19  //RF RX VFO
 #define FSKpin         27  //Frequency counter algorithm, signal input PIN (warning changes must also be done in freqPIO)
 
 /*----
@@ -62,19 +63,14 @@ void core1_entry(void);
    LED
 */
 
-
 #define TX              3  //TX LED
 #define FT8             4  //FT8 LED
 #define FT4             5  //FT4 LED
 #define JS8             6  //JS8 LED
 #define WSPR            7  //WSPR LED
 
-/*
-#define TX              14  //TX LED
-#define FT8             15  //FT8 LED
-#define FT4             16  //FT4 LED
-#define JS8             17 //JS8 LED
-#define WSPR            18  //WSPR LED
+/*---
+   Calibration signal
 */
 
 #define CAL             9  //Calibration   
@@ -82,13 +78,27 @@ void core1_entry(void);
    Switches
 */
 #define TXSW            8  //RX-TX Switch
-
 #define UP             10  //UP Switch
 #define DOWN           11  //DOWN Switch
-
+#define BEACON         12  //BEACON Jumper
 #define SYNC           13  //Time SYNC Switch
-#define BEACON         14  //BEACON Jumper
 
+
+/*
+#ifndef DATETIME_H
+#define DATETIME_H
+
+typedef struct {
+    int year;
+    int month;
+    int day;
+    int hour;
+    int min;
+    int sec;
+} datetime_t;
+
+#endif
+*/
 
 
 

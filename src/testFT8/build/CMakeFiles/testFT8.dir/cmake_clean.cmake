@@ -73,6 +73,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c.o.d"
   "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.c.o"
   "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.c.o.d"
+  "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o"
+  "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o.d"
   "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.c.o"
   "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.c.o.d"
   "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync_spin_lock/sync_spin_lock.c.o"

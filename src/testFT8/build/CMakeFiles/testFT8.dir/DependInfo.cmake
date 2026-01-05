@@ -152,6 +152,7 @@ set(CMAKE_ASM_TARGET_INCLUDE_PATH
   "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/boot_stage2/include"
   "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_fix/rp2040_usb_device_enumeration/include"
   "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/include"
+  "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/include"
   )
 
 # The set of dependency files which are needed:
@@ -192,6 +193,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_irq/irq.c" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_irq/irq.c.o" "gcc" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_irq/irq.c.o.d"
   "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c.o" "gcc" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c.o.d"
   "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.c" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.c.o" "gcc" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.c.o.d"
+  "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o" "gcc" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o.d"
   "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.c" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.c.o" "gcc" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.c.o.d"
   "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync_spin_lock/sync_spin_lock.c" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync_spin_lock/sync_spin_lock.c.o" "gcc" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync_spin_lock/sync_spin_lock.c.o.d"
   "/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_ticks/ticks.c" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_ticks/ticks.c.o" "gcc" "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_ticks/ticks.c.o.d"

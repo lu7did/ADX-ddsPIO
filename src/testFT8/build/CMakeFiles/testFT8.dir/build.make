@@ -1405,6 +1405,20 @@ CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c.s"
 	/opt/homebrew/bin/arm-none-eabi-gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c -o CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c.s
 
+CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o: CMakeFiles/testFT8.dir/flags.make
+CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o: /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c
+CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o: CMakeFiles/testFT8.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_97) "Building C object CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o"
+	/opt/homebrew/bin/arm-none-eabi-gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o -MF CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o.d -o CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o -c /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c
+
+CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.i"
+	/opt/homebrew/bin/arm-none-eabi-gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c > CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.i
+
+CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.s"
+	/opt/homebrew/bin/arm-none-eabi-gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c -o CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.s
+
 # Object files for target testFT8
 testFT8_OBJECTS = \
 "CMakeFiles/testFT8.dir/testFT8.c.o" \
@@ -1502,7 +1516,8 @@ testFT8_OBJECTS = \
 "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/common/tusb_fifo.c.o" \
 "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_fix/rp2040_usb_device_enumeration/rp2040_usb_device_enumeration.c.o" \
 "CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_multicore/multicore.c.o" \
-"CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c.o"
+"CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c.o" \
+"CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o"
 
 # External object files for target testFT8
 testFT8_EXTERNAL_OBJECTS =
@@ -1603,11 +1618,12 @@ testFT8.elf: CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb
 testFT8.elf: CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_fix/rp2040_usb_device_enumeration/rp2040_usb_device_enumeration.c.o
 testFT8.elf: CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_multicore/multicore.c.o
 testFT8.elf: CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/pio.c.o
+testFT8.elf: CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o
 testFT8.elf: CMakeFiles/testFT8.dir/build.make
 testFT8.elf: pico-sdk/src/rp2040/boot_stage2/CMakeFiles/bs2_default_library.dir/bs2_default_padded_checksummed.S.o
 testFT8.elf: /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_crt0/rp2040/memmap_default.ld
 testFT8.elf: CMakeFiles/testFT8.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_97) "Linking CXX executable testFT8.elf"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_98) "Linking CXX executable testFT8.elf"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/testFT8.dir/link.txt --verbose=$(VERBOSE)
 	/opt/homebrew/bin/arm-none-eabi-objdump -h /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/build/testFT8.elf > testFT8.dis
 	/opt/homebrew/bin/arm-none-eabi-objdump -d /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/build/testFT8.elf >> testFT8.dis

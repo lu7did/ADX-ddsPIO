@@ -1074,6 +1074,30 @@ Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/testFT8.dir/build.make CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.c.s
 .PHONY : Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.c.s
 
+Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.o: Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o
+.PHONY : Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.o
+
+# target to build an object file
+Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/testFT8.dir/build.make CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o
+.PHONY : Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o
+
+Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.i: Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.i
+.PHONY : Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.i
+
+# target to preprocess a source file
+Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/testFT8.dir/build.make CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.i
+.PHONY : Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.i
+
+Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.s: Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.s
+.PHONY : Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.s
+
+# target to generate assembly for a file
+Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/testFT8.dir/build.make CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.s
+.PHONY : Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.s
+
 Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.o: Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.c.o
 .PHONY : Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.o
 
@@ -2446,6 +2470,9 @@ help:
 	@echo "... Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.o"
 	@echo "... Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.i"
 	@echo "... Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pll/pll.s"
+	@echo "... Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.o"
+	@echo "... Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.i"
+	@echo "... Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.s"
 	@echo "... Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.o"
 	@echo "... Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.i"
 	@echo "... Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.s"

@@ -80,6 +80,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #include "hardware/clocks.h"
 #include "pico/stdlib.h"
@@ -91,6 +92,9 @@
 #include "hardware/vreg.h"
 #include "pico/multicore.h"
 #include "pico/stdio/driver.h"
+#include "hardware/rtc.h"
+#include "pico/util/datetime.h"
+
 
 #include "./lib/assert.h"
 #include "./debug/logutils.h"
@@ -109,9 +113,30 @@
 #include "protos.h"
 #include "testFT8.h"
 
+
+
 //#define GEN_FRQ_HZ 29977777L
 
 PioDco DCO; /* External in order to access in both cores. */
+
+//* Operating mode flags */
+bool bFT8mode = false;
+bool upButton, downButton, txButton, syncButton;
+bool prevUpButton = true, prevDownButton = true, prevTxButton = true, prevSyncButton = true;
+
+/*---- Define RTC structure but do not expect a RTC to be present */
+
+
+datetime_t tcpu = {
+    .year  = 2026,
+    .month = 01,
+    .day   = 01,
+    .dotw  = 4,  // 0 is Sunday, so 4 is Thursday
+    .hour  = 0,
+    .min   = 00,
+    .sec   = 00
+};
+
 
 //* FT8 related variables */
 
@@ -120,8 +145,19 @@ const char *message="CQ LU7DZ GF11"; //Test message
 uint8_t packed[FTX_LDPC_K_BYTES];
 uint8_t tones[FT8_NN];          // FT8_NN = 79, lack of better name at the moment
 unsigned char ft8msg[FT8_NN];
+bool bTX = false;
 
 
+const uint8_t ft8_tones_cq_lu7dz_gf11[79] = {
+    03, 01, 04, 00, 06, 05, 02, 00, 00, 00,
+    00, 00, 00, 00, 01, 01, 03, 00, 01, 05,
+    04, 07, 00, 03, 02, 00, 06, 05, 01, 02,
+    04, 02, 07, 05, 00, 03, 01, 04, 00, 06,
+    05, 02, 07, 01, 04, 07, 00, 01, 02, 03,
+    00, 05, 06, 02, 07, 00, 03, 04, 05, 02,
+    04, 02, 00, 05, 07, 01, 03, 06, 00, 05,
+    01, 03, 01, 04, 00, 06, 05, 02, 02
+};
 
 //**********************************[ BAND SELECT ]************************************************
 // ADX can support up to 4 bands on board. Those 4 bands needs to be assigned to Band1 ... Band4
@@ -157,24 +193,21 @@ int FT8GenerateSymbols()
 int rc = pack77(message, packed);
 
 printf("Packing message: '%s'\n",message);
-
 if (rc < 0) {
     printf("Cannot parse message! RC=%d\n",rc);
     return -2;
 }
 
 printf("Packed data: ");
-
 for (int j = 0; j < 10; ++j) {
     printf("%02x ", packed[j]);
 }
-
 printf("\n");
 
 // Second, encode the binary message as a sequence of FSK tones
 ft8_encode(packed, tones);
-
-printf("FSK tones: ");
+                   
+printf("FSK tones (calc..): ");
 
 for (int j = 0; j < FT8_NN; ++j) {
     printf("%d", tones[j]);
@@ -184,8 +217,17 @@ printf("\n");
 
 for(size_t i=0;(i<FT8_NN);i++)
 {
-    ft8msg[i]=tones[i];
+    tones[i]=ft8_tones_cq_lu7dz_gf11[i];
 }
+
+printf("FSK tones (forced): ");
+
+for (int j = 0; j < FT8_NN; ++j) {
+    printf("%d", tones[j]);
+}
+
+printf("\n");
+
 return 0;
 }
 
@@ -219,7 +261,6 @@ void initBoard(){
 //*----------------------------------------------------------------------------*/
 void ADXsetup(){
 
- //*----------------------------------------------------------------------------*/
     
     gpio_init(RXSW);
     gpio_set_dir(RXSW, GPIO_OUT);   
@@ -245,7 +286,10 @@ void ADXsetup(){
     gpio_set_dir(TX, GPIO_OUT);
     gpio_put(TX, 0); //Set RX mode (off)
 
-//*--- (Mark)
+//*--- (Input switches)
+
+    gpio_init(TXSW);
+    gpio_set_dir(TXSW, GPIO_IN);
 
     gpio_init(UP);
     gpio_set_dir(UP, GPIO_IN);
@@ -253,18 +297,141 @@ void ADXsetup(){
     gpio_init(DOWN);
     gpio_set_dir(DOWN, GPIO_IN);    
 
-    gpio_init(TXSW);
-    gpio_set_dir(TXSW, GPIO_IN);
-
     gpio_init(SYNC);
     gpio_set_dir(SYNC, GPIO_IN);
     
     gpio_init(BEACON);
     gpio_set_dir(BEACON, GPIO_IN);
-    //*--- End of ADX control board initialization
 
+    //*--- End of ADX control board initialization
     printf("%s ADX control board initialized\n",__func__);
 
+}
+//*----------------------------------------------------------------------------*/
+//* Sync time when SYNC button is pressed                                      */
+//*----------------------------------------------------------------------------*/
+bool syncTime() {
+    bool bFT8=false;
+    char datetime_str[64];
+    
+    while (gpio_get(SYNC) == 0) {
+        //sleep_ms(500);
+        bFT8 = true;
+        blinkLED(100);
+        blinkLED(100);
+        sleep_ms(100);
+        blinkLED(100);
+        blinkLED(100);
+        rtc_set_datetime(&tcpu);
+
+    }
+    if (bFT8){
+       rtc_get_datetime(&tcpu);
+       datetime_to_str(datetime_str, sizeof(datetime_str), &tcpu);
+       printf("FT8 mode set with current time: %s\n", datetime_str);
+    } else {
+       printf("LED Test mode set...\n");
+    }
+    return bFT8;
+     
+}
+/*----------------------------------------------------------------------------*/
+/* Test buttons and light LEDs accordingly                                    */
+/*----------------------------------------------------------------------------*/
+void testLED() {
+
+upButton = gpio_get(UP);
+downButton = gpio_get(DOWN);
+txButton = gpio_get(TXSW);
+syncButton = gpio_get(SYNC);
+
+if (upButton == false) {
+    if (prevUpButton == true) {
+        printf("UP button pressed\n");
+        gpio_put(FT8, 1);
+        prevUpButton = false;
+    } 
+} else {
+    if (prevUpButton == false) {
+        printf("UP button released\n");
+        gpio_put(FT8, 0);
+        prevUpButton = true;    
+    }            
+}
+
+if (downButton == false) {
+    if (prevDownButton == true) {
+        printf("DOWN button pressed\n");
+        gpio_put(FT4, 1);
+        prevDownButton = false;
+   } 
+} else {
+    if (prevDownButton == false) {
+        printf("DOWN button released\n");
+        gpio_put(FT4, 0);
+        prevDownButton = true;    
+    }            
+}
+
+
+if (txButton == false) {
+    if (prevTxButton == true) {
+        printf("TX button pressed\n");
+        gpio_put(TX, 1);
+        prevTxButton = false;
+    } 
+} else {
+    if (prevTxButton == false) {
+        printf("TX button released\n");
+        gpio_put(TX, 0);
+        prevTxButton = true;    
+    }            
+}
+
+if (syncButton == false) {
+    if (prevSyncButton == true) {
+        printf("SYNC button pressed\n");
+        gpio_put(WSPR, 1);
+        prevSyncButton = false;
+    } 
+} else {
+    if (prevSyncButton == false) {
+        printf("SYNC button released\n");
+        gpio_put(WSPR, 0);
+        prevSyncButton = true;    
+    }            
+}
+       
+}
+/*----------------------------------------------------------------------------*/
+/* Control transmitter                                                        */
+/*----------------------------------------------------------------------------*/
+void setTX(bool state) {
+    if (state) {
+        gpio_put(TX, 1);
+        bTX = true;
+    } else {
+        gpio_put(TX, 0);
+        bTX = false;
+    }
+}   
+/*----------------------------------------------------------------------------*/
+/* Multiply the tone shift accounting for the Hz and milliHz                  */                                         
+/*----------------------------------------------------------------------------*/
+void computeFSK(uint8_t index,
+                uint32_t *parte_entera,
+                uint32_t *parte_milesimas)
+{
+    /* Parte entera: index * 6 */
+    *parte_entera = index * 6;
+
+    /* Parte fraccional: index * 0.25 = (index % 4) * 250 milésimas */
+    *parte_milesimas = (index * 250) % 1000;
+
+    /* Ajuste si la fracción supera 1 unidad */
+    if (index >= 4) {
+        *parte_entera += index / 4;
+    }
 }
 //*============================================================================*/
 //*                              Main body                                     */
@@ -272,9 +439,18 @@ void ADXsetup(){
 int main() 
 {
 
+    //*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
+    //*                          S E T U P                                      *
+    //*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
+
     //*----------- Initial Processor board initialization & setup ---------------*
     initBoard();
 
+    //*----------- Setup RTC, this is only used to sync seconds   ---------------*
+    rtc_init();
+    rtc_set_datetime(&tcpu);
+    
+    //*-------------------       Init USB and other peripherals   ---------------*
     stdio_usb_init();
     while (!stdio_usb_connected()) {
         gpio_put(PICO_DEFAULT_LED_PIN, 1);
@@ -283,36 +459,47 @@ int main()
         sleep_ms(22);
    }
 
-   
+   //*--------------------------------------------------------------------------*
     //_INFOLIST("%s Firmware %s version(%s) build(%s)\n",__func__,PROGNAME,VERSION,BUILD);
     printf("Firmware %s version(%s) build(%s)\n",PROGNAME,VERSION,BUILD);
     printf("Config: FT8(%d) FT4(%d) JS8(%d) WSPR(%d) RFOUT(%d)\n",FT8,FT4,JS8,WSPR, RFOUT);
     fflush(stdout);
-
-    static_assert(FT8 == 4, "FT4 no es GPIO4");
+    //*--------------------------------------------------------------------------*
+    static_assert(FT8 == 4, "FT8 no es GPIO4");
     static_assert(FT4 == 5, "FT4 no es GPIO5");
-    static_assert(JS8 == 6, "FT4 no es GPIO6");
-    static_assert(WSPR == 7, "FT4 no es GPIO7");
+    static_assert(JS8 == 6, "JS8 no es GPIO6");
+    static_assert(WSPR == 7, "WSPR no es GPIO7");
     static_assert(RFOUT == 18, "RFOUT no es GPIO18");
 
+    //*------------------------ Set operating mode -------------------------------*
+      
     //*------------------------------------------------------------
     //_INFOLIST("%s Hardware initialization\n",__func__);
 
     //*** Initialize DCO on core 1 ***/
     const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
+
     printf("Core 1 started. DCO worker initializing...\n");
     assert_(0 == PioDCOInit(&DCO, RFOUT, clkhz));
 
+//*------------------------ Set the ADX hardware          -----------------------*
     //* *** Initialize ADX control board */
     printf("Initializing ADX control board...\n");
     ADXsetup();
 
-//*-------------------------------------------------------
+//*------------------------ Sync time and define mode    -----------------------*
+    bFT8mode = syncTime();
 
-    FT8GenerateSymbols();
+//*------------------------ if in FT8 mode generate message ---------------------*
+
+    if (bFT8mode) {
+       printf("Generating FT8 symbols...\n");
+       FT8GenerateSymbols();
+    }   
 
 //*-------------------------------------------------------
     //_INFOLIST("%s Launching core 1 for DCO worker...\n",__func__);
+    
     printf("launching DCO worker on core 1...\n");
     multicore_launch_core1(core1_entry);
 
@@ -321,8 +508,6 @@ int main()
     printf("launching DDS Generator...\n");
     DDSGenerator();
 }
-//sudo pift8 -f "$OUTPUT_FREQ"e6 -m "CQ $OUTPUT_CALL $OUTPUT_GRID" -o "$OUTPUT_OFFSET" -s "$TIMESLOT" 
-
 /*============================================================================*/
 /*                              CORE 1 PROCESSOR                              */
 /* This is the code of dedicated core.                                        */
@@ -330,12 +515,7 @@ int main()
 /*============================================================================*/
 void core1_entry()
 {
-    // *** const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
-    // ***printf("Core 1 started. DCO worker initializing...\n");
-    // *** Initialize DCO */
-    // *** assert_(0 == PioDCOInit(&DCO, RFOUT, clkhz));
-    //assert_(0 == PioDCOInit(&DCO, RFOUT, clkhz));
-     
+    printf("Core 1: DCO worker started.\n");
 
     /* Run DCO. */
     PioDCOStart(&DCO);
@@ -355,15 +535,74 @@ void core1_entry()
 /* This is the code to setup and launch the generator                         */                              
 /*============================================================================*/
 
+/*----------------------------------------------------------------------------*/
+/* DDS generator is an idle management function as the DDS is in core1        */                                   
+/*----------------------------------------------------------------------------*/
 void RAM (DDSGenerator)(void)
 {
-   
+    int iFT8= 0;
+    uint32_t frqFT8 = GEN_FRQ_HZ;
+    uint32_t baseFT8 = FT8_BASE_HZ;
+    uint32_t intHz, fracHz;
+    static absolute_time_t t0;
+    bool bFT8 = false;
+    /* Initial frequency setup */
+
+    PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0u);
+
     for(;;)
     {
        /* This generates a fixed frequency signal set by GEN_FRQ_HZ. */
        
-        PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0u);
-        blinkLED(1000);
+        if (!bFT8mode) {
+            testLED();
+            continue;
+        }
+
+        // Get the current datetime from the RTC
+        rtc_get_datetime(&tcpu);
+        //rtc_get_datetime(&tcpu);
+        // Access the seconds member directly
+        uint8_t current_seconds = tcpu.sec;
         
-    }
-}
+        if (tcpu.sec == 0 && bTX == false) {
+            // Start of a new minute
+            printf("FT8 frame windows started: %02d:%02d TX turned on\n", tcpu.hour, tcpu.min);
+            // Here you would trigger the FT8 transmission for the new minute
+            setTX(true);
+            bFT8=false;
+            iFT8=0;
+            t0 = get_absolute_time();
+        } else {
+            if ((tcpu.sec == 15 || iFT8 >= FT8_NN) && bTX == true) {
+                setTX(false);
+                printf("FT8 frame window ended: %02d:%02d TX turned off\n", tcpu.hour, tcpu.min);
+                bFT8=false;
+                gpio_put(FT8, bFT8);
+            }
+        }
+
+
+        if (bTX) {
+               computeFSK(tones[iFT8], &intHz, &fracHz);
+               uint32_t f = frqFT8 + baseFT8 + intHz;
+               PioDCOSetFreq(&DCO, f, fracHz);
+               printf("FT8symbol[%d] tone[%d] shift(%lu/%lu) f[%lu Hz]\n", iFT8, tones[iFT8],intHz,fracHz,f); 
+               sleep_ms(160);
+               iFT8++;
+        } else {
+               int64_t diff_us = absolute_time_diff_us(t0, get_absolute_time());
+               if (diff_us >= 100000) {
+                   t0 = get_absolute_time();
+                   if (bFT8 == false) {
+                      bFT8= true;
+                   } else {
+                      bFT8 = false;
+                   }
+                   gpio_put(FT8, bFT8);
+               }
+        }
+    }  
+}   
+
+

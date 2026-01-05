@@ -1905,6 +1905,57 @@ CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_
   generated/pico_base/pico/config_autogen.h \
   generated/pico_base/pico/version.h
 
+CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c.o: /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/_ansi.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/_newlib_version.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/assert.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/_default_types.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/ieeefp.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/newlib.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/stdint.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/_intsup.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/_stdint.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/cdefs.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/config.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/features.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/lib/gcc/arm-none-eabi/15.2.1/include/stdbool.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/lib/gcc/arm-none-eabi/15.2.1/include/stddef.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/lib/gcc/arm-none-eabi/15.2.1/include/stdint.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/boards/include/boards/pico.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico/assert.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico/config.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico/error.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico/types.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/platform_defs.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/addressmap.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/clocks.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/intctrl.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/m0plus.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/resets.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/rtc.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/sio.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/clocks.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/m0plus.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/nvic.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/resets.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/rtc.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/scb.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/pico_platform/include/pico/platform.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/pico_platform/include/pico/platform/cpu_regs.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/cmsis/include/cmsis/rename_exceptions.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_base/include/hardware/address_mapped.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_clocks/include/hardware/clocks.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_irq/include/hardware/irq.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_resets/include/hardware/resets.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/include/hardware/rtc.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_platform_common/include/pico/platform/common.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_platform_compiler/include/pico/platform/compiler.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_platform_panic/include/pico/platform/panic.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_platform_sections/include/pico/platform/sections.h \
+  generated/pico_base/pico/config_autogen.h \
+  generated/pico_base/pico/version.h
+
 CMakeFiles/testFT8.dir/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.c.o: /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/sync.c \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/_ansi.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/_newlib_version.h \
@@ -4421,6 +4472,7 @@ CMakeFiles/testFT8.dir/testFT8.c.o: /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/sr
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/assert.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/_default_types.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/_endian.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/_time.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/_types.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/endian.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/ieeefp.h \
@@ -4450,6 +4502,7 @@ CMakeFiles/testFT8.dir/testFT8.c.o: /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/sr
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/select.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/stdio.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/string.h \
+  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/time.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/timespec.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/types.h \
   /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/time.h \
@@ -4470,6 +4523,7 @@ CMakeFiles/testFT8.dir/testFT8.c.o: /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/sr
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_sync/include/pico/sem.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_sync/include/pico/sync.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_time/include/pico/time.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_util/include/pico/util/datetime.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/platform_defs.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/addressmap.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/clocks.h \
@@ -4480,6 +4534,7 @@ CMakeFiles/testFT8.dir/testFT8.c.o: /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/sr
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/pads_bank0.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/pio.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/resets.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/rtc.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/sio.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/timer.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/uart.h \
@@ -4492,6 +4547,7 @@ CMakeFiles/testFT8.dir/testFT8.c.o: /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/sr
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/pads_bank0.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/pio.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/resets.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/rtc.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/scb.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/sio.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/timer.h \
@@ -4507,6 +4563,7 @@ CMakeFiles/testFT8.dir/testFT8.c.o: /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/sr
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/include/hardware/pio.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_pio/include/hardware/pio_instructions.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_resets/include/hardware/resets.h \
+  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/include/hardware/rtc.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync/include/hardware/sync.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_sync_spin_lock/include/hardware/sync/spin_lock.h \
   /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_timer/include/hardware/timer.h \
@@ -4604,8 +4661,6 @@ dco2.pio.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_binary_info/include/pico/binary_info.h:
 
-/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/rtc.h:
-
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_runtime/runtime.c:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_printf/printf.c:
@@ -4688,9 +4743,15 @@ dco2.pio.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_uart/include/hardware/uart.h:
 
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_binary_info/include/pico/binary_info/structure.h:
+
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/uart.h:
+
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_float/float_math.c:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/uart.h:
+
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_uart/uart.c:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_ticks/include/hardware/ticks.h:
 
@@ -4699,6 +4760,10 @@ dco2.pio.h:
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/class/cdc/cdc_device.c:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/watchdog.h:
+
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/rtc.h:
+
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/rtc.c:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_util/pheap.c:
 
@@ -4780,15 +4845,9 @@ dco2.pio.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_util/datetime.c:
 
-/Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/common/tusb_types.h:
-
-/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_timer/timer.c:
-
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_time/include/pico/timeout_helper.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_time_adapter/include/pico/time_adapter.h:
-
-/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_uart/uart.c:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_time/timeout_helper.c:
 
@@ -4914,6 +4973,8 @@ dco2.pio.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/timer.h:
 
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/rtc.h:
+
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/sysinfo.h:
 
 /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/time.h:
@@ -4944,6 +5005,10 @@ dco2.pio.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/common/tusb_verify.h:
 
+/Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/cdefs.h:
+
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/include/hardware/rtc.h:
+
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_platform_compiler/include/pico/platform/compiler.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/usb_dpram.h:
@@ -4953,6 +5018,10 @@ dco2.pio.h:
 /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/gpstime/GPStime.h:
 
 /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/strings.h:
+
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_timer/timer.c:
+
+/Users/PCOLLA/.pico-sdk/sdk/2.2.0/lib/tinyusb/src/common/tusb_types.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/boot_stage2/include/boot_stage2/config.h:
 
@@ -5112,8 +5181,6 @@ generated/pico_base/pico/config_autogen.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/boards/include/boards/pico.h:
 
-/Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/cdefs.h:
-
 /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/features.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico/error.h:
@@ -5137,10 +5204,6 @@ generated/pico_base/pico/config_autogen.h:
 /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/inttypes.h:
 
 /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/assert.h:
-
-/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_binary_info/include/pico/binary_info/structure.h:
-
-/Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/uart.h:
 
 /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/io_qspi.h:
 

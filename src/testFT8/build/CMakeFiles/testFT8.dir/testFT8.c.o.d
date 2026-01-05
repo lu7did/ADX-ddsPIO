@@ -20,16 +20,16 @@ CMakeFiles/testFT8.dir/testFT8.c.o: \
  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/stdio.h \
  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/lib/gcc/arm-none-eabi/15.2.1/include/stdarg.h \
  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/stdio.h \
+ /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/lib/gcc/arm-none-eabi/15.2.1/include/stdint.h \
+ /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/stdint.h \
+ /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/_intsup.h \
+ /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/_stdint.h \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_clocks/include/hardware/clocks.h \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico.h \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico/types.h \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico/assert.h \
  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/lib/gcc/arm-none-eabi/15.2.1/include/stdbool.h \
  /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/assert.h \
- /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/lib/gcc/arm-none-eabi/15.2.1/include/stdint.h \
- /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/stdint.h \
- /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/_intsup.h \
- /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/_stdint.h \
  /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/build/generated/pico_base/pico/version.h \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_base_headers/include/pico/config.h \
  /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/build/generated/pico_base/pico/config_autogen.h \
@@ -118,6 +118,12 @@ CMakeFiles/testFT8.dir/testFT8.c.o: \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_sync/include/pico/mutex.h \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_sync/include/pico/critical_section.h \
  /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/pico_stdio/include/pico/stdio/driver.h \
+ /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2_common/hardware_rtc/include/hardware/rtc.h \
+ /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_structs/include/hardware/structs/rtc.h \
+ /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/rp2040/hardware_regs/include/hardware/regs/rtc.h \
+ /Users/PCOLLA/.pico-sdk/sdk/2.2.0/src/common/pico_util/include/pico/util/datetime.h \
+ /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/sys/time.h \
+ /Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include/machine/_time.h \
  /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/./lib/assert.h \
  /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/./debug/logutils.h \
  /Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/testFT8/hwdefs.h \

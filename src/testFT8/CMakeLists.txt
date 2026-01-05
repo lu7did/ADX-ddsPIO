@@ -54,7 +54,8 @@ target_link_libraries(
         hardware_clocks
         hardware_pio
         hardware_uart
-        )
+        hardware_rtc
+                )
 
 pico_add_extra_outputs(${PROJECT})
 pico_enable_stdio_usb(${PROJECT} 1)
