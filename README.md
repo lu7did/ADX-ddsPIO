@@ -113,6 +113,23 @@ is *extremely* dirty. Do not put this signal into any meaningful antenna and use
 only by short evaluation tests.
 ```
 
+## testADX utility
+
+This utility continues the integration of the firmware system incorporating the 
+features of the ADX board such as UP/DOWN buttons, TX button and the four mode LED
+(FT8,FT4,JS8 and WSPR) as well as the TX LED.
+The board continuously generates an RF signal, when in RX mode (RXSW high) the output
+is connected with the receiver (RXOSC) whilst when in TX mode (RXSW low, TX high) the
+output is connected to the driver section.
+If properly synchronized (see testFT8) upon start the firmware sends a message at the
+top of every minute using the defined frequency and mode.
+
+```
+When using a wire out of the GPIO 18 pin to transmit "on the air" signals the spectrum
+is *extremely* dirty. Do not put this signal into any meaningful antenna and use it
+only by short evaluation tests.
+```
+
 # DCO for Raspberry Pi Pico 
 
 (Excerpts from the original **package pico-hf-oscillator** by Roman Piksaykin (R2BDY)
