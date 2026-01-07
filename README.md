@@ -137,6 +137,7 @@ prototype and experimentation efforts on specific aspects.
 
 * testUSB Algorithm for frequency measurement over the USB audio channcel.
 * QP-7C_rp2040_cat Full implementation of USB Serial and Audio.
+* testUSB2 General handling of USB Audio and Serial data together.
 
 ```
 Unless otherwise specified do not expect to flash these projects on a raspberry pi pico 
