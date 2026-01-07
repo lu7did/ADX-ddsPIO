@@ -18,6 +18,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+//*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-+-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-+-*-*-+-+-+-+-
+//* This is a crude port of the original QP-7C_rp2040_cat package by Hitoshi-san (JE1RAV)
+//* to the development environment and library context of the ADX-ddsPIO project
+//* This port will be stripped out of all transceiver funcions as the main goal is to 
+//* integrate the USB implementacion (CDC and Audio Interface) with the ADX-ddsPIO
+//* project in a way the analog audio chain is made not necessary.
+//* This is a work in progress effort.
+//* Dr. Pedro E. Colla (LU7DZ) 2026
+//*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-+-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-+-*-*-+-+-+-+-
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

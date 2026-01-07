@@ -27,6 +27,12 @@ if(NOT DEFINED PICO_SDK_PATH)
 endif()
 
 # ============================================================================
+# Si no viene definido desde afuera, usar el SDK "de la empresa" (tu ruta)
+if (NOT DEFINED PICO_SDK_PATH)
+  set(PICO_SDK_PATH "/Users/PCOLLA/Documents/GitHub/pico/pico-sdk" CACHE PATH "Pico SDK Path")
+endif()
+# ============================================================================
+
 set(CMAKE_C_COMPILER "/opt/homebrew/bin/arm-none-eabi-gcc")
 set(CMAKE_CXX_COMPILER "/opt/homebrew/bin/arm-none-eabi-gcc")
 
