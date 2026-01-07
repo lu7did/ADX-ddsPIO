@@ -130,6 +130,19 @@ is *extremely* dirty. Do not put this signal into any meaningful antenna and use
 only by short evaluation tests.
 ```
 
+## Others
+
+There are other implementations which aren't functional by itself but only part of 
+prototype and experimentation efforts on specific aspects.
+
+* testUSB Algorithm for frequency measurement over the USB audio channcel.
+* QP-7C_rp2040_cat Full implementation of USB Serial and Audio.
+
+```
+Unless otherwise specified do not expect to flash these projects on a raspberry pi pico 
+and obtain any functionality
+```
+
 # DCO for Raspberry Pi Pico 
 
 (Excerpts from the original **package pico-hf-oscillator** by Roman Piksaykin (R2BDY)
