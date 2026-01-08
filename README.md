@@ -130,6 +130,35 @@ is *extremely* dirty. Do not put this signal into any meaningful antenna and use
 only by short evaluation tests.
 ```
 
+## testUSB2 utility
+
+This utility is a strip down version of QP-7C_rp2040_cat with both the USB audio and
+serial data enabled.
+The USB audio stream is read and the frequency computed averaging the results every
+10 mSecs, the result is displayed thru the serial monitor (while the USB audio 
+continue working) showing both the frequency counting algorithm and the operation 
+of the USB serial monitor.
+
+```
+The test configuration needs the followigh steps:
+
+* Compile and load the firmware.
+* Open the serial monitor pointing to the */dev/tty.usbmodem00000xx - TinyUSB* device
+* Start the supervision of the serial monitor channel.
+* Start WSJTX and configure in the AUDIO tab
+	* Input: ADX-ddsPIO
+	* Output: ADX-ddsPIO
+* Start the TX Tone, the serial monitor should mark the tone frequency as set in WSJTX.
+* Start the FT8 TX, the serial monitor will show the different tones sent.
+
+
+The counting algorithm has +/- 1  Hz accuracy, this can be improved later choosing
+the averaging time, but should be enough to properly decode the frequency and
+change it accordingly.
+```
+
+
+
 ## Others
 
 There are other implementations which aren't functional by itself but only part of 
@@ -137,7 +166,6 @@ prototype and experimentation efforts on specific aspects.
 
 * testUSB Algorithm for frequency measurement over the USB audio channcel.
 * QP-7C_rp2040_cat Full implementation of USB Serial and Audio.
-* testUSB2 General handling of USB Audio and Serial data together.
 
 ```
 Unless otherwise specified do not expect to flash these projects on a raspberry pi pico 

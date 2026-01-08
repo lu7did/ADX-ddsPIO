@@ -148,6 +148,7 @@ RECORD pixel_color[8] = {{0, {BRIGHTNESS, 0,0}},
 
 
 char hi[80];
+uint16_t n=0;
 
 #define cdc_printf(fmt, ...)                           \
     do {                                                \
@@ -172,6 +173,7 @@ int32_t adc_offset = 0;
 
 //for tranceiver
 uint64_t RF_freq;   // RF frequency (Hz)
+uint64_t audio_freq_prev=0.0;
 
 //*##################################################################################################
 #ifdef REFACTOR
@@ -204,7 +206,12 @@ uint32_t cycle_frequency[136];
 int16_t monodata[CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4];
 int16_t adc_data[CFG_TUD_AUDIO_FUNC_1_EP_IN_SW_BUF_SZ / 2];
 int16_t pcCounter;
+#ifdef REFACTOR
 int audio_read_number;
+#endif //REFACTOR
+
+int audio_read_number=0;
+
 
 //for CDC
 char cdc_read_buf[64];
@@ -235,7 +242,6 @@ void receiving(void);
 void audio_data_write(int16_t,int16_t);
 void cat(void);
 int freqcheck(uint64_t);
-void sampleUSB();
 //-----------------------------------------------------------------------+
 // MAIN  -------------------------------------------------------------+
 //-----------------------------------------------------------------------+
@@ -415,6 +421,8 @@ int main(void)
   //t0 = get_absolute_time();
   t1 = get_absolute_time();
 
+  Tx_last_mod_time=to_ms_since_boot(get_absolute_time());
+
   int n=0;
   sprintf(hi,"loop(%d)\n",n);
   while (1)
@@ -456,7 +464,7 @@ int main(void)
 #endif //REFACTOR
 //*##################################################################################################
 
-    sampleUSB();
+    transmitting();
 
   }
 }
@@ -469,31 +477,10 @@ static void led_init(void)
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
 }
 #endif //REFACTOR
-//*##################################################################################################
-void sampleUSB() {
-
-  //uint64_t audio_freq;
-  audio_read_number = USB_Audio_read(monodata);
-
-  if (audio_read_number > 0) {
-      cdc_printf("Audio info (%d) samples \n",audio_read_number);
-
-      for (int i=0;i<audio_read_number;i++){
-          cdc_printf("sample (%d)\n",monodata[i]);
-          // int64_t diff_us = absolute_time_diff_us(t1, get_absolute_time());
-          #ifdef REFACTOR
-          if (diff_us >= 1000) {
-             t1 = get_absolute_time();
-             blinkTx=!blinkTx;                            //*DEBUG*     
-             gpio_put(PICO_DEFAULT_LED_PIN, blinkTx);   //*DEBUG*
-          }
-          #endif //REFACTOR
-      }
-  }
-
-}
 //--------------------------------------------------------------------+
-// RADIO
+// This procedure has been refactored to meassure the audio frequency
+// This can be tested by configuring the soundcard as ADX-ddsPIO and
+// emit either a test tone or a FT8 sequence with WSJTX.
 //--------------------------------------------------------------------+
 void transmitting(){
   
@@ -501,7 +488,6 @@ void transmitting(){
 
   if (audio_read_number > 0) {
     
-    cdc_printf("Audio info %d\n",audio_read_number);
     for (int i=0;i<audio_read_number;i++){
       
       int16_t mono = monodata[i];
@@ -518,6 +504,7 @@ void transmitting(){
         //*##################################################################################################
 
 
+
         int16_t difference = mono - mono_prev;
         
         // x=0付近のsin関数をテーラー展開の第1項まで(y=xで近似）
@@ -525,36 +512,27 @@ void transmitting(){
         float delta = (float)mono_prev / (float)difference;
         float period = ((float)1.0 + delta_prev) + (float)sampling - delta;
         audio_freq = (uint64_t)(AUDIOSAMPLING/(double)period); // in Hz    
-
-        int64_t diff_us = absolute_time_diff_us(t1, get_absolute_time());
-        if (diff_us >= 1000) {
-           t1 = get_absolute_time();
-           blinkTx=!blinkTx;                            //*DEBUG*     
-           gpio_put(PICO_DEFAULT_LED_PIN, blinkTx);   //*DEBUG*
-           sprintf(hi,"Freq(%" PRIu64 ") Hz\n",audio_freq);
-           cdc_write(hi, (uint16_t)strlen(hi));
-        }
         
         if ((audio_freq > 200) && (audio_freq < 3000)){
           cycle_frequency[cycle]=(uint32_t)audio_freq;
           cycle++;
         }
-
+       
         delta_prev = delta;
         sampling = 0;
         mono_preprev = mono_prev;
         mono_prev = mono;     
-      }
-      else if ((not_TX_first == 1)  && (mono_preprev == 0) && (mono_prev == 0) && (mono == 0)) {        //Detect non-transmission
-        Tx_Start = 0;
-        break;
-      }
-      else {
+      } else {
         sampling++;
         mono_preprev = mono_prev;
         mono_prev = mono;
       }
     }
+
+
+  //*##################################################################################################
+    #ifdef REFACTOR
+
     if (Tx_Start == 0){
       cycle = 0;
       sampling = 0;
@@ -569,28 +547,52 @@ void transmitting(){
 
       return;
     }
+    #endif //REFACTOR
+   //*##################################################################################################
+
+    //* Here the frequency is averaged every 10 mSecs and displayed
+
     if ((cycle > 0) && ((to_ms_since_boot(get_absolute_time()) - Tx_last_mod_time) > 10)){      //inhibit the frequency change faster than 20mS
       audio_freq = 0;
       for (int i = 0;i < cycle;i++){
         audio_freq += cycle_frequency[i];
       }
       audio_freq = audio_freq / (uint64_t)cycle;
-      transmit(audio_freq);
+
+      sprintf(hi,"Freq(%" PRIu64 ") Hz\n ",audio_freq);
+      cdc_write(hi, (uint16_t)strlen(hi));
+
+      #ifdef REFACTOR
+         transmit(audio_freq);
+      #endif //REFACTOR
+      
       cycle = 0;
       Tx_last_mod_time = to_ms_since_boot(get_absolute_time()); ;
     }
     not_TX_first = 1;
+    
+    #ifdef REFACTOR
     Tx_last_time = to_ms_since_boot(get_absolute_time()); ;
+    #endif //REFACTOR
+
   }
-  else if ((to_ms_since_boot(get_absolute_time()) - Tx_last_time) > 100) {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receiving. 
-    Tx_Start = 0;
-    cycle = 0;
-    sampling = 0;
-    mono_preprev = 0;
-    mono_prev = 0;     
-    receive();
-    return;
+
+  //*##################################################################################################
+    #ifdef REFACTOR
+  else {
+  
+    if ((to_ms_since_boot(get_absolute_time()) - Tx_last_time) > 100) {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receiving. 
+       Tx_Start = 0;
+       cycle = 0;
+       sampling = 0;
+       mono_preprev = 0;
+       mono_prev = 0;     
+       return;
+    }
   }
+  #endif //REFACTOR
+  //*##################################################################################################
+
 
   audio_read_number = USB_Audio_read(monodata);
 }
