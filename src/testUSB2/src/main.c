@@ -703,6 +703,7 @@ void receive(){
   for (int i = 0; i < (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4); i++) {
     monodata[i] = 0;
   } 
+  
   // initialization of ADC and the data write counter
   pcCounter=0;
   adc_fifo_drain ();                     //initialization of adc fifo

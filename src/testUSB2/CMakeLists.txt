@@ -64,13 +64,13 @@ project(${PROJECT})
 family_initialize_project(${PROJECT} ${CMAKE_CURRENT_LIST_DIR})
 
 # Make ws2812.pio.h headter file for Neopixel
-pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/ws2812.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
+#pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/ws2812.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 
 # Example source
 target_sources(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_descriptors.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/si5351.c 
+        #${CMAKE_CURRENT_SOURCE_DIR}/src/si5351.c 
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_audio.c 
         )
 
