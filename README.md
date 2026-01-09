@@ -10,12 +10,15 @@ The ADX transceiver is powered by an Arduino Nano (ADX) or Arduino Uno (ADX_UNO)
 ATMEL ATMEGA382p processor.
 
 In order to leverage the capabilities of the transceiver with a powerful processor such as the Raspberry Pi Pico
-which uses the rp2040 architecture this project was started.
+which uses the rp2040 architecture a project called **ADX-rp2040** was started.
 
 Then a map between the Arduino board I/O and the rp2040 I/O was made showing some differences needs to be addressed
 which requires additional circuitry.
 
-This is a project aimed to achieve several (experimental) goals:
+As an evolution of that project the goal to reduce the footprint of the transceiver, trying to remove the 
+signal generator function (Si5351 based), this effort leads to this project.
+
+The project aims to achiveve Several (experimental) goals:
 
 * Port the ADX firmware to the rp2040 (already done with the [ADX-rp2040](https://www.github.com/lu7did/ADX-rp2040)
 * Design and develop a hardware board to support the project
