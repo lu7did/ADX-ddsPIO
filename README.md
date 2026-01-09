@@ -1,10 +1,26 @@
 # ADX-ddsPIO
 
+
+A brief story of the project start with the excelent ADX Transceiver from Barb (WB2CBA) which can be found at
+
+* Github site [link](http://www.github.com/WB2CBA/ADX).
+* ADX transceiver blog [link](https://antrak.org.tr/blog/adx-arduino-digital-transceiver)
+
+The ADX transceiver is powered by an Arduino Nano (ADX) or Arduino Uno (ADX_UNO) boards using both the 
+ATMEL ATMEGA382p processor.
+
+In order to leverage the capabilities of the transceiver with a powerful processor such as the Raspberry Pi Pico
+which uses the rp2040 architecture this project was started.
+
+Then a map between the Arduino board I/O and the rp2040 I/O was made showing some differences needs to be addressed
+which requires additional circuitry.
+
 This is a project aimed to achieve several (experimental) goals:
 
-* Port the ADX firmware to the rp2040 (already done with ADX-rp2040).
-* Implement a USB digital audio interface.
-* Implement an all Raspberry Pico based DDS generation.
+* Port the ADX firmware to the rp2040 (already done with the [ADX-rp2040](https://www.github.com/lu7did/ADX-rp2040)
+* Design and develop a hardware board to support the project
+* Implement a USB digital audio interface, the board can be seen as a virtual sound card.
+* Implement an all Raspberry Pico based DDS generation (no Si5351 board).
 
 Once implemented an ADX class FT8 digital transceiver can be created using
 different hardware strategies.
@@ -19,19 +35,22 @@ Basic specs for this transceiver would be:
 * ATU reset output.
 * PA SWR protection (zener diode).
 
-This project relies *heavily* on the superb work made by Roman (R2BDT) with his
-pico-WSPR-tx project (link) which in turns relies on his pico-hf-oscillator [link](https://github.com/RPiks/pico-hf-oscillator)
-project.
+This project relies *heavily* on the superb work made by several authors:
 
-Most of the USB digital interface work couldn't have been done without the 
-insights provided by Hitoshi-san (JE1RAV) with his QP-7C_RP2040 project [link](https://github.com/je1rav/QP-7C_RP2040).
+* Roman (R2BDT) with his pico-WSPR-tx project (link) which in turns relies on his pico-hf-oscillator project
+  [link](https://github.com/RPiks/pico-hf-oscillator)
 
-The ADX architecture has been originally developed and promoted by Barb
-(WB2CBA) and had been spinned off by dozens of experimental implementations, most
-of the transceiver hardware is rooted on his signature original design.
+* Hitoshi-san (JE1RAV) with his QP-7C_RP2040 project did most of the heavy lifting to use a USB for both
+  digital audio and serial interface (CDC).
+  [link](https://github.com/je1rav/QP-7C_RP2040).
 
-The ADX-rp2040 firmware [link](https://github.com/lu7did/ADX-rp2040) was originally developed by me as an adaptation of the
-ADX Arduino firmware ported to the rp2040 architecture, most of the actual code was refactored in the process.
+* As said the ADX architecture has been originally developed and promoted by Barb 
+  (WB2CBA) and had been spinned off by dozens of experimental implementations, most
+  of the transceiver hardware is rooted on his signature original design.
+
+* The ADX-rp2040 firmware was originally developed by me as an adaptation of the ADX Arduino firmware,
+  differences with the original code were quite large so the actual final code was refactored in the process.
+  [link](https://github.com/lu7did/ADX-rp2040)
 
 With enough luck and cooperation this project might turn into a system which
 includes the different components in order to be reproduced, lots of work needs
@@ -41,6 +60,31 @@ The project it is in the very preliminary stages, no firm designs nor firmware
 is yet available.
 
 73 de Pedro (LU7DZ/LT7D)
+
+# Support and issues
+
+This is an experimental, work-in-progress, non-profit project performed as closest to the ham spirit as possible. Only spare, hobby,
+time is available to move the project forward or to provide support on usage or issues.
+
+Until further notice is provided this project is **work in progress** and not able to be reproduced directly.
+
+If anybody has questions or issues please:
+ 
+* Be sure you read the documentation first.
+* Check on the issues list of the GitHub site, the issue might have been described there or even a workaround might exists for it.
+* State it as an  English request. English isn’t even my fourth language, still I do my best to adhere to it. 
+* For casual question you can use the groups.io uSDX forum and for a longer ones please open and issue at the GitHub portal of the project. 
+* Express very clearly which version and level the firmware has. In most cases using the latest would solve the issue.
+* Ensure the issue happens with a freshly downloaded last version of the firmware, don’t expect me to debug any modification you did.
+* Describe in your own words the problem and what you did to expose it and what workarounds you attempted.
+* Add the content of the monitoring terminal session with DEBUG enabled to help me understand what is going on.
+* Attach any other documentation you think might help debugging the issue.
+ 
+
+Please report ONE (1) issue per entry, and proceed as clean as possible with the debug instructions given to you to further understand or to fix the problem. 
+I’ll address your issue as soon as my available time allows, not necessarily in a FIFO way.
+
+
 
 # ADX-ddsPIO Firmware (Version 0.1) 
 
@@ -54,6 +98,13 @@ are:
 * Is able to operate with weak mode signals.
 
 
+## Build environment
+
+The development environment used is Visual Studio code using the standard Raspberry Pi Pico C/C++ SDK.
+
+Please follow the official documentation of both to install and configure the functionality.
+
+
 ## Flashing the firmware
 
 The firmware could be flashed directly to the Raspberry Pi Pico (rp2040) processor on the
@@ -61,7 +112,15 @@ board following the conventional BOOTSEL method.
 
 The file to flash is *./src/build/ADX-ddsPIO.uf2* .
 
-# Circuit Schematics
+
+# Hardware
+
+
+I started the porting of the firmware assuming an ADX transceiver board, no more but no less features, but being powered
+by a Raspberry Pico board; the porting of the software was a great deal of a learning curve not only for the rp2040
+architecture being different from the ATMEGA382p and being more powerful, but also a substantially different build chain
+which in some cases is implementing partially some features. For migration purposed the Raspberry Pi Pico board was used.
+
 
 ## Circuit Design (version 0.x)
 
