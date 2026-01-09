@@ -42,6 +42,24 @@ is yet available.
 
 73 de Pedro (LU7DZ/LT7D)
 
+# ADX-ddsPIO Firmware (Version 0.1) 
+
+This is the first version of the firmware, the main functions implemented
+are:
+
+* Operate in any of the HF bands (160m to 10m), attempts to marginal use on 6m will be made.
+* 1W RF power, DC receiver (CD2003GP based) with SWR protection.
+* Management of the ADX-ddsPIO board.
+* Receive and transmit digital audio data over a USB connection.
+* Is able to operate with weak mode signals.
+
+
+## Flashing the firmware
+
+The firmware could be flashed directly to the Raspberry Pi Pico (rp2040) processor on the
+board following the conventional BOOTSEL method.
+
+The file to flash is *./src/build/ADX-ddsPIO.uf2* .
 
 # Circuit Schematics
 
@@ -62,6 +80,7 @@ The pinout assignment for this version is shown in the following table:
 
 
 ![Alt Text](doc/ADX-ddsPIO_pinout.png?raw=true "Raspberry Pi Pico pinout assignment")
+
 
 ## Test resources
 

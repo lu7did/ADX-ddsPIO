@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 2026- Dr. Pedro E. Colla (LU7DZ) <pedro.colla@gmail.com>
+ * Version 0.x (family of initial development and integration)
  * 
- * ADX class digital transceiver for low signal modes
+ * ADX class digital transceiver for low signal modes based on the rp2040 Raspberry Pi Pico
+ * processor
  * 
  * =======================================================================================
  * This is mainly an integration effort with some new code developed for this project
@@ -46,6 +48,18 @@
  * 
  * Original porting of the ADX Arduino based firmware to the rp2040 architecture
  *
+ *----------------------------------------------------------------------------
+ *
+ * And, of course....
+ * 
+ * The WSJT-X authors, who developed a very interesting and novel communications protocol
+ * The details of FT4 and FT8 procotols and decoding/encoding are described here:
+ * https://physics.princeton.edu/pulsar/k1jt/FT4_FT8_QEX.pdf
+ *
+ * This program (firmware) do not generate nor decode FT8 signals, therefore
+ * no part of the WSJT-X code has been involved. But the board is intended to
+ * be used by a program such as WSJT-X, therefore the acknowledgement is in 
+ * order
  *----------------------------------------------------------------------------
  * 
  * This program is free software: you can redistribute it and/or modify
