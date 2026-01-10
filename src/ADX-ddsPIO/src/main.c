@@ -97,8 +97,6 @@
 #include "usb_audio.h"
 #include <inttypes.h>
 
-
-
 //*==============================================================================================*
 //*                                  Macros and Structures                                       *
 //*==============================================================================================*
@@ -253,12 +251,8 @@ int main(void)
   //*--- Initialize timers
   Tx_last_mod_time=to_ms_since_boot(get_absolute_time());
 
-  while (1)
+  while (true)
   {
-    #ifdef REFACTOR
-    watchdog_update(); //watchdog
-    #endif //REFACTOR
-
     //*--- Call periodically the TinyUSB pre-emptive queue manager to service tasks
 
     tud_task(); // TinyUSB device task
@@ -370,6 +364,7 @@ void receiving() {
   freqChange();
   
   int16_t rx_adc = (int16_t)(adc() - adc_offset); //read ADC data (8kHz sampling)
+
   // write the same 6 stereo data to PC for 48kHz sampling (up-sampling: 8kHz x 6 = 48 kHz)
   for (int i=0;i<6;i++){
     audio_data_write(rx_adc, rx_adc);
