@@ -24,7 +24,7 @@ pico_sdk_init()
 add_executable(${PROJECT} testADX.c)
 
 target_sources(testADX PUBLIC
-	    ${CMAKE_CURRENT_LIST_DIR}/lib/assert.c
+	${CMAKE_CURRENT_LIST_DIR}/lib/assert.c
         ${CMAKE_CURRENT_LIST_DIR}/piodco/piodco.c
         ${CMAKE_CURRENT_LIST_DIR}/gpstime/GPStime.c
         ${CMAKE_CURRENT_LIST_DIR}/debug/logutils.c
