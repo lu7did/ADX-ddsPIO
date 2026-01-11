@@ -201,6 +201,7 @@ RECORD pixel_color[8] = {{0, {BRIGHTNESS, 0,0}},
 
 char hi[80];
 uint16_t n=0;
+bool firstRX=true;
 
 #define cdc_printf(fmt, ...)                           \
     do {                                                \
@@ -320,10 +321,10 @@ void core1_entry()
 
 
     /* Run DCO. */
+
+    uint32_t f = frqFT8 + 0U;
     PioDCOStart(&DCO);
-    PioDCOSetFreq(&DCO,frqFT8, 0ULL);
-
-
+    PioDCOSetFreq(&DCO, f, 0U);
 
     /* Run the main DCO algorithm. It spins forever. */
     PioDCOWorker2(&DCO);
@@ -429,10 +430,16 @@ int main(void)
 
 
 //*-------------------------------------------------------
-   
+
+/*
+  frqFT8=FT8_BASE_HZ;
+  PioDCOStart(&DCO);
+  PioDCOSetFreq(&DCO, frqFT8, 0UL);
+*/   
+  gpio_put(PICO_DEFAULT_LED_PIN, 0);
   cdc_printf("launching DCO worker on core 1...\n");
   multicore_launch_core1(core1_entry);
-
+  sleep_ms(500);
   //*##################################################################################################
 #ifdef REFACTOR
   gpio_init(pin_SW);
@@ -574,9 +581,6 @@ int main(void)
   t1 = get_absolute_time();
 
   Tx_last_mod_time=to_ms_since_boot(get_absolute_time());
-
-  int n=0;
-  sprintf(hi,"loop(%d)\n",n);
   while (true)
   {
     //watchdog_update(); //watchdog
@@ -593,8 +597,6 @@ int main(void)
        cdc_write(hi, (uint16_t)strlen(hi));
     }
     #endif //REFACTOR
-
-
     tud_task(); // TinyUSB device task
     // led_blinking_task();
 
@@ -609,10 +611,9 @@ int main(void)
     } else {
         transmitting();
     }
+*/
+    transmitting();        
     
-    //return 0;
-*/    
-   transmitting();
   }
 }
 
@@ -636,24 +637,24 @@ void transmitting(){
   uint64_t audio_freq;
 
   if (audio_read_number > 0) {
-    
+    if (Tx_Start==0) {
+       Tx_last_time=to_ms_since_boot(get_absolute_time());
+       Tx_Start=1;
+       gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    }
+
     for (int i=0;i<audio_read_number;i++){
       
       int16_t mono = monodata[i];
       
       if ((mono_prev < 0) && (mono >= 0)) {
-
-        //*##################################################################################################
-        #ifdef REFACTOR
+/*
         if ((mono == 0) && (((double)mono_prev * 1.8 - (double)mono_preprev < 0.0) || ((double)mono_prev * 2.02 - (double)mono_preprev > 0.0))) {    //Detect the sudden drop to zero due to the end of transmission
            Tx_Start = 0;
+           cdc_printf("sudden FSK drop\n");
            break;
         }
-        #endif //REFACTOR
-        //*##################################################################################################
-
-
-
+*/
         int16_t difference = mono - mono_prev;
         
         // x=0付近のsin関数をテーラー展開の第1項まで(y=xで近似）
@@ -671,25 +672,26 @@ void transmitting(){
         sampling = 0;
         mono_preprev = mono_prev;
         mono_prev = mono;     
+
       } else {
+
         sampling++;
         mono_preprev = mono_prev;
         mono_prev = mono;
       }
     }
-
-#ifdef REWORK
+/*
     if (Tx_Start == 0){
+      cdc_printf("Tx_Start found as zero\n");
       cycle = 0;
       sampling = 0;
       mono_preprev = 0;
       mono_prev = 0;     
-      receive();
+      //receive();
   
       return;
     }
-#endif //REWORK
-    
+*/      
     //* Here the frequency is averaged every 10 mSecs and displayed
 
     if ((cycle > 0) && ((to_ms_since_boot(get_absolute_time()) - Tx_last_mod_time) > 10)){      //inhibit the frequency change faster than 20mS
@@ -699,10 +701,9 @@ void transmitting(){
       }
       audio_freq = audio_freq / (uint64_t)cycle;
       uint32_t f = frqFT8 + (uint32_t)audio_freq;
-      PioDCOStart(&DCO);
-      PioDCOSetFreq(&DCO, f, 0UL);
-
-      sprintf(hi,"Freq(%" PRIu64 ") Hz\n ",audio_freq);
+      //PioDCOStart(&DCO);
+      PioDCOSetFreq(&DCO, f, 0U);
+      sprintf(hi,"FSK(%" PRIu64 ") Hz freq(%ld)\n ",audio_freq,f);
       cdc_write(hi, (uint16_t)strlen(hi));
 
       //transmit(audio_freq);
@@ -711,28 +712,29 @@ void transmitting(){
       Tx_last_mod_time = to_ms_since_boot(get_absolute_time()); ;
     }
     not_TX_first = 1;
-    
-    #ifdef REFACTOR
-    Tx_last_time = to_ms_since_boot(get_absolute_time()); ;
-    #endif //REFACTOR
-
+    Tx_last_time = to_ms_since_boot(get_absolute_time());
   }
-  #ifdef REWORK
-  else {
-  
-    if ((to_ms_since_boot(get_absolute_time()) - Tx_last_time) > 100) {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receiving. 
-      PioDCOStart(&DCO);
-      PioDCOSetFreq(&DCO, frqFT8, 0UL);
 
+  else { 
+    if ((to_ms_since_boot(get_absolute_time()) - Tx_last_time) >= 100 && Tx_Start==1)  {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receiving. 
+      cdc_printf("Entered USB timeout\n");
       Tx_Start = 0;
+      gpio_put(PICO_DEFAULT_LED_PIN, 0);
+      //firstRX=true;
+
       cycle = 0;
       sampling = 0;
       mono_preprev = 0;
       mono_prev = 0;     
+
+      uint32_t fbfo = frqFT8 + 0U;
+      //PioDCOStart(&DCO);
+      PioDCOSetFreq(&DCO, fbfo, 0U);
+
+
       return;
     }
   } 
-  #endif //REWORK
 
   audio_read_number = USB_Audio_read(monodata);
 }
@@ -744,17 +746,35 @@ void receiving() {
   {
     Tx_Start = 1;
     not_TX_first = 0;
+    firstRX=true;
+    Tx_last_time = to_ms_since_boot(get_absolute_time());
+    cdc_printf("USB Audio signal detected\n");
     return;
   }
 
-  freqChange();
+  if (firstRX) {
+     frqFT8=FT8_BASE_HZ;
+     //uint32_t f = frqFT8 + 0U;
+     //PioDCOStart(&DCO);
+     //PioDCOSetFreq(&DCO, f, 0U);
+     firstRX=false;
+     cdc_printf("DCO set as BFO now\n");
+  }   
+
+  //freqChange();
   
+  #ifdef RXVOID
   
   int16_t rx_adc = (int16_t)(adc() - adc_offset); //read ADC data (8kHz sampling)
   // write the same 6 stereo data to PC for 48kHz sampling (up-sampling: 8kHz x 6 = 48 kHz)
   for (int i=0;i<6;i++){
     audio_data_write(rx_adc, rx_adc);
   }
+    #endif //RXVOID
+
+
+  return;
+
 }
 //*-----------------------
 void audio_data_write(int16_t left, int16_t right) {
@@ -787,7 +807,7 @@ void transmit(uint64_t freq){                                //freq in Hz
 
 
     Tx_Status=1;
-    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    //gpio_put(PICO_DEFAULT_LED_PIN, 1);
 
 
   
@@ -825,12 +845,14 @@ void receive(){
 #endif //REFACTOR
 //*##################################################################################################
 
-
+#ifdef BUGHUNT
   frqFT8=GEN_FRQ_HZ;
   PioDCOStart(&DCO);
   PioDCOSetFreq(&DCO, frqFT8, 0UL);
+  //gpio_put(PICO_DEFAULT_LED_PIN, 0);
 
-  gpio_put(PICO_DEFAULT_LED_PIN, 0);
+#endif //BUGHUNT
+
   Tx_Status=0;
 
 
@@ -841,6 +863,7 @@ void receive(){
 #endif //REFACTOR
 //*##################################################################################################
 
+#ifdef CHASEBUG
   // initialization of monodata[]
   for (int i = 0; i < (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4); i++) {
     monodata[i] = 0;
@@ -850,12 +873,12 @@ void receive(){
   pcCounter=0;
   adc_fifo_drain ();                     //initialization of adc fifo
   adc_run(true);                         //start ADC free running
+#endif //CHASEBUG
+
 }
 
 
 void freqChange(){
-
-
 //*##################################################################################################
 #ifdef REFACTOR
   if (gpio_get(pin_SW)==0 && push_last_time==0){
