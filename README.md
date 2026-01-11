@@ -89,7 +89,7 @@ I’ll address your issue as soon as my available time allows, not necessarily i
 
 
 
-# ADX-ddsPIO Firmware (Version 0.1) 
+# ADX-ddsPIO Firmware (Version 1.0) 
 
 This is the first version of the firmware, the main functions implemented
 are:
@@ -239,7 +239,17 @@ the averaging time, but should be enough to properly decode the frequency and
 change it accordingly.
 ```
 
+## testUSB3
 
+This is a hack to integrate the Audio USB version (testUSB2) with the DCO version (testADX)
+into a single firmware, crude at best, but mainly intended to explore and resolver the
+(really many) hardware conflicts and library incompatibilities.
+
+For most part it's a functional transmitter as shown in the following picture where a local
+copy of WJST-X running on a Mac (test station) is evaluated in my main WSJT-X station, it can
+be seen the transmission and the decoding of it.
+
+![Alt Text](doc/testUSB3.png?raw=true "testUSB3 Test")
 
 ## Others
 
