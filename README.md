@@ -133,7 +133,8 @@ This circuit is largely based on the original ADX transceiver [link](https://git
 The main differences with the original ADX circuit are:
 
 * Si5351 module no longer present.
-* Audio signal from SPKR processed to generate a on/off signal.
+* Analog audio circuit is optional when USB audio is used (JP3 1-2).
+* Audio signal from SPKR processed to generate a on/off signal, rp2040 architecture requires that.
 * Additional SYNC button (for future time sync).
 * Additional BEACON jumper (for future automatic beacon).
 
