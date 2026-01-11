@@ -251,6 +251,9 @@ be seen the transmission and the decoding of it.
 
 ![Alt Text](doc/testUSB3.png?raw=true "testUSB3 Test")
 
+At the bottom of the image the WSJT-X configuration dialog can be seen where the input and
+output devices is actually the ADX-ddsPIO board recognized as such.
+
 ## Others
 
 There are other implementations which aren't functional by itself but only part of 
