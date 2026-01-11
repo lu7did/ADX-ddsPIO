@@ -605,14 +605,14 @@ int main(void)
     cat(); // remote control (simulating Kenwood TS-2000) 
 #endif //REFACTOR
 
-/*
+
     if (Tx_Start==0) {
         receiving();
     } else {
         transmitting();
     }
-*/
-    transmitting();        
+
+    //transmitting();        
     
   }
 }
@@ -637,11 +637,15 @@ void transmitting(){
   uint64_t audio_freq;
 
   if (audio_read_number > 0) {
+
+    /*
     if (Tx_Start==0) {
+       cdc_printf("Start of FT8 transmission\n");
        Tx_last_time=to_ms_since_boot(get_absolute_time());
        Tx_Start=1;
        gpio_put(PICO_DEFAULT_LED_PIN, 1);
     }
+    */
 
     for (int i=0;i<audio_read_number;i++){
       
@@ -703,7 +707,7 @@ void transmitting(){
       uint32_t f = frqFT8 + (uint32_t)audio_freq;
       //PioDCOStart(&DCO);
       PioDCOSetFreq(&DCO, f, 0U);
-      sprintf(hi,"FSK(%" PRIu64 ") Hz freq(%ld)\n ",audio_freq,f);
+      sprintf(hi,"FSK(%" PRIu64 ") Hz\n ",audio_freq);
       cdc_write(hi, (uint16_t)strlen(hi));
 
       //transmit(audio_freq);
@@ -717,7 +721,7 @@ void transmitting(){
 
   else { 
     if ((to_ms_since_boot(get_absolute_time()) - Tx_last_time) >= 100 && Tx_Start==1)  {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receiving. 
-      cdc_printf("Entered USB timeout\n");
+      cdc_printf("End of FT8 transmission\n");
       Tx_Start = 0;
       gpio_put(PICO_DEFAULT_LED_PIN, 0);
       //firstRX=true;
@@ -744,13 +748,17 @@ void receiving() {
   audio_read_number = USB_Audio_read(monodata); // read in the USB Audio buffer to check the transmitting
   if (audio_read_number != 0) 
   {
-    Tx_Start = 1;
-    not_TX_first = 0;
-    firstRX=true;
-    Tx_last_time = to_ms_since_boot(get_absolute_time());
-    cdc_printf("USB Audio signal detected\n");
+    //Tx_Start = 1;
+    //not_TX_first = 0;
+    //firstRX=true;
+    
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    cdc_printf("Start of FT8 transmission\n");
+    Tx_last_time=to_ms_since_boot(get_absolute_time());
+    Tx_Start=1;
     return;
   }
+#ifdef REWORK
 
   if (firstRX) {
      frqFT8=FT8_BASE_HZ;
@@ -771,7 +779,7 @@ void receiving() {
     audio_data_write(rx_adc, rx_adc);
   }
     #endif //RXVOID
-
+#endif //REWORK
 
   return;
 
