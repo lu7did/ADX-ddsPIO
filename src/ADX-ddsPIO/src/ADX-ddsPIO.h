@@ -75,14 +75,19 @@ char hi[128];
 #define NMODES                4
 #define SLOT                  3
 
+#ifdef REWORK
 #define N_FREQ                2      // number of using RF frequencies with push switch　(<= 7)
 #define FREQ_0          7041000      // RF frequency in Hz
 #define FREQ_1          7074000     // in Hz
-
+#endif //REWORK
 
 #define GEN_FRQ_HZ     14074000L    /*Generator Frequency (in Hz)*/
 #define FT8_BASE_HZ        1000L    /* FT8 base frequency (in Hz) */
 #define AUDIOSAMPLING     48000     // USB Audio sampling frequency (fixed)
+#define FSK_ERROR             3     //Minimum frequency shift to change DCO
+#define FSKMIN              300     //Minimum FSK frequency computed
+#define FSKMAX             3000     //Maximum FSK frequency computed
+
 
 /*----
    RF and signal pin
@@ -134,5 +139,7 @@ char hi[128];
 //*==============================================================================================*
 //*                                  Global Memory Areas                                         *
 //*==============================================================================================*
+#ifdef REWORK
 uint64_t Freq_table[N_FREQ]={FREQ_0,FREQ_1}; // Freq_table[N_FREQ]={FREQ_0,FREQ_1, ...}
+#endif //REWORK
 

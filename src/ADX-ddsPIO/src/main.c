@@ -129,26 +129,21 @@
 //*                                  Global Memory Areas                                         *
 //*==============================================================================================*
 
-//*--- Message control area
-
-#ifdef REWORK
-uint16_t n=0;
-#endif //REWORK
-
 
 //*--- for ADC offset at receiving
 int32_t adc_offset = 0;   
 
 //*--- for tranceiver
-uint64_t RF_freq;   // RF frequency (Hz)
-uint64_t audio_freq_prev=0.0;
+//*fix* uint64_t RF_freq;   // RF frequency (Hz)
+//*fix* uint64_t audio_freq_prev=0.0;
 
 //*--- Control the TX function and the frequency decoding from the incoming USB (digital) audio
 
-int C_freq = 0;    // FREQ_x: Index of RF frequency. In this case, FREQ_0 is selected as the initial frequency.
-int Tx_Status = 0; // 0=RX, 1=TX
-int Tx_Start = 0;  // 0=RX, 1=TX
-int not_TX_first = 0;
+//*fix* int C_freq = 0;    // FREQ_x: Index of RF frequency. In this case, FREQ_0 is selected as the initial frequency.
+//*fix* int Tx_Status = 0; // 0=RX, 1=TX
+//*fix* int Tx_Start = 0;  // 0=RX, 1=TX
+//*fix* int not_TX_first = 0;
+
 uint32_t Tx_last_mod_time;
 uint32_t Tx_last_time;
 uint32_t push_last_time;  // to detect the long puch for frequency change by push switch
@@ -192,6 +187,7 @@ bool  bTX = false;
 //*--- Frequency variables 
 
 uint32_t frqFT8  = GEN_FRQ_HZ;
+uint32_t prevfrq = 0;
 uint32_t baseFT8 = FT8_BASE_HZ;
 
 //*==============================================================================================*
@@ -666,20 +662,25 @@ void checkButtons() {
 /*----------------------------------------------------------------------------*/
 void setTX(bool state) {
 
+    frqFT8=GEN_FRQ_HZ;
+    PioDCOStart(&DCO);
+    PioDCOSetFreq(&DCO, frqFT8, 0UL);
+
     if (state) {
-        PioDCOStart(&DCO);
-        PioDCOSetFreq(&DCO, frqFT8, 0UL);
+        prevfrq=0;
         gpio_put(RXSW, 0); //Set TX mode
         gpio_put(TX, 1);
-
-        bTX = true;
+        bTX = state;
         cdc_printf("Transmitter ON / Receiver OFF\n");
     } else {
-        PioDCOStart(&DCO);
-        PioDCOSetFreq(&DCO, frqFT8, 0UL);
+
+        cycle = 0;
+        sampling = 0;
+        mono_preprev = 0;
+        mono_prev = 0; 
         gpio_put(RXSW, 1); //Set RX mode
         gpio_put(TX, 0);
-        bTX = false;
+        bTX = state;
         cdc_printf("Transmitter OFF / Receiver ON\n");
     }
 }   
@@ -738,10 +739,9 @@ int main(void)
   //*--- Sync time and define mode 
   Band_assign();
 
-
-//  //*--- Setup initial frequency of the transceiver
-//  RF_freq = Freq_table[C_freq];
-//  freqChange();
+  adc_fifo_drain ();
+  adc_offset = adc();
+  push_last_time = to_ms_since_boot(get_absolute_time());
 
   //*---  USB Audio initialization (initialization of monodata[])
 
@@ -769,14 +769,15 @@ int main(void)
   cdc_printf("launching DCO worker on core 1...\n");
   multicore_launch_core1(core1_entry);
    
-//*    DDSGenerator();
-
   while (true)
   {
     //*--- Call periodically the TinyUSB pre-emptive queue manager to service tasks
 
     tud_task(); // TinyUSB device task
 
+    //*--- Invoke CAT processor (not implemented yet)
+    cat();
+    
     //*--- Check for changes in the band or mode      
     checkButtons();
 
@@ -851,41 +852,62 @@ void transmitting(){
     //*--- Here the frequency is averaged every 10 mSecs and processed accordingly
 
     if ((cycle > 0) && ((to_ms_since_boot(get_absolute_time()) - Tx_last_mod_time) > 10)){      //inhibit the frequency change faster than 20mS
-      audio_freq = 0;
-      for (int i = 0;i < cycle;i++){
-        audio_freq += cycle_frequency[i];
-      }
-      audio_freq = audio_freq / (uint64_t)cycle;
-      cdc_printf("Freq(%" PRIu64 ") Hz\n ",audio_freq);
-
-      #ifdef REFACTOR
-         transmit(audio_freq);         //* Manipulate the frequency
-      #endif //REFACTOR
-      
-      cycle = 0;
-      Tx_last_mod_time = to_ms_since_boot(get_absolute_time()); ;
+       audio_freq = 0;
+       for (int i = 0;i < cycle;i++){
+          audio_freq += cycle_frequency[i];
+       }
+       audio_freq = audio_freq / (uint64_t)cycle;
+       cdc_printf("Freq(%" PRIu64 ") Hz\n ",audio_freq);
+       transmit(audio_freq);         //* Manipulate the frequency     
+       cycle = 0;
+       Tx_last_mod_time = to_ms_since_boot(get_absolute_time()); ;
     }
-    not_TX_first = 1;
- 
-
-    #ifdef REFACTOR
+    //*fix* not_TX_first = 1;
     Tx_last_time = to_ms_since_boot(get_absolute_time());      //*--- Senses EoT and switch to RX
-    #endif //REFACTOR
 
+  } else {
+      
+    if ((to_ms_since_boot(get_absolute_time()) - Tx_last_time) > 100) {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receiving.
+       setTX(false);
+       //*fix* Tx_Start = 0;   
+       return;
+    }
   }
 
   audio_read_number = USB_Audio_read(monodata);
 }
 
-//*--- Manages the actual change of frequency
-
+/*----------------------------------------------------------------------------*/
+/* Manages changes in frequency                                               */                                         
+/*----------------------------------------------------------------------------*/
 void transmit(uint64_t freq){                                //freq in Hz
-  if (Tx_Status == 0 && freqcheck(RF_freq+3000)==0)
-  {
-     uint64_t fx=freq;
-     RF_freq = RF_freq + fx - fx;     //*Phony construct to avoid compilation errors
-     Tx_Status=1;
+
+  uint32_t fx=(uint32_t)freq;
+  if (bTX) {
+     if (fx < FSKMIN || fx > FSKMAX) {
+        cdc_printf("Tone(%lu) Hz OOR\n",fx);
+        return;
+     }
+
+     if (fx > prevfrq) {
+        if (fx - prevfrq > FSK_ERROR) {
+           cdc_printf("Tone(%lu) Hz above, not taken\n",fx);
+           return;
+          }
+     } else {
+        if (prevfrq - fx > FSK_ERROR) {
+           cdc_printf("Tone(%lu) Hz below, not taken\n",fx);
+           return;
+      }
+    }
+
+     uint32_t f = frqFT8 + fx;
+     PioDCOStart(&DCO);
+     PioDCOSetFreq(&DCO, f, 0UL);
+     cdc_printf("FSK(%lu) Hz f[%lu Hz]\n",fx, f); 
+     prevfrq=fx;
   }
+
 }
 
 //*==============================================================================================*
@@ -898,12 +920,11 @@ void receiving() {
   audio_read_number = USB_Audio_read(monodata); // read in the USB Audio buffer to check the transmitting
   if (audio_read_number != 0) 
   {
-    Tx_Start = 1;
-    not_TX_first = 0;
+    setTX(true);
+    //*fix* Tx_Start = 1;
+    //*fix* not_TX_first = 0;
     return;
   }
-
-  //freqChange();
   
   int16_t rx_adc = (int16_t)(adc() - adc_offset); //read ADC data (8kHz sampling)
 
@@ -913,11 +934,13 @@ void receiving() {
   }
 }
 
-//*--- Handle the actual manipulation of received signals at the ADC port
-
+/*----------------------------------------------------------------------------*/
+/* Transfer received audio tones thru the USB audio interface                 */                                         
+/*----------------------------------------------------------------------------*/
 void receive(){
 
-  Tx_Status=0;
+  //*fix* Tx_Status=0;
+  setTX(false);
 
   //*--- initialization of monodata[]
   for (int i = 0; i < (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4); i++) {
@@ -929,84 +952,6 @@ void receive(){
   adc_fifo_drain ();                     //initialization of adc fifo
   adc_run(true);                         //start ADC free running
 }
-
-//*--- Change frequency
-
-void freqChange(){
-
-  if (gpio_get(pin_SW)==0 && (to_ms_since_boot(get_absolute_time()) - push_last_time) > 700){     //wait for 700ms long push
-
-    C_freq++;
-    if  (C_freq >= N_FREQ){
-      C_freq = 0;
-    }
-    RF_freq = Freq_table[C_freq];
-
-    adc_fifo_drain ();
-    adc_offset = adc();
-    push_last_time = 0;
-  }
-
-}
-//*--- Control required by the Japan's licensing conditions
-//*--- It is controlled by other means and will be removed 
-
-int freqcheck(uint64_t frequency)  // retern 1=out-of-band, 0=in-band
-{
-  if (frequency < 135700) {
-    return 1;
-  }
-  else if (frequency > 135800 && frequency < 472000) {
-    return 1;
-  }
-  else if (frequency > 479000 && frequency < 1800000) {
-    return 1;
-  }
-  else if (frequency > 1875000 && frequency < 1907500) {
-    return 1;
-  }
-  else if (frequency > 1912500 && frequency < 3500000) {
-    return 1;
-  }
-  else if (frequency > 3580000 && frequency < 3662000) {
-    return 1;
-  }
-  else if (frequency > 3687000 && frequency < 3716000) {
-    return 1;
-  }
-  else if (frequency > 3770000 && frequency < 3791000) {
-    return 1;
-  }
-  else if (frequency > 3805000 && frequency < 7000000) {
-    return 1;
-  }
-  else if (frequency > 7200000 && frequency < 10100000) {
-    return 1;
-  }
-  else if (frequency > 10150000 && frequency < 14000000) {
-    return 1;
-  }
-  else if (frequency > 14350000 && frequency < 18068000) {
-    return 1;
-  }
-  else if (frequency > 18168000 && frequency < 21000000) {
-    return 1;
-  }
-  else if (frequency > 21450000 && frequency < 24890000) {
-    return 1;
-  }
-  else if (frequency > 24990000 && frequency < 28000000) {
-    return 1;
-  }
-  else if (frequency > 29700000 && frequency < 50000000) {
-    return 1;
-  }
-  else if (frequency > 54000000) {
-    return 1;
-  }
-  else return 0;
-}
-
 //*==============================================================================================*
 //*                              USB Queue Management                                            *
 //*==============================================================================================*
@@ -1045,7 +990,6 @@ uint32_t cdc_read(void)
 //*==============================================================================================*
 //*                              ADC Management                                                  *
 //*==============================================================================================*
-
 int32_t adc() {
   int32_t adc = 0;
   for (int i=0;i<24;i++){             // 192kHz/24 = 8kHz
