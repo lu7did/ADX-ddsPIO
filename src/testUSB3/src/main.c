@@ -91,6 +91,39 @@ uint64_t Freq_table[N_FREQ]={FREQ_0,FREQ_1}; // Freq_table[N_FREQ]={FREQ_0,FREQ_
 #define pin_SW 3U   //pin for freq change switch (D10,input)
 #define RFOUT  18   //RF out pin
 
+#define FSKpin         27  //Frequency counter algorithm, signal input PIN (warning changes must also be done in freqPIO)
+
+/*----
+   Output control lines
+*/
+#define RXSW            2  //RXSW Switch (RX/TX control)
+
+/*---
+   LED
+*/
+
+#define TX              3  //TX LED
+#define FT8             4  //FT8 LED
+#define FT4             5  //FT4 LED
+#define JS8             6  //JS8 LED
+#define WSPR            7  //WSPR LED
+
+/*---
+   Calibration signal
+*/
+
+#define CAL             9  //Calibration   
+/*---
+   Switches
+*/
+#define TXSW            8  //RX-TX Switch
+#define UP             10  //UP Switch
+#define DOWN           11  //DOWN Switch
+#define BEACON         12  //BEACON Jumper
+#define SYNC           13  //Time SYNC Switch
+
+
+
 #define GEN_FRQ_HZ    14074000L               /*Generator Frequency (in Hz)*/
 #define FT8_BASE_HZ       1000L               /* FT8 base frequency (in Hz) */
 
@@ -296,8 +329,56 @@ void core1_entry()
     PioDCOWorker2(&DCO);
 }
 
+//*----------------------------------------------------------------------------*/
+//* Setup I/O for the ADX board controls (LED, switches and jumpers            */
+//*----------------------------------------------------------------------------*/
+void ADXsetup(){
 
+    gpio_init(RXSW);
+    gpio_set_dir(RXSW, GPIO_OUT);   
+    gpio_put(RXSW, 1); //Set RX mode
 
+    gpio_init(FT8);
+    gpio_set_dir(FT8, GPIO_OUT);   
+    gpio_put(FT8, 0); //Turn OFF FT8 LED
+ 
+    gpio_init(FT4);
+    gpio_set_dir(FT4, GPIO_OUT);   
+    gpio_put(FT4, 0); //Turn OFF FT4 LED
+
+    gpio_init(JS8);
+    gpio_set_dir(JS8, GPIO_OUT);
+    gpio_put(JS8, 0); //Turn OFF JS8 LED
+
+    gpio_init(WSPR);
+    gpio_set_dir(WSPR, GPIO_OUT);
+    gpio_put(WSPR, 0); //Turn OFF WSPR LED    
+
+    gpio_init(TX);
+    gpio_set_dir(TX, GPIO_OUT);
+    gpio_put(TX, 0); //Set RX mode (off)
+
+//*--- (Input switches)
+
+    gpio_init(TXSW);
+    gpio_set_dir(TXSW, GPIO_IN);
+
+    gpio_init(UP);
+    gpio_set_dir(UP, GPIO_IN);
+
+    gpio_init(DOWN);
+    gpio_set_dir(DOWN, GPIO_IN);    
+
+    gpio_init(SYNC);
+    gpio_set_dir(SYNC, GPIO_IN);
+    
+    gpio_init(BEACON);
+    gpio_set_dir(BEACON, GPIO_IN);
+
+    //*--- End of ADX control board initialization
+    cdc_printf("ADX I/O control board initialized\n");
+
+}
 
 //-----------------------------------------------------------------------+
 // MAIN  -------------------------------------------------------------+
@@ -332,6 +413,9 @@ int main(void)
   PioDCOInit(&DCO, RFOUT, PIOclkhz);
 
   tud_init(BOARD_TUD_RHPORT);
+  
+  cdc_printf("Core 1 started. DCO worker initializing...\n");
+  ADXsetup();
 
   //*##################################################################################################
   #ifdef REFACTOR
@@ -493,9 +577,9 @@ int main(void)
 
   int n=0;
   sprintf(hi,"loop(%d)\n",n);
-  while (1)
+  while (true)
   {
-    watchdog_update(); //watchdog
+    //watchdog_update(); //watchdog
 
     #ifdef REFACTOR
     int64_t diff_us = absolute_time_diff_us(t0, get_absolute_time());
@@ -518,22 +602,17 @@ int main(void)
 #ifdef REFACTOR
     cat(); // remote control (simulating Kenwood TS-2000) 
 #endif //REFACTOR
-//*##################################################################################################
 
-//*##################################################################################################
-#ifdef REFACTOR
+/*
     if (Tx_Start==0) {
         receiving();
     } else {
         transmitting();
     }
     
-    return 0;
-#endif //REFACTOR
-//*##################################################################################################
-
-    transmitting();
-
+    //return 0;
+*/    
+   transmitting();
   }
 }
 
@@ -599,27 +678,18 @@ void transmitting(){
       }
     }
 
-
-  //*##################################################################################################
-    #ifdef REFACTOR
-
+#ifdef REWORK
     if (Tx_Start == 0){
       cycle = 0;
       sampling = 0;
       mono_preprev = 0;
       mono_prev = 0;     
-
-      //*##################################################################################################
-      #ifdef REFACTOR
       receive();
-      #endif //REFACTOR
-      //*##################################################################################################
-
+  
       return;
     }
-    #endif //REFACTOR
-   //*##################################################################################################
-
+#endif //REWORK
+    
     //* Here the frequency is averaged every 10 mSecs and displayed
 
     if ((cycle > 0) && ((to_ms_since_boot(get_absolute_time()) - Tx_last_mod_time) > 10)){      //inhibit the frequency change faster than 20mS
@@ -635,10 +705,7 @@ void transmitting(){
       sprintf(hi,"Freq(%" PRIu64 ") Hz\n ",audio_freq);
       cdc_write(hi, (uint16_t)strlen(hi));
 
-
-      #ifdef REFACTOR
-         transmit(audio_freq);
-      #endif //REFACTOR
+      //transmit(audio_freq);
       
       cycle = 0;
       Tx_last_mod_time = to_ms_since_boot(get_absolute_time()); ;
@@ -650,7 +717,7 @@ void transmitting(){
     #endif //REFACTOR
 
   }
-#ifdef REWORK
+  #ifdef REWORK
   else {
   
     if ((to_ms_since_boot(get_absolute_time()) - Tx_last_time) > 100) {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receiving. 
@@ -658,16 +725,14 @@ void transmitting(){
       PioDCOSetFreq(&DCO, frqFT8, 0UL);
 
       Tx_Start = 0;
-       cycle = 0;
-       sampling = 0;
-       mono_preprev = 0;
-       mono_prev = 0;     
-       return;
+      cycle = 0;
+      sampling = 0;
+      mono_preprev = 0;
+      mono_prev = 0;     
+      return;
     }
-  }
+  } 
   #endif //REWORK
-  //*##################################################################################################
-
 
   audio_read_number = USB_Audio_read(monodata);
 }
@@ -702,11 +767,9 @@ void audio_data_write(int16_t left, int16_t right) {
 }
 //*------------------------
 void transmit(uint64_t freq){                                //freq in Hz
-  if (Tx_Status == 0 && freqcheck(RF_freq+3000)==0)
-  {
+
   uint64_t fx=freq;
   RF_freq = RF_freq + fx - fx;     //*Phony construct to avoid compilation errors
-
 
   //*##################################################################################################
 #ifdef REFACTOR
@@ -724,7 +787,7 @@ void transmit(uint64_t freq){                                //freq in Hz
 
 
     Tx_Status=1;
-
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
 
 
   
@@ -733,11 +796,11 @@ void transmit(uint64_t freq){                                //freq in Hz
     gpio_put(pin_RED, ONBOARD_LED_ON);
     gpio_put(pin_GREEN, ONBOARD_LED_OFF);
     adc_run(false);                         //stop ADC free running
+
+
+
 #endif //REFACTOR
 //*##################################################################################################
-
-  }
-
 
 //*##################################################################################################
 #ifdef REFACTOR 
@@ -763,7 +826,11 @@ void receive(){
 //*##################################################################################################
 
 
+  frqFT8=GEN_FRQ_HZ;
+  PioDCOStart(&DCO);
+  PioDCOSetFreq(&DCO, frqFT8, 0UL);
 
+  gpio_put(PICO_DEFAULT_LED_PIN, 0);
   Tx_Status=0;
 
 
