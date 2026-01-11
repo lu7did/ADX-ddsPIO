@@ -42,8 +42,8 @@ cmake_minimum_required(VERSION 3.5)
 include(/Users/PCOLLA/Documents/GitHub/pico/pico-sdk/lib/tinyusb/hw/bsp/family_support.cmake)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(PROJECT ADX-ddsPIO)
-set(TARGET ADX-ddsPIO)
+set(PROJECT testUSB3)
+set(TARGET testUSB3)
 
 cmake_minimum_required(VERSION 3.12)
 
@@ -63,70 +63,53 @@ project(${PROJECT})
 # Checks this example is valid for the family and initializes the project
 family_initialize_project(${PROJECT} ${CMAKE_CURRENT_LIST_DIR})
 
-#*--- problem with strnstr.h
-target_compile_definitions(ADX-ddsPIO PRIVATE HAVE_STRNSTR=1)
+# Make ws2812.pio.h headter file for Neopixel
+#pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/ws2812.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 
-# Sources to consider
+# Example source
 target_sources(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_descriptors.c
+        ${CMAKE_CURRENT_LIST_DIR}/src/piodco.c
+        ${CMAKE_CURRENT_LIST_DIR}/src/lib/assert.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_audio.c 
-      	${CMAKE_CURRENT_LIST_DIR}/src/lib/assert.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/piodco/piodco.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/gpstime/GPStime.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/debug/logutils.c
-        #${CMAKE_CURRENT_LIST_DIR}/src/ft8_lib/ft8/constants.c
-        #${CMAKE_CURRENT_LIST_DIR}/src/ft8_lib/ft8/text.c
-        #${CMAKE_CURRENT_LIST_DIR}/src/ft8_lib/ft8/pack.c
-        #${CMAKE_CURRENT_LIST_DIR}/src/ft8_lib/ft8/encode.c
-        #${CMAKE_CURRENT_LIST_DIR}/src/ft8_lib/ft8/crc.c
-        #${CMAKE_CURRENT_LIST_DIR}/src/ft8_lib/common/wave.c
         )
 
-add_compile_options(-Wall)
-add_compile_options(-Wno-error)
+# Example include
+#target_include_directories(${PROJECT} PUBLIC
+#         ${CMAKE_CURRENT_SOURCE_DIR}/src
+#         ${PICO_SDK_PATH}/lib/tinyusb/hw
+#        )
 
-
-target_include_directories(ADX-ddsPIO PRIVATE
+target_include_directories(testUSB3 PRIVATE
         ${PICO_SDK_PATH}/lib/tinyusb/hw
         ${PICO_SDK_PATH}/lib/tinyusb/src
         ${CMAKE_CURRENT_LIST_DIR}/src
-        ${CMAKE_CURRENT_LIST_DIR}
-        ${CMAKE_CURRENT_LIST_DIR}/gpstime
-        ${CMAKE_CURRENT_LIST_DIR}/hfconsole
-        ${CMAKE_CURRENT_LIST_DIR}/..
-
 )
 
 if (NOT EXISTS "${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/rp2040/board.h")
   message(FATAL_ERROR "No se encuentra ${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/rp2040/board.h")
 endif()
 
+
+
+
 target_link_libraries(${PROJECT} PUBLIC
-        pico_sync
-        pico_multicore
-        hardware_timer
-        hardware_clocks
-        hardware_pio
-        hardware_uart
-        hardware_rtc
         pico_stdlib
         tinyusb_device
         tinyusb_board
+        pico_multicore
         hardware_pio
         hardware_adc
         hardware_i2c
         )
+
+
 
 pico_add_extra_outputs(${PROJECT})
 
 # Configure compilation flags and libraries for the example... see the corresponding function
 # in hw/bsp/FAMILY/family.cmake for details.
 family_configure_device_example(${PROJECT} noos)
-
-# Disable USB for standard IO (use UART instead for console output)
-pico_enable_stdio_usb(${PROJECT} 0)
-pico_enable_stdio_uart(${PROJECT} 0)
-
 
 

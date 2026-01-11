@@ -68,16 +68,9 @@
 //  THE SOFTWARE.
 ///////////////////////////////////////////////////////////////////////////////
 #include "piodco.h"
-#include "hardware/pio.h"
 #include <string.h>
-#include "../lib/assert.h"
-#include "build/dco2.pio.h"
-
-
-#include "pico/stdlib.h"
-#include "hardware/pio.h"
-#include "hardware/clocks.h"
-
+#include "lib/assert.h"
+#include "../build/dco2.pio.h"
 
 volatile int32_t si32precise_cycles;
 
@@ -86,42 +79,30 @@ volatile int32_t si32precise_cycles;
 /// @param gpio The GPIO of DCO output.
 /// @param cpuclkhz The system CPU clock freq., Hz.
 /// @return 0 if OK.
-int PioDCOInit(PioDco *pdco, uint gpio, int cpuclkhz)
+int PioDCOInit(PioDco *pdco, int gpio, int cpuclkhz)
 {
     assert_(pdco);
     assert_(cpuclkhz);
 
     memset(pdco, 0, sizeof(PioDco));
 
-    //*fix* pdco->_clkfreq_hz = cpuclkhz;
-
-    if (cpuclkhz < 0)
-       return 0;   // o manejar error
     pdco->_clkfreq_hz = (uint32_t)cpuclkhz;
-
-    
-    pdco->_pio = pio0;   
+    pdco->_pio = pio0;
     pdco->_gpio = gpio;
-    pdco->_offset = (uint) pio_add_program(pdco->_pio, &dco_program);
-    //*fix* pdco->_ism = pio_claim_unused_sm(pdco->_pio, true);
-    int sm = pio_claim_unused_sm(pdco->_pio, true);
-    if (sm < 0) {
-       return -1;   // o manejar error apropiadamente
-    }
-    pdco->_ism = (uint)sm;
+    pdco->_offset = pio_add_program(pdco->_pio, &dco_program);
+    pdco->_ism = pio_claim_unused_sm(pdco->_pio, true);
 
+    gpio_init((uint32_t)pdco->_gpio);
+    pio_gpio_init(pdco->_pio, (uint32_t)pdco->_gpio);
 
-    gpio_init(pdco->_gpio);
-    pio_gpio_init(pdco->_pio, pdco->_gpio);
-
-    dco_program_init(pdco->_pio, pdco->_ism, pdco->_offset, pdco->_gpio);
-    pdco->_pio_sm = dco_program_get_default_config(pdco->_offset);
+    dco_program_init(pdco->_pio, (uint32_t)pdco->_ism, (uint32_t)pdco->_offset, (uint32_t)pdco->_gpio);
+    pdco->_pio_sm = dco_program_get_default_config((uint32_t)pdco->_offset);
 
     sm_config_set_out_shift(&pdco->_pio_sm, true, true, 32);           // Autopull.
     sm_config_set_fifo_join(&pdco->_pio_sm, PIO_FIFO_JOIN_TX);
-    sm_config_set_set_pins(&pdco->_pio_sm, pdco->_gpio, 1);
+    sm_config_set_set_pins(&pdco->_pio_sm, (uint32_t)pdco->_gpio, 1);
     
-    pio_sm_init(pdco->_pio, pdco->_ism, pdco->_offset, &pdco->_pio_sm);
+    pio_sm_init(pdco->_pio, (uint32_t)pdco->_ism, (uint32_t)pdco->_offset, &pdco->_pio_sm);
 
     return 0;
 }
@@ -143,9 +124,7 @@ int PioDCOSetFreq(PioDco *pdco, uint32_t ui32_frq_hz, int32_t ui32_frq_millihz)
     pdco->_frq_cycles_per_pi = (int32_t)(((int64_t)pdco->_clkfreq_hz * (int64_t)(1<<24) * 1000LL
                                          +(i64denominator>>1)) / i64denominator);
 
-    //*fix* si32precise_cycles = pdco->_frq_cycles_per_pi - (PIOASM_DELAY_CYCLES<<24);
-    si32precise_cycles = (int32_t)pdco->_frq_cycles_per_pi - (int32_t)(PIOASM_DELAY_CYCLES << 24);
-
+    si32precise_cycles = pdco->_frq_cycles_per_pi - (PIOASM_DELAY_CYCLES<<24);
 
     pdco->_ui32_frq_hz = ui32_frq_hz;
     pdco->_ui32_frq_millihz = ui32_frq_millihz;
@@ -177,12 +156,10 @@ int32_t PioDCOGetFreqShiftMilliHertz(const PioDco *pdco, uint64_t u64_desired_fr
     if(i64_last_correction)
     {
         //*fix* int64_t i64corr_coeff = (u64_desired_frq_millihz + 500000LL) / 1000000LL;
-        //uint64_t u64corr_coeff = (u64_desired_frq_millihz + 500000ULL) / 1000000ULL;
-        //i32ret_millis = (i64_last_correction * u64corr_coeff + 50000LL) / 1000000LL;
-
         int64_t i64corr_coeff = (int64_t)((u64_desired_frq_millihz + 500000ULL) / 1000000ULL);
-        i32ret_millis = (int32_t)((i64_last_correction * i64corr_coeff + 50000LL) / 1000000LL);
 
+        //*fix* i32ret_millis = (i64_last_correction * i64corr_coeff + 50000LL) / 1000000LL;
+        i32ret_millis = (int32_t)((i64_last_correction * i64corr_coeff + 50000LL) / 1000000LL);
 
 
         return i32ret_millis;
@@ -196,7 +173,7 @@ int32_t PioDCOGetFreqShiftMilliHertz(const PioDco *pdco, uint64_t u64_desired_fr
 void PioDCOStart(PioDco *pdco)
 {
     assert_(pdco);
-    pio_sm_set_enabled(pdco->_pio, pdco->_ism, true);
+    pio_sm_set_enabled(pdco->_pio, (uint32_t)pdco->_ism, true);
 
     pdco->_is_enabled = YES;
 }
@@ -206,7 +183,7 @@ void PioDCOStart(PioDco *pdco)
 void PioDCOStop(PioDco *pdco)
 {
     assert_(pdco);
-    pio_sm_set_enabled(pdco->_pio, pdco->_ism, false);
+    pio_sm_set_enabled(pdco->_pio, (uint32_t)pdco->_ism, false);
 
     pdco->_is_enabled = NO;
 }
@@ -218,33 +195,20 @@ void PioDCOStop(PioDco *pdco)
 void RAM (PioDCOWorker2)(PioDco *pDCO)
 {
     register PIO pio = pDCO->_pio;
-    register uint sm = pDCO->_ism;
+    register uint sm = (uint32_t)pDCO->_ism;
     register int32_t i32acc_error = 0;
     register uint32_t i32wc, i32reg;
     
 LOOP:
-    //*i32reg = si32precise_cycles;
-    if (si32precise_cycles < 0) {
-        i32reg = 0;   // o saturar, o error
-    } else {
-        i32reg = (uint32_t)si32precise_cycles;
-    }
+    //*fix* i32reg = si32precise_cycles;
+    i32reg = (uint32_t)si32precise_cycles;
 
-    //*fix* i32wc = (i32reg - i32acc_error) >> 24U;
-    int64_t tmp = (int64_t)i32reg - (int64_t)i32acc_error;
-
-    //*fix* i32wc = (int32_t)(tmp >> 24);     // shift signed
-    int64_t shifted = tmp >> 24;
-    uint32_t wc_u = (shifted < 0) ? 0u : (uint32_t)shifted;
-    i32wc = wc_u;
-
-
+    //*test* i32wc = (i32reg - i32acc_error) >> 24U;
+    i32wc = (uint32_t)(((int64_t)i32reg - (int64_t)i32acc_error) >> 24);
 
     pio_sm_put_blocking(pio, sm, i32wc);
-
     //*fix* i32acc_error += (i32wc << 24U) - i32reg;
-    i32acc_error +=
-    (int32_t)(((int64_t)i32wc << 24) - (int64_t)i32reg);
+    i32acc_error += (int32_t)(((int64_t)i32wc << 24) - (int64_t)i32reg);
 
     
     goto LOOP;
@@ -259,14 +223,14 @@ void RAM (PioDCOWorker)(PioDco *pDCO)
     assert_(pDCO);
 
     register PIO pio = pDCO->_pio;
-    register uint sm = pDCO->_ism;
+    register uint sm = (uint32_t)pDCO->_ism;
     register int32_t i32acc_error = 0;
     register uint32_t *preg32 = pDCO->_ui32_pioreg;
     register uint8_t *pu8reg = (uint8_t *)preg32;
 
     for(;;)
     {
-        //*fix* const register int32_t i32reg = si32precise_cycles;
+        //*fix*const register int32_t i32reg = si32precise_cycles;
         const int32_t i32reg = si32precise_cycles;
 
         /* RPix: Load the next precise value of CPU CLK cycles per DCO cycle,
@@ -286,17 +250,7 @@ void RAM (PioDCOWorker)(PioDco *pDCO)
             /* RPix: Set PIO array contents corrected by pio program delay
                of N CPU CLK cycles owing to pio asm instructions. */
             //*fix* pu8reg[i] = i32wc - PIOASM_DELAY_CYCLES;
-
-            int32_t v = i32wc - (int32_t)PIOASM_DELAY_CYCLES;
-            if (v < 0) {
-               pu8reg[i] = 0;
-            } else if (v > 255) {
-                       pu8reg[i] = 255;
-                    } else {
-                       pu8reg[i] = (uint8_t)v;
-            }
-
-
+            pu8reg[i] = (uint8_t)(i32wc - (int32_t)PIOASM_DELAY_CYCLES);
 
         }
 

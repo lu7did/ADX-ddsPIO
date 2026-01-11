@@ -6,7 +6,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
 //
-//  piodco.h - Digital controlled radio freq oscillator based on PIO.
+//  dco2.pio - Digital controlled radio freq oscillator based on PIO.
 // 
 //
 //  DESCRIPTION
@@ -67,60 +67,67 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 ///////////////////////////////////////////////////////////////////////////////
-#ifndef PIODCO_H_
-#define PIODCO_H_
+.program dco
 
-#include <stdbool.h>
-#include <stdint.h>
-#include "pico/stdlib.h"
-#include "hardware/pio.h"
+.wrap_target
+    out y, 32
+    mov x, y
+LOOP0:
+    jmp x-- LOOP0
+    set pins, 1
+    
+    mov x, y        [1]
+LOOP1:
+    jmp x-- LOOP1
+    set pins, 0
 
-#include "defines.h"
+    mov x, y        [1]
+LOOP2:
+    jmp x-- LOOP2
+    set pins, 1
 
-#include "../gpstime/GPStime.h"
+    mov x, y        [1]
+LOOP3:
+    jmp x-- LOOP3
+    set pins, 0
+.wrap
 
-enum PioDcoMode
+% c-sdk {
+
+#define PIOASM_DELAY_CYCLES 4
+
+static inline void dco_program_init(PIO pio, uint sm, uint offset, uint pin)
 {
-    eDCOMODE_IDLE = 0,          /* No output. */
-    eDCOMODE_GPS_COMPENSATED= 2 /* Internally compensated, if GPS available. */
-};
+    pio_sm_config c = dco_program_get_default_config(offset);
+   
+    sm_config_set_out_shift(&c, true, true, 32);           // Autopull.
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+    
+    sm_config_set_out_pins(&c, pin, 1);
+    pio_gpio_init(pio, pin);
 
-typedef struct
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+    
+    sm_config_set_clkdiv_int_frac(&c, 1u, 0u);
+
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+//
+static inline void dco_program_puts(PIO pio, uint sm, const uint32_t *s)
 {
-    enum PioDcoMode _mode;      /* Running mode. */
+    pio_sm_put_blocking(pio, sm, s[0]);
+    pio_sm_put_blocking(pio, sm, s[1]);
+    pio_sm_put_blocking(pio, sm, s[2]);
+    pio_sm_put_blocking(pio, sm, s[3]);
+    pio_sm_put_blocking(pio, sm, s[4]);
+    pio_sm_put_blocking(pio, sm, s[5]);
+    pio_sm_put_blocking(pio, sm, s[6]);
+    pio_sm_put_blocking(pio, sm, s[7]);
+}
 
-    PIO _pio;                   /* Worker PIO on this DCO. */
-    //*fix* int _gpio;          /* Pico' GPIO for DCO output. */
-    uint32_t _gpio;
-
-    pio_sm_config _pio_sm;      /* Worker PIO parameter. */
-    uint _ism;                   /* Index of state maschine. */
-    uint _offset;                /* Worker PIO u-program offset. */
-
-    int32_t _frq_cycles_per_pi; /* CPU CLK cycles per PI. */
-
-    uint32_t _ui32_pioreg[8];   /* Shift register to PIO. */
-
-    uint32_t _clkfreq_hz;       /* CPU CLK freq, Hz. */
-
-    GPStimeContext *_pGPStime;  /* Ptr to GPS time context. */
-
-    uint32_t _ui32_frq_hz;      /* Working freq, Hz. */
-    int32_t _ui32_frq_millihz;  /* Working freq additive shift, mHz. */
-    int _is_enabled;
-
-} PioDco;
-
-int PioDCOInit(PioDco *pdco, uint gpio, int cpuclkhz);
-int PioDCOSetFreq(PioDco *pdco, uint32_t u32_frq_hz, int32_t u32_frq_millihz);
-int32_t PioDCOGetFreqShiftMilliHertz(const PioDco *pdco, uint64_t u64_desired_frq_millihz);
-
-void PioDCOStart(PioDco *pdco);
-void PioDCOStop(PioDco *pdco);
-
-void PioDCOSetMode(PioDco *pdco, enum PioDcoMode emode);
-
-void RAM (PioDCOWorker)(PioDco *pDCO);
-void RAM (PioDCOWorker2)(PioDco *pDCO);
-
-#endif
+static inline void dco_program_puts1w(PIO pio, uint sm, const uint32_t val)
+{
+    pio_sm_put_blocking(pio, sm, val);
+}
+%}

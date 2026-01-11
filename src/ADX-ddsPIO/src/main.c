@@ -102,8 +102,12 @@
 //*============================================================================*/
 #include <stdint.h>
 #include "defines.h"
+
+#ifdef TEST
 #include "piodco/piodco.h"
 #include "./build/dco2.pio.h"
+#endif //TEST
+
 #include "hardware/vreg.h"
 #include "pico/multicore.h"
 #include "pico/stdio/driver.h"
@@ -147,7 +151,8 @@ int32_t adc_offset = 0;
 uint32_t Tx_last_mod_time;
 uint32_t Tx_last_time;
 uint32_t push_last_time;  // to detect the long puch for frequency change by push switch
-
+uint32_t rxblink;
+bool     rxLED;
 //*--- for determination of Audio signal frequency 
 
 int16_t mono_prev=0;  
@@ -172,7 +177,9 @@ char cdc_write_buf[64];
 //*============================================================================*/
 //*                          Memory area definitions                           */
 //*============================================================================*/
+#ifdef TEST
 PioDco DCO; /* External in order to access in both cores. */
+#endif //TEST
 
 //*--- Operating mode flags
 
@@ -479,8 +486,11 @@ void computeFSK(uint8_t index,
 void ManualTX() {
 
   bool TXSW_State = true;
+
+  #ifdef TEST
   PioDCOStart(&DCO);
   PioDCOSetFreq(&DCO, GEN_FRQ_HZ, 0UL);
+  #endif //TEST
 
   setTX(true);
   cdc_printf("Manual TX activated\n");
@@ -663,13 +673,18 @@ void checkButtons() {
 void setTX(bool state) {
 
     frqFT8=GEN_FRQ_HZ;
+
+    #ifdef TEST
     PioDCOStart(&DCO);
     PioDCOSetFreq(&DCO, frqFT8, 0UL);
+    #endif //TEST
 
     if (state) {
         prevfrq=0;
         gpio_put(RXSW, 0); //Set TX mode
         gpio_put(TX, 1);
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        rxblink=false;
         bTX = state;
         cdc_printf("Transmitter ON / Receiver OFF\n");
     } else {
@@ -680,7 +695,10 @@ void setTX(bool state) {
         mono_prev = 0; 
         gpio_put(RXSW, 1); //Set RX mode
         gpio_put(TX, 0);
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
         bTX = state;
+        rxblink=false;
+        rxLED=to_ms_since_boot(get_absolute_time());
         cdc_printf("Transmitter OFF / Receiver ON\n");
     }
 }   
@@ -711,10 +729,6 @@ int main(void)
   
   initBoard();
 
-  //*--- USB sub-system initialization
-
-  tud_init(BOARD_TUD_RHPORT);
-
   
   //*--- ADC hardware setup
   
@@ -729,11 +743,22 @@ int main(void)
   adc_fifo_setup(true,false,0,false,false);   // fifo
 
   //*--- Initialize DCO on core 1 ***/
+  #ifdef TEST
+  const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
+  assert_(0 == PioDCOInit(&DCO, RFOUT, clkhz));
+  #endif //TEST
+
   cdc_printf("Core 1 started. DCO worker initializing...\n");
+
+
 
   //*--- Initialize ADX control board */
   ADXsetup();
   cdc_printf("Initializing ADX control board...\n");
+
+  //*--- USB sub-system initialization
+
+  tud_init(BOARD_TUD_RHPORT);
 
 
   //*--- Sync time and define mode 
@@ -761,6 +786,7 @@ int main(void)
 //*--- Set bTX=false (RX mode)
   setTX(false);
 
+
 //*-------------------------------------------------------
   cdc_printf("launching DDS Generator...\n");
 
@@ -787,6 +813,13 @@ int main(void)
        transmitting();
     } else {
        receiving();
+
+       if(to_ms_since_boot(get_absolute_time())-rxLED>500) {
+          rxLED=to_ms_since_boot(get_absolute_time());
+          rxblink=!rxblink;
+          gpio_put(PICO_DEFAULT_LED_PIN, rxblink);
+
+       }
     }
  
   }
@@ -799,12 +832,14 @@ int main(void)
 void core1_entry()
 {
     _printf("Core 1: DCO worker started.\n");
-
+#ifdef TEST
     /* Run DCO. */
     PioDCOStart(&DCO);
 
     /* Run the main DCO algorithm. It spins forever. */
     PioDCOWorker2(&DCO);
+#endif //TEST
+    while (true) {}    
 }
 
 //*==============================================================================================*
@@ -902,8 +937,12 @@ void transmit(uint64_t freq){                                //freq in Hz
     }
 
      uint32_t f = frqFT8 + fx;
+     
+     #ifdef TEST
      PioDCOStart(&DCO);
      PioDCOSetFreq(&DCO, f, 0UL);
+     #endif //TEST
+
      cdc_printf("FSK(%lu) Hz f[%lu Hz]\n",fx, f); 
      prevfrq=fx;
   }
