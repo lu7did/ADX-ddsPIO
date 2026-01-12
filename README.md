@@ -100,6 +100,10 @@ are:
 * Receive and transmit digital audio data over a USB connection.
 * Is able to operate with weak mode signals.
 
+```
+This is a work in progress firmware, at this point the RX chain has not been implemented yet
+```
+
 
 ## Build environment
 
