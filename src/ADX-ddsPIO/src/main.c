@@ -699,7 +699,13 @@ int main(void)
   //*--- Start the USB service loop
 
   tud_init(BOARD_TUD_RHPORT);
+
   
+  //*--- Wireless library poll
+  #ifdef PICOW
+  cyw43_arch_poll(); 
+  #endif //PICOW
+
   //*--- Initialize the ADX board
 
   cdc_printf("Core 1 started. DCO worker initializing...\n");

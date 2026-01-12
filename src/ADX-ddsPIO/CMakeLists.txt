@@ -35,6 +35,7 @@ endif()
 
 set(CMAKE_C_COMPILER "/opt/homebrew/bin/arm-none-eabi-gcc")
 set(CMAKE_CXX_COMPILER "/opt/homebrew/bin/arm-none-eabi-gcc")
+option(PICOW "Support Raspberry Pi Pico Wireless" OFF)
 
 set(PICO_BOARD pico CACHE STRING "Board type")
 
@@ -113,7 +114,7 @@ endif()
 
 
 
-
+if (PICOW)
 target_link_libraries(${PROJECT} PUBLIC
         pico_stdlib
         tinyusb_device
@@ -122,12 +123,27 @@ target_link_libraries(${PROJECT} PUBLIC
         hardware_pio
         hardware_adc
         hardware_i2c
-#
-#        pico_cyw43_arch_lwip_threadsafe_background
+        #pico_cyw43_arch_lwip_threadsafe_background
+        pico_cyw43_arch_lwip_poll
         )
+endif() #PICOW
+
+if (NOT PICOW)
+target_link_libraries(${PROJECT} PUBLIC
+        pico_stdlib
+        tinyusb_device
+        tinyusb_board
+        pico_multicore
+        hardware_pio
+        hardware_adc
+        hardware_i2c
+        )
+endif()  #!PICOW
 
 #==============================[Específico para PicoW]=================================================
 # Para que lwIP encuentre lwipopts.h cuando compila lwIP (no solo tu app)
+if (PICOW)
+
 if (TARGET pico_lwip)
     target_include_directories(pico_lwip INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 endif()
@@ -139,6 +155,7 @@ endif()
 if (TARGET pico_lwip_freertos)
     target_include_directories(pico_lwip_freertos INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 endif()
+endif() #PICOW
 #==============================[Específico para PicoW]=================================================
 
 pico_add_extra_outputs(${PROJECT})
