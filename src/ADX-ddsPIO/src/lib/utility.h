@@ -65,9 +65,7 @@ inline uint32_t GetTime32(void)
 
 inline uint32_t PicoU64timeToSeconds(uint64_t u64tm)
 {
-    //*fix* return u64tm / 1000000U;    // No rounding deliberately!
-    return (uint32_t)(u64tm / 1000000U);
-
+    return (uint32_t)(u64tm / 1000000ULL);    // No rounding deliberately!
 }
 
 inline uint32_t DecimalStr2ToNumber(const char *p)

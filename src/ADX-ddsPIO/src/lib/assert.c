@@ -54,6 +54,7 @@ void assert_(bool val)
         return;
     }
 
+    #ifdef REFACTOR
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
@@ -64,14 +65,21 @@ void assert_(bool val)
         gpio_put(PICO_DEFAULT_LED_PIN, 0);
         sleep_ms(500);
     }
+    #endif //REFACTOR
+
 }
 
 void assert_checkpoint(bool val, int n_blink)
 {
+    int fake=n_blink;
+    if (fake) {
+        fake++;
+    }
     if(val)
     {
         return;
     }
+#ifdef REFACTOR
 
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
@@ -86,5 +94,7 @@ void assert_checkpoint(bool val, int n_blink)
             sleep_ms(50);
         }
         sleep_ms(1000);
-    }
+     }
+#endif //REFACTOR
+
 }

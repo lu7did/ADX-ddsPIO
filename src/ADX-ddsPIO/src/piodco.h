@@ -74,10 +74,7 @@
 #include <stdint.h>
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
-
 #include "defines.h"
-
-#include "../gpstime/GPStime.h"
 
 enum PioDcoMode
 {
@@ -85,17 +82,58 @@ enum PioDcoMode
     eDCOMODE_GPS_COMPENSATED= 2 /* Internally compensated, if GPS available. */
 };
 
+//*--- Phony includes to satisfy references after removal of GPS support
+enum
+{
+    eDtUpscale = 1000000,
+    eSlidingLen = 32,
+    eCLKperTimeMark = 1000000,
+    eMaxCLKdevPPM = 250
+};
+typedef struct
+{
+    uint8_t _u8_is_solution_active;             /* A navigation solution is valid. */
+    uint32_t _u32_utime_nmea_last;              /* The last unix time received from GPS. */
+    uint64_t _u64_sysclk_nmea_last;             /* The sysclk of the last unix time received. */
+    int64_t _i64_lat_100k, _i64_lon_100k;       /* The lat, lon, degrees, multiplied by 1e5. */
+    uint32_t _u32_nmea_gprmc_count;             /* The count of $GPRMC sentences received */
+
+    uint64_t _u64_sysclk_pps_last;              /* The sysclk of the last rising edge of PPS. */
+    uint64_t _u64_pps_period_1M;                /* The PPS avg. period *1e6, filtered. */
+
+    uint64_t _pu64_sliding_pps_tm[eSlidingLen]; /* A sliding window to store PPS periods. */
+    uint8_t _ix_last;                           /* An index of last write to sliding window. */
+
+    int64_t _i32_freq_shift_ppb;                /* Calcd frequency shift, parts per billion. */
+
+} GPStimeData;
+
+typedef struct
+{
+    int _uart_id;
+    int _uart_baudrate;
+    int _pps_gpio;
+
+    GPStimeData _time_data;
+
+    uint8_t _pbytebuff[256];
+    uint8_t _u8_ixw;
+    uint8_t _is_sentence_ready;
+    int32_t _i32_error_count;
+
+} GPStimeContext;
+//*--- End of phake inserts
+
 typedef struct
 {
     enum PioDcoMode _mode;      /* Running mode. */
 
     PIO _pio;                   /* Worker PIO on this DCO. */
-    //*fix* int _gpio;          /* Pico' GPIO for DCO output. */
-    uint32_t _gpio;
+    int _gpio;                  /* Pico' GPIO for DCO output. */
 
     pio_sm_config _pio_sm;      /* Worker PIO parameter. */
-    uint _ism;                   /* Index of state maschine. */
-    uint _offset;                /* Worker PIO u-program offset. */
+    int _ism;                   /* Index of state maschine. */
+    int _offset;                /* Worker PIO u-program offset. */
 
     int32_t _frq_cycles_per_pi; /* CPU CLK cycles per PI. */
 
@@ -111,7 +149,7 @@ typedef struct
 
 } PioDco;
 
-int PioDCOInit(PioDco *pdco, uint gpio, int cpuclkhz);
+int PioDCOInit(PioDco *pdco, int gpio, int cpuclkhz);
 int PioDCOSetFreq(PioDco *pdco, uint32_t u32_frq_hz, int32_t u32_frq_millihz);
 int32_t PioDCOGetFreqShiftMilliHertz(const PioDco *pdco, uint64_t u64_desired_frq_millihz);
 
