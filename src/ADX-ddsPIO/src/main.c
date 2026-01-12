@@ -49,6 +49,7 @@
  *
  *----------------------------------------------------------------------------
  *
+ * 
  * And, of course....
  * 
  * The WSJT-X authors, who developed a very interesting and novel communications protocol
@@ -74,6 +75,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
+/*------------------------------------------------------------------------------------------------*
+ |  IDENTIFICATION DIVISION.                                                                      |
+ |  (just a programmer's joke)                                                                    |
+ *------------------------------------------------------------------------------------------------*/
+#define PROGNAME "ADX-ddsPIO"
+#define AUTHOR "Dr. Pedro E. Colla (LU7DZ)"
+#define VERSION  "1.0"
+#define BUILD     "00"
 
 //*==============================================================================================*
 //*                                  Includes and Source Libraries                               *
@@ -124,6 +134,10 @@
 #define PLL_SYS_MHZ        270            // RP2040 System Clock (MHz)  
 #define GEN_FRQ_HZ    14074000L           // Generator Frequency (in Hz)
 #define FT8_BASE_HZ       1000L           // FT8 base frequency (in Hz) <Not used>
+
+#define SLOT                  3
+#define NBANDS                7
+#define NMODES                4
 
 
 #ifdef REMOVE
@@ -239,6 +253,10 @@ void transmitting(void);
 void receiving(void);
 void audio_data_write(int16_t,int16_t);
 void cat(void);
+void clearLED();
+void blinkLED(uint8_t _gpio, uint8_t n, uint ms);
+
+
 
 #ifdef REMOVE
 void transmit(uint64_t);
@@ -247,6 +265,289 @@ void freqChange(void);
 int freqcheck(uint64_t);
 #endif //REMOVE
 
+//*==============================================================================================*
+//*                                         BAND SELECT AND MANAGEMENT                           *
+//*==============================================================================================*
+// ADX can support up to 4 bands on board. Those 4 bands needs to be assigned to Band1 ... Band4
+// from supported 8 bands.
+// To change bands press UP and DOWN simultaneously. 
+// The Band LED will flash 3 times briefly and stay lit for the stored band. also TX LED will be lit to indicate
+// that Band select mode is active. Now change band bank by pressing SW1(<---) or SW2(--->). When
+// desired band bank is selected press TX button briefly to exit band select mode.
+// Now the new selected band bank will flash 3 times and then stored mode LED will be lit.
+// TX won't activate when changing bands so don't worry on pressing TX button when changing bands in
+// band mode.
+// Assign your prefered bands to B1,B2,B3 and B4
+// Supported Bands are: 80m, 40m, 30m, 20m,17m, 15m, 10m
+//*----------------------------------------------------------------------------------------------*
+int slot[4]   = {40,30,20,10};
+int Band_slot = SLOT;                  //This is the default band Band1=1,Band2=2,Band3=3,Band4=4
+int Band      =   20;                  //This is the default band
+int mode      =    4;                  //Default mode is FT8
+
+long unsigned int Bands[NBANDS][NMODES] = {
+                                          { 3568600, 3578000, 3575000, 3573000},
+                                          { 7038600, 7078000, 7047500, 7074000},
+                                          {10138700,10130000,10140000,10136000},
+                                          {14095600,14078000,14080000,14074000},
+                                          {18104600,18104000,18104000,18100000},
+                                          {21094600,21078000,21140000,21074000},
+                                          {28124600,28078000,28180000,28074000}};
+//*----------------------------------------------------------------------------------------------*
+/*----------------------------------------------------------------------------*/
+/* Convert slot to band                                                       */
+/*----------------------------------------------------------------------------*/
+int slot2Band(int s) {
+  if (s < 1 || s > 4) {
+    s = 4;
+  }
+  int b=slot[s-1];
+  cdc_printf("Slot(%d) --> Band(%d)\n", s, b);
+  return b;
+}
+/*----------------------------------------------------------------------------*/
+/* Convert band number to index                                               */
+/*----------------------------------------------------------------------------*/
+int band2idx(int b){
+
+int i=0;
+
+switch(b) {
+  case 80: i=0; break;
+  case 40: i=1; break;
+  case 30: i=2; break;
+  case 20: i=3; break;
+  case 17: i=4; break;
+  case 15: i=5; break;
+  case 10: i=6; break;
+
+  default:
+    i=6; break;
+}
+cdc_printf("band(%d) idx(%d)\n", b, i);
+return i;
+
+}
+/*----------------------------------------------------------------------------*/
+/* Assign band                                                                */
+/*----------------------------------------------------------------------------*/
+void Mode_assign() {
+
+  cdc_printf("Assigning mode(%d) for Band(%d)\n", mode, Band);
+  int b=band2idx(Band);
+  frqFT8=Bands[b][mode-1];
+  clearLED();
+  switch(mode) {
+     case 1: gpio_put(WSPR,true);break;
+     case 2: gpio_put(JS8,true);break;
+     case 3: gpio_put(FT4,true);break;
+     case 4: gpio_put(FT8,true);break;
+  }
+  cdc_printf("transceiver mode mode(%d) Band(%d) index(%d) freq(%ld)\n", mode, Band, b, frqFT8);
+
+}
+
+/*----------------------------------------------------------------------------*/
+/* Assign Band                                                                */
+/*----------------------------------------------------------------------------*/
+void Band_assign() {
+
+  clearLED();
+  Band=slot2Band(Band_slot);
+  switch(Band_slot) {
+     case 0: blinkLED(FT8,3,100); break;
+     case 1: blinkLED(FT4,3,100); break;
+     case 2: blinkLED(JS8,3,100); break;
+     case 3: blinkLED(WSPR,3,100); break;
+  }
+  Mode_assign();
+
+  cdc_printf("band_slot=%d mode=%d band=%d\n",Band_slot, mode, Band);
+}
+
+
+//*==============================================================================================*
+//*                          Services and board management functions                             *
+//*==============================================================================================*
+//*----------------------------------------------------------------------------*/
+//* Blink a LED a given number of times with a given interval to signal things */
+//*----------------------------------------------------------------------------*/
+void blinkLED(uint8_t _gpio, uint8_t n, uint ms)
+{
+    for (int i=0;n-1;i++) {
+        uint32_t t=to_ms_since_boot(get_absolute_time());
+        gpio_put(_gpio,1);
+        while ( (to_ms_since_boot(get_absolute_time())-t) < ms*1000) {}
+        t=to_ms_since_boot(get_absolute_time());
+        gpio_put(_gpio,0);
+        while ( (to_ms_since_boot(get_absolute_time())-t) < ms*1000) {}
+    }
+}
+/*----------------------------------------------------------------------------*/
+/* Clear all LEDS                                                             */
+/*----------------------------------------------------------------------------*/
+void clearLED() {
+  
+  gpio_put(FT8, 0);
+  gpio_put(FT4, 0);
+  gpio_put(JS8, 0);
+  gpio_put(WSPR, 0);
+  gpio_put(TX,0);
+  
+}
+/*----------------------------------------------------------------------------*/
+/* Test a single button                                                       */
+/*----------------------------------------------------------------------------*/
+bool testButton(uint _gpio) {
+
+    if (!gpio_get(_gpio)) {
+       uint32_t t=to_ms_since_boot(get_absolute_time());
+       while ( ( to_ms_since_boot(get_absolute_time()) -t) < 100);
+       if (!gpio_get(_gpio)) { 
+          return false;
+       }
+    }
+    return true;
+}
+/*----------------------------------------------------------------------------*/
+/* Control transmitter TX/RX status, TX LED and RX enable signals             */
+/*----------------------------------------------------------------------------*/
+void setTX(bool state) {
+      
+    if (state) {
+
+       uint32_t f = frqFT8;
+       PioDCOSetFreq(&DCO, f, 0U);
+       gpio_put(RXSW, 0); //Set TX mode
+       gpio_put(TX, 1);
+       gpio_put(PICO_DEFAULT_LED_PIN, 1);       
+
+      } else {
+
+        uint32_t f = frqFT8;
+        PioDCOSetFreq(&DCO, f, 0U);
+        cycle = 0;
+        sampling = 0;
+        mono_preprev = 0;
+        mono_prev = 0; 
+        gpio_put(RXSW, 1); //Set RX mode
+        gpio_put(TX, 0);
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    }
+}   
+
+/*----------------------------------------------------------------------------*/
+/* Place transmitter in TX manually if the button TX is pressed               */                                         
+/*----------------------------------------------------------------------------*/
+void ManualTX() {
+
+  if (testButton(TXSW)) return;
+  setTX(true);
+  cdc_printf("Manual TX activated\n");
+  while(!testButton(TXSW));
+  setTX(false);
+  cdc_printf("Manual TX deactivated\n");
+
+}
+/*----------------------------------------------------------------------------*/
+/* Change the band                                                            */                                         
+/*----------------------------------------------------------------------------*/
+void Band_Select() {
+
+
+  gpio_put(TX,true);
+  clearLED();
+  blinkLED(FT8,3,1000);
+
+  while (true){  
+ 
+  clearLED();
+  switch(Band_slot) {
+    case 1: gpio_put(FT8,true); break;
+    case 2: gpio_put(FT4,true); break;
+    case 3: gpio_put(JS8,true); break;
+    case 4: gpio_put(WSPR,true); break;
+  }
+  
+  if ((!testButton(UP)) && (testButton(DOWN))) {    //UP Button pressed, decrease band slot
+     Band_slot--;
+     if (Band_slot<1) {
+        Band_slot=4;
+     }
+     while(testButton(UP)==false);
+     cdc_printf("<UP> Band_slot=%d\n", Band_slot);
+  }
+
+  if ((testButton(UP)) && (!testButton(DOWN))) {    //DOWN Button pressed, increase
+     Band_slot++;
+     if (Band_slot>4) {
+        Band_slot=1;
+     }
+     while(testButton(DOWN)==false);
+     cdc_printf("<DOWN> Band_slot=%d\n", Band_slot);
+  }
+
+  if (!testButton(TXSW)) {
+     gpio_put(TX,false);
+     Band_assign();
+     cdc_printf("completed set Band_slot=%d\n", Band_slot);
+     return;
+  }
+}
+
+}
+
+/*----------------------------------------------------------------------------*/
+/* Check buttons                                                              */                                         
+/*----------------------------------------------------------------------------*/
+void checkButtons() {
+  /*------------------------------------------------
+     Explore and handle interactions with the user
+     thru the UP/DOWN or TX buttons
+  */
+  /*----
+     UP(Pressed) && DOWN(Pressed) && !Transmitting --> Start band selection mode
+  */
+
+  if ((!gpio_get(UP)) && (!gpio_get(DOWN)) && (Tx_Status==0)) {
+     if(!testButton(UP) && !testButton(DOWN)){
+       Band_Select();
+     }
+  }
+
+  /*----
+     UP(Pressed) && DOWN(!Pressed) and !Transmitting --> Increase mode in sequence
+  */
+
+  if (!gpio_get(UP) && gpio_get(DOWN) && Tx_Status == 0) {
+     if (!testButton(UP) && testButton(DOWN)){
+        mode=mode-1;
+        if (mode<1) mode=4;
+        Mode_assign();
+     }
+  }
+
+  /*----
+     UP(!Pressed) && DOWN(Pressed) && !Transmitting --> decrease mode in sequence
+  */
+  if (gpio_get(UP) && !gpio_get(DOWN) && Tx_Status == 0) {
+     if (testButton(UP) && !testButton(DOWN)){
+        mode=mode+1;
+        if (mode>4) mode=1;
+        Mode_assign();
+     }
+  }
+
+  /*----
+     If the TX button is pressed then activate the transmitter until the button is released
+  */
+  if (!gpio_get(TXSW) && Tx_Status == 0){
+     if (!testButton(TXSW)) {
+        ManualTX();
+     }
+  }
+
+}
 //*===============================================================================================*/
 //*                                                 CORE 1 PROCESSOR                              */
 //* This is the code dedicated in CORE1 to work out the DCO, deal with a precise real-time task   */                                                           */
@@ -431,6 +732,9 @@ int main(void)
     //*--- TUD (TinyUSB Dispatcher call)
     tud_task();        // TinyUSB device task
 
+    //*--- Check for buttons and other status changes 
+    checkButtons();
+
     //*--- CAT (using CDC, not implemented yet
     cat(); // remote control (simulating Kenwood TS-2000) 
 
@@ -532,8 +836,7 @@ void transmitting(){
     if ((to_ms_since_boot(get_absolute_time()) - Tx_last_time) >= 100 && Tx_Start==1)  {     // If USBaudio data is not received for more than 50 ms during transmission, the system moves to receiving. 
       cdc_printf("End of FT8 transmission\n");
       Tx_Start = 0;
-      gpio_put(PICO_DEFAULT_LED_PIN, 0);
-
+      setTX(false);
       //*--- Prepare for next cycle
 
       cycle = 0;
@@ -543,8 +846,11 @@ void transmitting(){
 
       //*--- Return the DCO frequency to the base in order to operate as a receiver
 
+      #ifdef REMOVE
       uint32_t fbfo = frqFT8 + 0U;
       PioDCOSetFreq(&DCO, fbfo, 0U);
+      #endif //REMOVE
+
       return;
     }
   } 
@@ -561,10 +867,16 @@ void receiving() {
   audio_read_number = USB_Audio_read(monodata); // read in the USB Audio buffer to check the transmitting
   if (audio_read_number != 0) 
   {
-    gpio_put(PICO_DEFAULT_LED_PIN, 1);
     cdc_printf("Start of FT8 transmission\n");
     Tx_last_time=to_ms_since_boot(get_absolute_time());
+
+    #ifdef REMOVE
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    #endif //REMOVE
+
     Tx_Start=1;
+    setTX(true);
+
     return;
   }
   
