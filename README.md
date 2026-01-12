@@ -128,6 +128,11 @@ by a Raspberry Pico board; the porting of the software was a great deal of a lea
 architecture being different from the ATMEGA382p and being more powerful, but also a substantially different build chain
 which in some cases is implementing partially some features. For migration purposed the Raspberry Pi Pico board was used.
 
+## Board support
+
+At his point the Raspberry Pi Pico (standard) is *supported*.
+
+The Raspberry Pi Pico W (wireless) is **not supported**.
 
 ## Circuit Design (version 0.x)
 

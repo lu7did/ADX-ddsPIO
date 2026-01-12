@@ -84,6 +84,14 @@
 #define AUTHOR "Dr. Pedro E. Colla (LU7DZ)"
 #define VERSION  "1.0"
 #define BUILD     "00"
+//*==============================================================================================*
+//*                                  Build environment                                           *
+//*==============================================================================================*
+#define  DEBUG   1
+#define  PICO    1
+
+//#define   PICOW    1 
+//#define   CAT    1    
 
 //*==============================================================================================*
 //*                                  Includes and Source Libraries                               *
@@ -110,6 +118,11 @@
 #include "pico/stdio/driver.h"
 #include "piodco.h"
 #include "../build/dco2.pio.h"
+
+
+#ifdef PICOW
+#include "pico/cyw43_arch.h"
+#endif //PICOW
 
 //*==============================================================================================*
 //*                             Macros and Structures                                            *
@@ -152,7 +165,11 @@ uint64_t Freq_table[N_FREQ]={FREQ_0,FREQ_1}; // Freq_table[N_FREQ]={FREQ_0,FREQ_
 //*                                  Hardware configuration                                      *
 //*==============================================================================================*
 
+#ifdef PICO
 #define PICO_DEFAULT_LED_PIN 25
+#endif //PICO
+
+
 #define pin_A0               26U          //pin for ADC (A0)
 #define pin_SW                3U          //pin for freq change switch (D10,input)
 #define RFOUT                18           //RF out pin
@@ -384,6 +401,20 @@ void blinkLED(uint8_t _gpio, uint8_t n, uint ms)
     }
 }
 /*----------------------------------------------------------------------------*/
+/* Manage differences on default led according with pico models               */
+/*----------------------------------------------------------------------------*/
+void defaultLED(bool v){
+
+#ifdef PICO
+    gpio_put(PICO_DEFAULT_LED_PIN, v);
+#endif //PICO
+
+#ifdef PICOW
+cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, v); 
+#endif //PICOW
+
+}
+/*----------------------------------------------------------------------------*/
 /* Clear all LEDS                                                             */
 /*----------------------------------------------------------------------------*/
 void clearLED() {
@@ -420,7 +451,7 @@ void setTX(bool state) {
        PioDCOSetFreq(&DCO, f, 0U);
        gpio_put(RXSW, 0); //Set TX mode
        gpio_put(TX, 1);
-       gpio_put(PICO_DEFAULT_LED_PIN, 1);       
+       defaultLED(true);
 
       } else {
 
@@ -432,7 +463,7 @@ void setTX(bool state) {
         mono_prev = 0; 
         gpio_put(RXSW, 1); //Set RX mode
         gpio_put(TX, 0);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        defaultLED(false);
     }
 }   
 
@@ -648,10 +679,16 @@ int main(void)
  
   //*--- define the DEFAULT (board) LED
 
+  #ifdef PICO
   gpio_init(PICO_DEFAULT_LED_PIN);
   gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-  gpio_put(PICO_DEFAULT_LED_PIN, 1);
+  #endif //PICO
 
+  #ifdef PICOW
+  cyw43_arch_init(); 
+  #endif //PICOW
+
+  defaultLED(true);
 
   //*--- Start the DCO
 
@@ -674,7 +711,7 @@ int main(void)
 
   //*--- Turn off the DEFAULT pin and launch the Core1 process
   
-  gpio_put(PICO_DEFAULT_LED_PIN, 0);
+  defaultLED(false);
   cdc_printf("launching DCO worker on core 1...\n");
   multicore_launch_core1(core1_entry);
   sleep_ms(500);
@@ -870,10 +907,6 @@ void receiving() {
     cdc_printf("Start of FT8 transmission\n");
     Tx_last_time=to_ms_since_boot(get_absolute_time());
 
-    #ifdef REMOVE
-    gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    #endif //REMOVE
-
     Tx_Start=1;
     setTX(true);
 
@@ -903,84 +936,13 @@ void audio_data_write(int16_t left, int16_t right) {
   pcCounter++;
 }
 
-
-
-//*##################################################################################################
-#ifdef REMOVE
-void transmit(uint64_t freq){                                //freq in Hz
-
-  uint64_t fx=freq;
-  RF_freq = RF_freq + fx - fx;     //*Phony construct to avoid compilation errors
-  //*##################################################################################################
-#ifdef REFACTOR
-    gpio_put(pin_RX, 0);   //RX off
-    gpio_put(pin_TX, 1);   //TX on
-    si5351_clock_enable(SI5351_CLK1, 0);   //RX osc. off
-  #ifdef Superheterodyne
-    si5351_clock_enable(SI5351_CLK2, 0);   //BFO osc. off
-  #endif
-    si5351_clock_enable(SI5351_CLK0, 1);   //TX osc. on
-
-#endif //REFACTOR
-//*##################################################################################################
-    Tx_Status=1;
-    //gpio_put(PICO_DEFAULT_LED_PIN, 1);
-
-//*##################################################################################################
-#ifdef REFACTOR
-    gpio_put(pin_RED, ONBOARD_LED_ON);
-    gpio_put(pin_GREEN, ONBOARD_LED_OFF);
-    adc_run(false);                         //stop ADC free running
-#endif //REFACTOR
-//*##################################################################################################
-
-//*##################################################################################################
-#ifdef REFACTOR 
-  si5351_set_freq((RF_freq + (freq)), SI5351_PLL_FIXED, SI5351_CLK0);
-  //RF_freq = RF_freq + freq - freq;
-#endif //REFACTOR
-//*##################################################################################################
-}
-#endif //REMOVE
-//*##################################################################################################
-
-
-//*##################################################################################################
-#ifdef REMOVE
-
 //*-----------------------   Integrate AD/C functions before removal --------------------------------
 void receive(){
-
-//*##################################################################################################
-#ifdef REFACTOR
-  gpio_put(pin_TX,0);  //TX off
-  gpio_put(pin_RX,1);  //RX on
-  si5351_clock_enable(SI5351_CLK0, 0);   //TX osc. off
-  si5351_clock_enable(SI5351_CLK1, 1);   //RX osc. on
-#ifdef Superheterodyne
-  si5351_clock_enable(SI5351_CLK2, 1);   //BFO osc. on
-#endif
-#endif //REFACTOR
-//*##################################################################################################
-
-#ifdef BUGHUNT
-  frqFT8=GEN_FRQ_HZ;
-  PioDCOStart(&DCO);
-  PioDCOSetFreq(&DCO, frqFT8, 0UL);
-  //gpio_put(PICO_DEFAULT_LED_PIN, 0);
-
-#endif //BUGHUNT
 
   Tx_Status=0;
 
 
-//*##################################################################################################
-#ifdef REFACTOR
-  gpio_put(pin_RED, ONBOARD_LED_OFF);
-  gpio_put(pin_GREEN, ONBOARD_LED_ON);
-#endif //REFACTOR
-//*##################################################################################################
-#ifdef CHASEBUG
+#ifdef PENDING
   // initialization of monodata[]
   for (int i = 0; i < (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4); i++) {
     monodata[i] = 0;
@@ -990,27 +952,13 @@ void receive(){
   pcCounter=0;
   adc_fifo_drain ();                     //initialization of adc fifo
   adc_run(true);                         //start ADC free running
-#endif //CHASEBUG
+#endif //PENDING
 
 }
-#endif //REMOVE
-
-
-
-#ifdef REMOVE
 
 //*-----------------------   Integrate AD/C functions before removal --------------------------------
-
+#ifdef REMOVAL
 void freqChange(){
-//*##################################################################################################
-#ifdef REFACTOR
-  if (gpio_get(pin_SW)==0 && push_last_time==0){
-    push_last_time = to_ms_since_boot(get_absolute_time());
-  }
-#endif //REFACTOR
-//*##################################################################################################
-
-
 
   if (gpio_get(pin_SW)==0 && (to_ms_since_boot(get_absolute_time()) - push_last_time) > 700){     //wait for 700ms long push
 
@@ -1021,40 +969,13 @@ void freqChange(){
     }
     RF_freq = Freq_table[C_freq];
 
-//*##################################################################################################
-#ifdef REFACTOR
-    si5351_set_freq((RF_freq-(uint64_t)BFO_freq), SI5351_PLL_FIXED, SI5351_CLK1);
-    put_pixel(urgb_u32(pixel_color[C_freq].data[0], pixel_color[C_freq].data[1], pixel_color[C_freq].data[2]));
-#endif //REFACTOR
-//*##################################################################################################
-
-
-
     adc_fifo_drain ();
     adc_offset = adc();
     push_last_time = 0;
   }
 
-//*##################################################################################################
-#ifdef REFACTOR
-  if (gpio_get(pin_SW)!=0){
-    push_last_time = 0;
-  }
-#endif //REFACTOR
-//*##################################################################################################
-
 }
-
-int32_t adc() {
-  int32_t adc = 0;
-  for (int i=0;i<24;i++){             // 192kHz/24 = 8kHz
-    adc += adc_fifo_get_blocking();   // read from ADC fifo
-  }  
-  return adc;
-}
-#endif //REMOVE
-//*##################################################################################################
-
+#endif //REMOVAL
 
 //*---------------------------------------------------------------------------------*/
 //*                        ADC Sub-System                                           */
@@ -1067,9 +988,6 @@ int32_t adc() {
   }  
   return adc;
 }
-
-
-
 //*---------------------------------------------------------------------------------*/
 //*                        CAT Sub-System                                           */
 //* Receives CAT commands over USB Serial emulation (CDC) and changes the           */
@@ -1278,61 +1196,3 @@ uint32_t cdc_read(void)
   }
 }
 #endif //CAT
-
-#ifdef REMOVAL
-int freqcheck(uint64_t frequency)  // retern 1=out-of-band, 0=in-band
-{
-  if (frequency < 135700) {
-    return 1;
-  }
-  else if (frequency > 135800 && frequency < 472000) {
-    return 1;
-  }
-  else if (frequency > 479000 && frequency < 1800000) {
-    return 1;
-  }
-  else if (frequency > 1875000 && frequency < 1907500) {
-    return 1;
-  }
-  else if (frequency > 1912500 && frequency < 3500000) {
-    return 1;
-  }
-  else if (frequency > 3580000 && frequency < 3662000) {
-    return 1;
-  }
-  else if (frequency > 3687000 && frequency < 3716000) {
-    return 1;
-  }
-  else if (frequency > 3770000 && frequency < 3791000) {
-    return 1;
-  }
-  else if (frequency > 3805000 && frequency < 7000000) {
-    return 1;
-  }
-  else if (frequency > 7200000 && frequency < 10100000) {
-    return 1;
-  }
-  else if (frequency > 10150000 && frequency < 14000000) {
-    return 1;
-  }
-  else if (frequency > 14350000 && frequency < 18068000) {
-    return 1;
-  }
-  else if (frequency > 18168000 && frequency < 21000000) {
-    return 1;
-  }
-  else if (frequency > 21450000 && frequency < 24890000) {
-    return 1;
-  }
-  else if (frequency > 24990000 && frequency < 28000000) {
-    return 1;
-  }
-  else if (frequency > 29700000 && frequency < 50000000) {
-    return 1;
-  }
-  else if (frequency > 54000000) {
-    return 1;
-  }
-  else return 0;
-}
-#endif //REMOVAL

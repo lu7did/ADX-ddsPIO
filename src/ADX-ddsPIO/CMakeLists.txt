@@ -47,8 +47,13 @@ set(TARGET ADX-ddsPIO)
 
 cmake_minimum_required(VERSION 3.12)
 
+#*---- Habilitado como recomendación para compilar picoW
 #include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 #pico_sdk_init()
+#*---- Habilitado para recomendación para compilar picoW
+
+
+
 include(${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/family_support.cmake)
 
 project(${PROJECT} C CXX ASM)
@@ -63,8 +68,22 @@ project(${PROJECT})
 # Checks this example is valid for the family and initializes the project
 family_initialize_project(${PROJECT} ${CMAKE_CURRENT_LIST_DIR})
 
-# Make ws2812.pio.h headter file for Neopixel
-#pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/ws2812.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
+target_compile_options(${PROJECT} PRIVATE
+    -Wall -Wextra
+    -Werror
+    -Wsign-conversion
+    -Wconversion
+)
+
+# No tratar warnings de lwIP como errores (terceros)
+if (TARGET pico_lwip)
+    target_compile_options(pico_lwip INTERFACE -Wno-error -Wno-sign-conversion -Wno-conversion)
+endif()
+if (TARGET pico_lwip_nosys)
+    target_compile_options(pico_lwip_nosys INTERFACE -Wno-error -Wno-sign-conversion -Wno-conversion)
+endif()
+
+
 
 # Example source
 target_sources(${PROJECT} PUBLIC
@@ -81,7 +100,8 @@ target_sources(${PROJECT} PUBLIC
 #         ${PICO_SDK_PATH}/lib/tinyusb/hw
 #        )
 
-target_include_directories(ADX-ddsPIO PRIVATE
+#target_include_directories(ADX-ddsPIO PRIVATE
+target_include_directories(ADX-ddsPIO PUBLIC
         ${PICO_SDK_PATH}/lib/tinyusb/hw
         ${PICO_SDK_PATH}/lib/tinyusb/src
         ${CMAKE_CURRENT_LIST_DIR}/src
@@ -102,9 +122,24 @@ target_link_libraries(${PROJECT} PUBLIC
         hardware_pio
         hardware_adc
         hardware_i2c
+#
+#        pico_cyw43_arch_lwip_threadsafe_background
         )
 
+#==============================[Específico para PicoW]=================================================
+# Para que lwIP encuentre lwipopts.h cuando compila lwIP (no solo tu app)
+if (TARGET pico_lwip)
+    target_include_directories(pico_lwip INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+endif()
 
+if (TARGET pico_lwip_nosys)
+    target_include_directories(pico_lwip_nosys INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+endif()
+
+if (TARGET pico_lwip_freertos)
+    target_include_directories(pico_lwip_freertos INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+endif()
+#==============================[Específico para PicoW]=================================================
 
 pico_add_extra_outputs(${PROJECT})
 
