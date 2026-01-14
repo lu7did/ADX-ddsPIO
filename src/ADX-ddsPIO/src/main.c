@@ -83,13 +83,13 @@
 #define PROGNAME "ADX-ddsPIO"
 #define AUTHOR "Dr. Pedro E. Colla (LU7DZ)"
 #define VERSION  "1.0"
-#define BUILD     "00"
+#define BUILD     "12"
 //*==============================================================================================*
 //*                                  Build environment                                           *
 //*==============================================================================================*
 #define  DEBUG   1
-#define  PICO    1
-
+#define RP2040Z  1
+//#define  PICO    1
 //#define   PICOW    1 
 //#define   CAT    1    
 
@@ -119,11 +119,11 @@
 #include "piodco.h"
 #include "../build/dco2.pio.h"
 
-
+/*
 #ifdef PICOW
 #include "pico/cyw43_arch.h"
 #endif //PICOW
-
+*/
 //*==============================================================================================*
 //*                             Macros and Structures                                            *
 //*==============================================================================================*
@@ -152,27 +152,24 @@
 #define NBANDS                7
 #define NMODES                4
 
-
-#ifdef REMOVE
-#define N_FREQ 2 // number of using RF frequencies with push switch　(<= 7)
-#define FREQ_0 7041000 // RF frequency in Hz
-#define FREQ_1 7074000 // in Hz
-uint64_t Freq_table[N_FREQ]={FREQ_0,FREQ_1}; // Freq_table[N_FREQ]={FREQ_0,FREQ_1, ...}
-#endif //REMOVE
-
-
 //*==============================================================================================*
 //*                                  Hardware configuration                                      *
 //*==============================================================================================*
 
-#ifdef PICO
+#ifndef PICOW
 #define PICO_DEFAULT_LED_PIN 25
-#endif //PICO
+#endif //!PICOW
 
 
 #define pin_A0               26U          //pin for ADC (A0)
 #define pin_SW                3U          //pin for freq change switch (D10,input)
-#define RFOUT                18           //RF out pin
+
+#ifdef RP2040Z
+#define RFOUT                14           //RF out pin
+#else
+#define RFOUT                18
+#endif //RP2040Z
+
 #define FSKpin               27           //Frequency counter algorithm, signal input PIN (not used yet)
 
 /*----
@@ -217,16 +214,8 @@ PioDco DCO; /* External in order to access in both cores. */
 //*--- for ADC offset at trecieving
 int32_t adc_offset = 0;   
 
-//*--- Transceiver
-#ifdef REMOVE
-uint64_t RF_freq;   // RF frequency (Hz)
-#endif //REMOVE
 
 uint64_t audio_freq_prev=0.0;
-
-#ifdef REMOVE
-int C_freq = 0;    // FREQ_x: Index of RF frequency. In this case, FREQ_0 is selected as the initial frequency.
-#endif //REMOVE
 
 int Tx_Status = 0; // 0=RX, 1=TX
 int Tx_Start = 0;  // 0=RX, 1=TX
@@ -253,12 +242,7 @@ int audio_read_number=0;
 char cdc_read_buf[64];
 char cdc_write_buf[64];
 
-#ifdef REMOVE
-bool blinkTx=false;
-static absolute_time_t t1;
-#endif //REMOVE
-
-
+bool fDummy=false;
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
 //*==============================================================================================*
@@ -371,14 +355,16 @@ void Band_assign() {
 
   clearLED();
   Band=slot2Band(Band_slot);
+  /*
   switch(Band_slot) {
      case 0: blinkLED(FT8,3,100); break;
      case 1: blinkLED(FT4,3,100); break;
      case 2: blinkLED(JS8,3,100); break;
      case 3: blinkLED(WSPR,3,100); break;
   }
+  */
+    
   Mode_assign();
-
   cdc_printf("band_slot=%d mode=%d band=%d\n",Band_slot, mode, Band);
 }
 
@@ -400,36 +386,47 @@ void blinkLED(uint8_t _gpio, uint8_t n, uint ms)
         while ( (to_ms_since_boot(get_absolute_time())-t) < ms*1000) {}
     }
 }
+
 /*----------------------------------------------------------------------------*/
 /* Manage differences on default led according with pico models               */
 /*----------------------------------------------------------------------------*/
 void defaultLED(bool v){
 
-#ifdef PICO
-    gpio_put(PICO_DEFAULT_LED_PIN, v);
-#endif //PICO
+ #if defined(PICO) || defined(RP2040Z) 
+  gpio_put(PICO_DEFAULT_LED_PIN, v);
+
+#else
 
 #ifdef PICOW
-cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, v); 
+//cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, v); 
+hi[0]=(uint8_t)v;
 #endif //PICOW
+
+#endif //RP2040Z || PICO
 
 }
 /*----------------------------------------------------------------------------*/
 /* Clear all LEDS                                                             */
 /*----------------------------------------------------------------------------*/
 void clearLED() {
-  
+
+  #ifndef RP2040Z
   gpio_put(FT8, 0);
   gpio_put(FT4, 0);
   gpio_put(JS8, 0);
   gpio_put(WSPR, 0);
   gpio_put(TX,0);
+  #endif //!RP2040Z
   
 }
 /*----------------------------------------------------------------------------*/
 /* Test a single button                                                       */
 /*----------------------------------------------------------------------------*/
 bool testButton(uint _gpio) {
+
+    #ifdef RP2040Z
+       return (bool)_gpio;
+    #else
 
     if (!gpio_get(_gpio)) {
        uint32_t t=to_ms_since_boot(get_absolute_time());
@@ -439,12 +436,14 @@ bool testButton(uint _gpio) {
        }
     }
     return true;
+    #endif //RP2040Z
 }
 /*----------------------------------------------------------------------------*/
 /* Control transmitter TX/RX status, TX LED and RX enable signals             */
 /*----------------------------------------------------------------------------*/
 void setTX(bool state) {
       
+
     if (state) {
 
        uint32_t f = frqFT8;
@@ -488,7 +487,7 @@ void Band_Select() {
 
   gpio_put(TX,true);
   clearLED();
-  blinkLED(FT8,3,1000);
+  //blinkLED(FT8,3,1000);
 
   while (true){  
  
@@ -532,6 +531,10 @@ void Band_Select() {
 /* Check buttons                                                              */                                         
 /*----------------------------------------------------------------------------*/
 void checkButtons() {
+
+  #ifdef RP2040Z
+     return;
+  #else   
   /*------------------------------------------------
      Explore and handle interactions with the user
      thru the UP/DOWN or TX buttons
@@ -542,6 +545,7 @@ void checkButtons() {
 
   if ((!gpio_get(UP)) && (!gpio_get(DOWN)) && (Tx_Status==0)) {
      if(!testButton(UP) && !testButton(DOWN)){
+       while(!testButton(UP) && !testButton(DOWN));
        Band_Select();
      }
   }
@@ -555,6 +559,7 @@ void checkButtons() {
         mode=mode-1;
         if (mode<1) mode=4;
         Mode_assign();
+        while(!testButton(UP));
      }
   }
 
@@ -566,6 +571,7 @@ void checkButtons() {
         mode=mode+1;
         if (mode>4) mode=1;
         Mode_assign();
+        while(!testButton(DOWN));
      }
   }
 
@@ -577,6 +583,7 @@ void checkButtons() {
         ManualTX();
      }
   }
+  #endif
 
 }
 //*===============================================================================================*/
@@ -679,16 +686,19 @@ int main(void)
  
   //*--- define the DEFAULT (board) LED
 
-  #ifdef PICO
+
+
+  #if defined(PICO) || defined(RP2040Z)
+
   gpio_init(PICO_DEFAULT_LED_PIN);
   gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-  #endif //PICO
-
-  #ifdef PICOW
-  cyw43_arch_init(); 
-  #endif //PICOW
-
   defaultLED(true);
+
+  #else
+
+  //cyw43_arch_init(); 
+
+  #endif //!PICOW
 
   //*--- Start the DCO
 
@@ -703,13 +713,21 @@ int main(void)
   
   //*--- Wireless library poll
   #ifdef PICOW
-  cyw43_arch_poll(); 
+  //cyw43_arch_poll(); 
   #endif //PICOW
 
   //*--- Initialize the ADX board
 
   cdc_printf("Core 1 started. DCO worker initializing...\n");
+
+  #ifdef PICO
   ADXsetup();
+  #endif //PICO
+
+  //*--- Sync time and define mode 
+  #ifdef PICO
+  Band_assign();
+  #endif //PICO
 
   //*--- GPIO setting for the ADC control (receiver) 
   gpio_init(pin_A0);
@@ -717,7 +735,10 @@ int main(void)
 
   //*--- Turn off the DEFAULT pin and launch the Core1 process
   
+  #if defined(PICO) || defined(RP2040Z)
   defaultLED(false);
+  #endif //PICO
+
   cdc_printf("launching DCO worker on core 1...\n");
   multicore_launch_core1(core1_entry);
   sleep_ms(500);
@@ -730,13 +751,8 @@ int main(void)
   adc_fifo_setup(true,false,0,false,false);   // fifo
   cdc_printf("ADC receiver system initialized\n");
 
-  #ifdef REMOVE
-  RF_freq = Freq_table[C_freq];
-  freqChange();
-  #endif //REMOVE
 
-
-//*--- USB Audio initialization (initialization of monodata[])
+  //*--- USB Audio initialization (initialization of monodata[])
   for (int i = 0; i < (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4); i++) {
     monodata[i] = 0;
   }
@@ -746,19 +762,6 @@ int main(void)
   sleep_ms(100);
   adc_fifo_drain ();
   adc_offset = adc();
-
-  #ifdef REMOVE
-  //watchdog_enable(delay_ms,pause_on_debug);
-  #endif //REMOVE
-
-
-  //cdc_printf("about to enter infinite loop \n");
-  //static absolute_time_t t0;
-  //bool blink=false;
-  //t0 = get_absolute_time();
-  #ifdef REMOVE
-  t1 = get_absolute_time();
-  #endif //REMOVE
 
   //*--- Get time for future synchronization
 
@@ -776,7 +779,9 @@ int main(void)
     tud_task();        // TinyUSB device task
 
     //*--- Check for buttons and other status changes 
+    #ifdef PICO
     checkButtons();
+    #endif //PICO
 
     //*--- CAT (using CDC, not implemented yet
     cat(); // remote control (simulating Kenwood TS-2000) 
