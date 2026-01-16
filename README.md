@@ -164,6 +164,22 @@ In order to develop the first stages of the firmware a reduced mockup has been u
 This reduced scope board contains just the processor and the push buttons. A small
 RF probe is feed into a wire for local "on the air" tests.
 
+### ADX-ddsPIO prototype
+
+To continue developing the board a first cut prototype board is built as shown in the
+figure
+![Alt Text](doc/RP2040Z_proto.jpeg?raw=true "ADX-ddsPIO Prototype")
+The building technique is to make connection with hand made wiring, the Raspberry Pi Pico
+board has been replaced with a rp2040 Zero board which is essentially the same but with
+a much smaller footprint. The main disadvantage of this board is that not all the GPIO
+pins are expossed, but still as the ADX-ddsPIO board uses just few GPIO lines it's quite
+adequate.
+```
+Just the transmitting part sans finals has been made as yet as the measurements associated
+with the firmware development requires large periods with the board in TX mode and there
+is no point on running finals for that.
+``` 
+
 ### testDDS utility
 
 This utility is a reduced firmware implementing the DDS using a fixed frequency given

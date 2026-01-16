@@ -157,7 +157,7 @@
 //*                                  Hardware configuration                                      *
 //*==============================================================================================*
 
-#ifndef PICOW
+#if defined(PICO) || defined(RP2040Z)
 #define PICO_DEFAULT_LED_PIN 25
 #endif //!PICOW
 
@@ -165,18 +165,14 @@
 #define pin_A0               26U          //pin for ADC (A0)
 #define pin_SW                3U          //pin for freq change switch (D10,input)
 
-#ifdef RP2040Z
 #define RFOUT                14           //RF out pin
-#else
-#define RFOUT                18
-#endif //RP2040Z
-
 #define FSKpin               27           //Frequency counter algorithm, signal input PIN (not used yet)
 
 /*----
    Output control lines
 */
 #define RXSW                  2  //RXSW Switch (RX/TX control)
+#define TXA                   9  //OE signal to driver
 
 /*---
    LED
@@ -188,11 +184,14 @@
 #define JS8                   6  //JS8 LED
 #define WSPR                  7  //WSPR LED
 
+#ifdef REMOVAL
 /*---
    Calibration signal
 */
 
 #define CAL                   9  //Calibration   
+#endif //REMOVAL
+
 /*---
    Switches
 */
@@ -257,15 +256,6 @@ void audio_data_write(int16_t,int16_t);
 void cat(void);
 void clearLED();
 void blinkLED(uint8_t _gpio, uint8_t n, uint ms);
-
-
-
-#ifdef REMOVE
-void transmit(uint64_t);
-void receive(void);
-void freqChange(void);
-int freqcheck(uint64_t);
-#endif //REMOVE
 
 //*==============================================================================================*
 //*                                         BAND SELECT AND MANAGEMENT                           *
@@ -356,7 +346,8 @@ void Band_assign() {
 
   clearLED();
   Band=slot2Band(Band_slot);
-  /*
+
+  /* DEBUG remove later to activate band change
   switch(Band_slot) {
      case 0: blinkLED(FT8,3,100); break;
      case 1: blinkLED(FT4,3,100); break;
@@ -398,10 +389,9 @@ void defaultLED(bool v){
 
 #else
 
-#ifdef PICOW
-//cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, v); 
+cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, v); 
 hi[0]=(uint8_t)v;
-#endif //PICOW
+
 
 #endif //RP2040Z || PICO
 
@@ -411,23 +401,17 @@ hi[0]=(uint8_t)v;
 /*----------------------------------------------------------------------------*/
 void clearLED() {
 
-  #ifndef RP2040Z
   gpio_put(FT8, 0);
   gpio_put(FT4, 0);
   gpio_put(JS8, 0);
   gpio_put(WSPR, 0);
-  gpio_put(TX,0);
-  #endif //!RP2040Z
+  gpio_put(TX,0);  
   
 }
 /*----------------------------------------------------------------------------*/
 /* Test a single button                                                       */
 /*----------------------------------------------------------------------------*/
 bool testButton(uint _gpio) {
-
-    #ifdef RP2040Z
-       return (bool)_gpio;
-    #else
 
     if (!gpio_get(_gpio)) {
        uint32_t t=to_ms_since_boot(get_absolute_time());
@@ -437,7 +421,7 @@ bool testButton(uint _gpio) {
        }
     }
     return true;
-    #endif //RP2040Z
+
 }
 /*----------------------------------------------------------------------------*/
 /* Control transmitter TX/RX status, TX LED and RX enable signals             */
@@ -451,6 +435,7 @@ void setTX(bool state) {
        PioDCOSetFreq(&DCO, f, 0U);
        gpio_put(RXSW, 0); //Set TX mode
        gpio_put(TX, 1);
+       gpio_put(TXA, 0);
        defaultLED(true);
 
       } else {
@@ -461,6 +446,7 @@ void setTX(bool state) {
         sampling = 0;
         mono_preprev = 0;
         mono_prev = 0; 
+        gpio_put(TXA, 1);
         gpio_put(RXSW, 1); //Set RX mode
         gpio_put(TX, 0);
         defaultLED(false);
@@ -488,7 +474,8 @@ void Band_Select() {
 
   gpio_put(TX,true);
   clearLED();
-  //blinkLED(FT8,3,1000);
+  
+  //blinkLED(FT8,3,1000);   //DEBUG LATER
 
   while (true){  
  
@@ -533,9 +520,6 @@ void Band_Select() {
 /*----------------------------------------------------------------------------*/
 void checkButtons() {
 
-  #ifdef RP2040Z
-     return;
-  #else   
   /*------------------------------------------------
      Explore and handle interactions with the user
      thru the UP/DOWN or TX buttons
@@ -584,7 +568,6 @@ void checkButtons() {
         ManualTX();
      }
   }
-  #endif
 
 }
 //*===============================================================================================*/
@@ -608,6 +591,7 @@ void core1_entry()
 //*==============================================================================================*
 //*                                  Board management                                            *
 //*==============================================================================================*
+
 //*----------------------------------------------------------------------------*/
 //* Setup I/O for the ADX board controls (LED, switches and jumpers            */
 //*----------------------------------------------------------------------------*/
@@ -636,6 +620,11 @@ void ADXsetup(){
     gpio_init(TX);
     gpio_set_dir(TX, GPIO_OUT);
     gpio_put(TX, 0); //Set RX mode (off)
+
+
+    gpio_init(TXA);
+    gpio_set_dir(TXA, GPIO_OUT);
+    gpio_put(TXA, 1); //Set RX mode (off)
 
 //*--- (Input switches)
 
@@ -687,8 +676,6 @@ int main(void)
  
   //*--- define the DEFAULT (board) LED
 
-
-
   #if defined(PICO) || defined(RP2040Z)
 
   gpio_init(PICO_DEFAULT_LED_PIN);
@@ -697,7 +684,7 @@ int main(void)
 
   #else
 
-  //cyw43_arch_init(); 
+  cyw43_arch_init(); 
 
   #endif //!PICOW
 
@@ -714,27 +701,30 @@ int main(void)
   
   //*--- Wireless library poll
   #ifdef PICOW
-  //cyw43_arch_poll(); 
+  cyw43_arch_poll(); 
   #endif //PICOW
 
   //*--- Initialize the ADX board
 
   cdc_printf("Core 1 started. DCO worker initializing...\n");
 
-  #ifdef PICO
+  #if defined(PICO) || defined(RP2040Z)
   ADXsetup();
   #endif //PICO
 
   //*--- Sync time and define mode 
-  #ifdef PICO
+  #if defined(PICO) || defined(RP2040Z)
   Band_assign();
-  #endif //PICO
+  #endif //PICO || RP2040Z
 
   //*--- GPIO setting for the ADC control (receiver) 
   gpio_init(pin_A0);
   gpio_set_dir(pin_A0, GPIO_IN); //ADC input pin
 
-  //*--- Turn off the DEFAULT pin and launch the Core1 process
+  //*--- Force TX to be off
+    gpio_put(TXA,1);
+  
+    //*--- Turn off the DEFAULT pin and launch the Core1 process
   
   #if defined(PICO) || defined(RP2040Z)
   defaultLED(false);
@@ -780,7 +770,7 @@ int main(void)
     tud_task();        // TinyUSB device task
 
     //*--- Check for buttons and other status changes 
-    #ifdef PICO
+    #if defined(PICO) || defined(RP2040Z)
     checkButtons();
     #endif //PICO
 
