@@ -120,11 +120,10 @@
 #include "piodco.h"
 #include "../build/dco2.pio.h"
 
-/*
 #ifdef PICOW
 #include "pico/cyw43_arch.h"
 #endif //PICOW
-*/
+
 //*==============================================================================================*
 //*                             Macros and Structures                                            *
 //*==============================================================================================*
@@ -184,14 +183,6 @@
 #define JS8                   6  //JS8 LED
 #define WSPR                  7  //WSPR LED
 
-#ifdef REMOVAL
-/*---
-   Calibration signal
-*/
-
-#define CAL                   9  //Calibration   
-#endif //REMOVAL
-
 /*---
    Switches
 */
@@ -242,7 +233,6 @@ int audio_read_number=0;
 char cdc_read_buf[64];
 char cdc_write_buf[64];
 
-bool fDummy=false;
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
 //*==============================================================================================*
@@ -347,20 +337,16 @@ void Band_assign() {
   clearLED();
   Band=slot2Band(Band_slot);
 
-  /* DEBUG remove later to activate band change
   switch(Band_slot) {
-     case 0: blinkLED(FT8,3,100); break;
-     case 1: blinkLED(FT4,3,100); break;
-     case 2: blinkLED(JS8,3,100); break;
-     case 3: blinkLED(WSPR,3,100); break;
+     case 0: blinkLED(WSPR,3,100); break;
+     case 1: blinkLED(JS8,3,100); break;
+     case 2: blinkLED(FT4,3,100); break;
+     case 3: blinkLED(FT8,3,100); break;
   }
-  */
     
   Mode_assign();
   cdc_printf("band_slot=%d mode=%d band=%d\n",Band_slot, mode, Band);
 }
-
-
 //*==============================================================================================*
 //*                          Services and board management functions                             *
 //*==============================================================================================*
@@ -369,30 +355,28 @@ void Band_assign() {
 //*----------------------------------------------------------------------------*/
 void blinkLED(uint8_t _gpio, uint8_t n, uint ms)
 {
-    for (int i=0;n-1;i++) {
+    for (int i=0;i<n;i++) {
         uint32_t t=to_ms_since_boot(get_absolute_time());
         gpio_put(_gpio,1);
-        while ( (to_ms_since_boot(get_absolute_time())-t) < ms*1000) {}
+
+        while ( (to_ms_since_boot(get_absolute_time())-t) < ms) {}
+        
         t=to_ms_since_boot(get_absolute_time());
         gpio_put(_gpio,0);
-        while ( (to_ms_since_boot(get_absolute_time())-t) < ms*1000) {}
+        
+        while ( (to_ms_since_boot(get_absolute_time())-t) < ms) {}
     }
 }
-
 /*----------------------------------------------------------------------------*/
 /* Manage differences on default led according with pico models               */
 /*----------------------------------------------------------------------------*/
 void defaultLED(bool v){
 
- #if defined(PICO) || defined(RP2040Z) 
-  gpio_put(PICO_DEFAULT_LED_PIN, v);
-
+#if defined(PICO) || defined(RP2040Z) 
+gpio_put(PICO_DEFAULT_LED_PIN, v);
 #else
-
 cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, v); 
 hi[0]=(uint8_t)v;
-
-
 #endif //RP2040Z || PICO
 
 }
@@ -459,10 +443,13 @@ void setTX(bool state) {
 void ManualTX() {
 
   if (testButton(TXSW)) return;
+
   setTX(true);
   cdc_printf("Manual TX activated\n");
+
   while(!testButton(TXSW));
   setTX(false);
+
   cdc_printf("Manual TX deactivated\n");
 
 }
@@ -475,16 +462,16 @@ void Band_Select() {
   gpio_put(TX,true);
   clearLED();
   
-  //blinkLED(FT8,3,1000);   //DEBUG LATER
+  blinkLED(FT8,3,1000);   
 
   while (true){  
  
-  clearLED();
-  switch(Band_slot) {
-    case 1: gpio_put(FT8,true); break;
-    case 2: gpio_put(FT4,true); break;
-    case 3: gpio_put(JS8,true); break;
-    case 4: gpio_put(WSPR,true); break;
+     clearLED();
+     switch(Band_slot) {
+       case 1: gpio_put(FT8,true); break;
+       case 2: gpio_put(FT4,true); break;
+       case 3: gpio_put(JS8,true); break;
+       case 4: gpio_put(WSPR,true); break;
   }
   
   if ((!testButton(UP)) && (testButton(DOWN))) {    //UP Button pressed, decrease band slot
@@ -722,7 +709,7 @@ int main(void)
   gpio_set_dir(pin_A0, GPIO_IN); //ADC input pin
 
   //*--- Force TX to be off
-    gpio_put(TXA,1);
+  gpio_put(TXA,1);
   
     //*--- Turn off the DEFAULT pin and launch the Core1 process
   
@@ -852,11 +839,6 @@ void transmitting(){
        
        cdc_printf("FSK(%" PRIu64 ") Hz\n ",audio_freq);
 
-       #ifdef REMOVE
-       sprintf(hi,"FSK(%" PRIu64 ") Hz\n ",audio_freq);
-       cdc_write(hi, (uint16_t)strlen(hi));
-       #endif //REMOVE
-
        //*--- and initialize next averaging cycle
 
        cycle = 0;
@@ -876,6 +858,7 @@ void transmitting(){
       cdc_printf("End of FT8 transmission\n");
       Tx_Start = 0;
       setTX(false);
+
       //*--- Prepare for next cycle
 
       cycle = 0;
@@ -884,11 +867,6 @@ void transmitting(){
       mono_prev = 0;     
 
       //*--- Return the DCO frequency to the base in order to operate as a receiver
-
-      #ifdef REMOVE
-      uint32_t fbfo = frqFT8 + 0U;
-      PioDCOSetFreq(&DCO, fbfo, 0U);
-      #endif //REMOVE
 
       return;
     }
@@ -945,6 +923,7 @@ void receive(){
 
 
 #ifdef PENDING
+
   // initialization of monodata[]
   for (int i = 0; i < (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4); i++) {
     monodata[i] = 0;
