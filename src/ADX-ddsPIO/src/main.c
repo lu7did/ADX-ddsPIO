@@ -89,6 +89,8 @@
 //*==============================================================================================*
 #define  DEBUG    1
 #define  RP2040Z  1
+#define  TEST     1
+//#define  RX       1
 
 //#define  PICO    1
 //#define   PICOW  1 
@@ -202,9 +204,8 @@ char hi[80];
 //*--- Control block of PIO running the DCO
 PioDco DCO; /* External in order to access in both cores. */
 
-//*--- for ADC offset at trecieving
+//*--- for ADC offset at transceiver
 int32_t adc_offset = 0;   
-
 
 uint64_t audio_freq_prev=0.0;
 
@@ -227,6 +228,7 @@ uint32_t cycle_frequency[136];
 int16_t monodata[CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4];
 int16_t adc_data[CFG_TUD_AUDIO_FUNC_1_EP_IN_SW_BUF_SZ / 2];
 int16_t pcCounter;
+
 int audio_read_number=0;
 
 //*--- for CDC buffering
@@ -239,7 +241,13 @@ char cdc_write_buf[64];
 void core1_entry(void);
 void cdc_write(char *, uint16_t);
 uint32_t cdc_read(void);
+
 int32_t adc(); 
+
+#ifdef RX
+void adc_drain();
+#endif //RX
+
 void transmitting(void);
 void receiving(void);
 void audio_data_write(int16_t,int16_t);
@@ -318,7 +326,13 @@ void Mode_assign() {
   cdc_printf("Assigning mode(%d) for Band(%d)\n", mode, Band);
   int b=band2idx(Band);
   frqFT8=Bands[b][mode-1];
+  
   clearLED();
+
+  #ifdef RX
+  adc_drain();
+  #endif //RX
+
   switch(mode) {
      case 1: gpio_put(WSPR,true);break;
      case 2: gpio_put(JS8,true);break;
@@ -419,7 +433,7 @@ void setTX(bool state) {
        PioDCOSetFreq(&DCO, f, 0U);
        gpio_put(RXSW, 0); //Set TX mode
        gpio_put(TX, 1);
-       gpio_put(TXA, 0);
+       gpio_put(TXA, 1);
        defaultLED(true);
 
       } else {
@@ -430,7 +444,7 @@ void setTX(bool state) {
         sampling = 0;
         mono_preprev = 0;
         mono_prev = 0; 
-        gpio_put(TXA, 1);
+        gpio_put(TXA, 0);
         gpio_put(RXSW, 1); //Set RX mode
         gpio_put(TX, 0);
         defaultLED(false);
@@ -606,12 +620,12 @@ void ADXsetup(){
 
     gpio_init(TX);
     gpio_set_dir(TX, GPIO_OUT);
-    gpio_put(TX, 0); //Set RX mode (off)
+    gpio_put(TX, 0); //Set TX mode (off)
 
 
     gpio_init(TXA);
     gpio_set_dir(TXA, GPIO_OUT);
-    gpio_put(TXA, 1); //Set RX mode (off)
+    gpio_put(TXA, 0); //Set TX mode (off)
 
 //*--- (Input switches)
 
@@ -709,7 +723,7 @@ int main(void)
   gpio_set_dir(pin_A0, GPIO_IN); //ADC input pin
 
   //*--- Force TX to be off
-  gpio_put(TXA,1);
+  gpio_put(TXA,0);
   
     //*--- Turn off the DEFAULT pin and launch the Core1 process
   
@@ -722,6 +736,8 @@ int main(void)
   sleep_ms(500);
   
   //*--- ADC (receiver) initialization
+  
+  pcCounter=0;
   adc_init();
   adc_select_input(0);                        // ADC input pin A0
   adc_run(true);                              // start ADC free running
@@ -892,14 +908,16 @@ void receiving() {
 
     return;
   }
-  
-  #ifdef PENDING
+
+  #ifdef TEST
   int16_t rx_adc = (int16_t)(adc() - adc_offset); //read ADC data (8kHz sampling)
+  
   // write the same 6 stereo data to PC for 48kHz sampling (up-sampling: 8kHz x 6 = 48 kHz)
   for (int i=0;i<6;i++){
     audio_data_write(rx_adc, rx_adc);
   }
-  #endif //PENDING
+  //cdc_printf("adc()=%d\n",rx_adc);
+  #endif //TEST
 
   return;
 
@@ -922,8 +940,7 @@ void receive(){
   Tx_Status=0;
 
 
-#ifdef PENDING
-
+#ifdef RX
   // initialization of monodata[]
   for (int i = 0; i < (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4); i++) {
     monodata[i] = 0;
@@ -933,30 +950,21 @@ void receive(){
   pcCounter=0;
   adc_fifo_drain ();                     //initialization of adc fifo
   adc_run(true);                         //start ADC free running
-#endif //PENDING
+
+#endif //RX
 
 }
 
 //*-----------------------   Integrate AD/C functions before removal --------------------------------
-#ifdef REMOVAL
-void freqChange(){
+#ifdef RX
+void adc_drain(){
 
-  if (gpio_get(pin_SW)==0 && (to_ms_since_boot(get_absolute_time()) - push_last_time) > 700){     //wait for 700ms long push
-
-
-    C_freq++;
-    if  (C_freq >= N_FREQ){
-      C_freq = 0;
-    }
-    RF_freq = Freq_table[C_freq];
-
-    adc_fifo_drain ();
-    adc_offset = adc();
-    push_last_time = 0;
-  }
+  adc_fifo_drain ();
+  adc_offset = adc();
+  push_last_time = 0;
 
 }
-#endif //REMOVAL
+#endif //RX
 
 //*---------------------------------------------------------------------------------*/
 //*                        ADC Sub-System                                           */
