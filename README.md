@@ -100,6 +100,17 @@ are:
 * Receive and transmit digital audio data over a USB connection.
 * Is able to operate with weak mode signals.
 
+The firmware is completed at this stage and able to sustain QSO as shown in the following picture
+where a contact is been made between the board (dubbed as LU2EIC) and my 20m digital FT8 station
+running as LU7DZ.
+![Alt Text](doc/ADX-ddsPIO_MaidenQSO.png?raw=true "ADX-ddsPIO Maiden QSO")
+Although the RF setup is close to trivial, just few meters distance, the activity has been held
+"over the air" and shows the firmware is able to properly encode and decode signals both at the
+audio and RF levels. My 20m station is composed of a QDX transceiver being run by a Raspberry Pi
+controller running a modified version of WSJT-Z whilst the testbed for the ADX-ddsPIO is my
+Mac running the MacOS version of WSJTX. For all practical purposes this is considered the 
+"maiden QSO" of the board and all goals for this level can be called as completed.
+
 ```
 This is a work in progress firmware, at this point the RX chain has not been implemented yet
 ```
@@ -156,6 +167,14 @@ The pinout assignment for this version is shown in the following table:
 ## Test resources
 
 The following test resources has been built
+
+### ADX-ddsPIO prototype
+
+To continue the development of the firmware adding the reception sub-systems an extended
+prototype including a receiver has been built.
+![Alt Text](doc/ADX-ddsPIO_prototype_rp2040Z.jpeg?raw=true "ADX-ddsPIO-prototype")
+This prototype contains the processor, the RF driver and the simple *CD2003GP* based
+DC receiver. A small RF probe is feed into a wire for local "on the air tests".
 
 ### ADX-ddsPIO mockup
 
