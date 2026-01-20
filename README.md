@@ -111,9 +111,6 @@ controller running a modified version of WSJT-Z whilst the testbed for the ADX-d
 Mac running the MacOS version of WSJTX. For all practical purposes this is considered the 
 "maiden QSO" of the board and all goals for this level can be called as completed.
 
-```
-This is a work in progress firmware, at this point the RX chain has not been implemented yet
-```
 
 
 ## Build environment
