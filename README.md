@@ -55,12 +55,16 @@ This project relies *heavily* on the superb work made by several authors:
   differences with the original code were quite large so the actual final code was refactored in the process.
   [link](https://github.com/lu7did/ADX-rp2040)
 
+* Hans Summers (G0UPL) developed the original QCX transceiver, which creates a whole
+  family of high performance, yet affordable,  homebrew transceivers.
+
+* Guido (PE1NNZ) who developed the original uSDX microcode for the Arduino which inspired
+  manyfold designs, specially the uSDX class transceivers, and opened the gate for a generation
+  of low cost at reasonable performance ham radio equipment.
+ 
 With enough luck and cooperation this project might turn into a system which
 includes the different components in order to be reproduced, lots of work needs
 to occur for this to happen.
-
-The project it is in the very preliminary stages, no firm designs nor firmware
-is yet available.
 
 73 de Pedro (LU7DZ/LT7D)
 
@@ -86,7 +90,6 @@ If anybody has questions or issues please:
 
 Please report ONE (1) issue per entry, and proceed as clean as possible with the debug instructions given to you to further understand or to fix the problem. 
 I’ll address your issue as soon as my available time allows, not necessarily in a FIFO way.
-
 
 
 # ADX-ddsPIO Firmware (Version 1.0) 

@@ -1,7 +1,0 @@
-/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/build/_deps/picotool/picotool
-/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/build/_deps/picotool/picotoolTargets.cmake
-/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/build/_deps/picotool/picotoolTargets-release.cmake
-/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/build/_deps/picotool/picotoolConfig.cmake
-/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/build/_deps/picotool/picotoolConfigVersion.cmake
-/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/build/_deps/picotool/enc_bootloader.elf
-/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/build/_deps/picotool/enc_bootloader_mbedtls.elf
