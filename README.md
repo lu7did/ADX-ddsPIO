@@ -115,6 +115,18 @@ Mac running the MacOS version of WSJTX. For all practical purposes this is consi
 "maiden QSO" of the board and all goals for this level can be called as completed.
 
 
+# ADX-ddsPIO Firmware (Version 1.1)
+
+```
+Work in progress
+```
+
+Features
+
+* Permanent settings (EEPROM emulation).
+* CAT control (TS2000 emulation).
+* Superhet ADX-S support.
+
 
 ## Build environment
 
