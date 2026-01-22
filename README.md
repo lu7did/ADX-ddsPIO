@@ -99,6 +99,10 @@ The overall program architecture can be seen in the following activity graph
 ![Alt Text](doc/ADX-ddsPIO_activity.png?raw=true "ADX-ddsPIO Architecture")
 
 
+The main Transmit-Receive cycle loop can be seen in the following activity graph
+![Alt Text](doc/ADX-ddsPIO_TRX_activity.png?raw=true "ADX-ddsPIO TRX cycle")
+
+
 ## ADX-ddsPIO Firmware (Version 1.0) 
 
 This is the first version of the firmware, the main functions implemented
