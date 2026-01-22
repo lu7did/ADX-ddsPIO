@@ -93,6 +93,8 @@ target_sources(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/src/piodco.c
         ${CMAKE_CURRENT_LIST_DIR}/src/lib/assert.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_audio.c 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/EEPROM.c 
+
         )
 
 # Example include
@@ -123,6 +125,8 @@ target_link_libraries(${PROJECT} PUBLIC
         hardware_pio
         hardware_adc
         hardware_i2c
+        hardware_flash 
+        hardware_sync
         #pico_cyw43_arch_lwip_threadsafe_background
         pico_cyw43_arch_lwip_poll
         )
@@ -136,6 +140,8 @@ target_link_libraries(${PROJECT} PUBLIC
         pico_multicore
         hardware_pio
         hardware_adc
+        hardware_flash 
+        hardware_sync
         hardware_i2c
         )
 endif()  #!PICOW

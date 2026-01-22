@@ -125,10 +125,15 @@
 //*==============================================================================================*
 #define  DEBUG    1
 #define  RP2040Z  1
-
 //#define  PICO    1
 //#define   PICOW  1 
-//#define   CAT    1    
+
+
+//*==============================================================================================*
+//*                                Configuration definitions                                     *
+//*==============================================================================================*
+#define EEPROM    1   
+//#define CAT       1    
 
 //*==============================================================================================*
 //*                                  Includes and Source Libraries                               *
@@ -155,6 +160,7 @@
 #include "pico/stdio/driver.h"
 #include "piodco.h"
 #include "../build/dco2.pio.h"
+#include "EEPROM.h"
 
 #ifdef PICOW
 #include "pico/cyw43_arch.h"
@@ -234,6 +240,7 @@
 //*==============================================================================================*
 uint32_t frqFT8  = GEN_FRQ_HZ;
 char hi[80];
+uint8_t marker=0;
 
 //*--- Control block of PIO running the DCO
 PioDco DCO; /* External in order to access in both cores. */
@@ -316,6 +323,28 @@ long unsigned int Bands[NBANDS][NMODES] = {
                                           {21094600,21078000,21140000,21074000},
                                           {28124600,28078000,28180000,28074000}};
 //*----------------------------------------------------------------------------------------------*
+#ifdef EEPROM
+/*----------------------------------------------------------------------------*/
+/* updateEEPROM                                                               */
+/*----------------------------------------------------------------------------*/
+void updateEEPROM() {
+
+  EEPROMData eeprom;
+  EEPROM_read(&eeprom);
+
+  cdc_printf("Configuration      mode(%d) band(%d)\n",mode,Band_slot);
+  cdc_printf("Read EEPROM ID(%d) mode(%d) band(%d)\n",eeprom.ID,eeprom.mode,eeprom.Band_slot);
+
+  //*--- Update configuration datadata
+  eeprom.ID = 0x01;
+  eeprom.mode = (uint8_t)mode;
+  eeprom.Band_slot = (uint8_t)Band_slot;
+
+  cdc_printf("Write EEPROM ID(%d) mode(%d) band(%d)\n",eeprom.ID,eeprom.mode,eeprom.Band_slot);
+  EEPROM_write(&eeprom);
+
+}
+#endif //EEPROM
 /*----------------------------------------------------------------------------*/
 /* Convert slot to band                                                       */
 /*----------------------------------------------------------------------------*/
@@ -369,6 +398,20 @@ void Mode_assign() {
      case 3: gpio_put(FT4,true);break;
      case 4: gpio_put(FT8,true);break;
   }
+
+#ifdef EEPROM
+  
+  EEPROMData eeprom;
+  EEPROM_read(&eeprom);
+  if (eeprom.ID == 0x01) {
+     eeprom.mode = (uint8_t)mode;
+     eeprom.Band_slot = (uint8_t)Band_slot;
+     EEPROM_write(&eeprom);
+     cdc_printf("Updated EEPROM mode(%d) slot(%d)\n",mode,Band_slot);
+  } 
+
+#endif //EEPROM
+
   cdc_printf("transceiver mode mode(%d) Band(%d) index(%d) freq(%ld)\n", mode, Band, b, frqFT8);
 
 }
@@ -673,6 +716,27 @@ void ADXsetup(){
     
     gpio_init(BEACON);
     gpio_set_dir(BEACON, GPIO_IN);
+
+
+    #ifdef EEPROM
+    
+    //*--- update EEPROM if not initialized yet
+    EEPROMData eeprom;
+    EEPROM_read(&eeprom);
+
+    if (eeprom.ID != 0x01) {
+       eeprom.ID = 0x01;
+       eeprom.mode = (uint8_t)mode;
+       eeprom.Band_slot = (uint8_t)Band_slot;
+       EEPROM_write(&eeprom);
+       marker=1;
+       sleep_ms(10);
+    } else {
+       mode=eeprom.mode;
+       Band_slot=eeprom.Band_slot;
+    }
+        
+    #endif //EEPROM
 
     //*--- End of ADX control board initialization
     cdc_printf("ADX I/O control board initialized\n");
