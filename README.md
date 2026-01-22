@@ -91,8 +91,15 @@ If anybody has questions or issues please:
 Please report ONE (1) issue per entry, and proceed as clean as possible with the debug instructions given to you to further understand or to fix the problem. 
 I’ll address your issue as soon as my available time allows, not necessarily in a FIFO way.
 
+# ADX-ddsPIO Firmware
 
-# ADX-ddsPIO Firmware (Version 1.0) 
+## Architecture
+
+The overall program architecture can be seen in the following activity graph
+![Alt Text](doc/ADX-ddsPIO_activity.png?raw=true "ADX-ddsPIO Architecture")
+
+
+## ADX-ddsPIO Firmware (Version 1.0) 
 
 This is the first version of the firmware, the main functions implemented
 are:
@@ -115,7 +122,7 @@ Mac running the MacOS version of WSJTX. For all practical purposes this is consi
 "maiden QSO" of the board and all goals for this level can be called as completed.
 
 
-# ADX-ddsPIO Firmware (Version 1.1)
+## ADX-ddsPIO Firmware (Version 1.1)
 
 ```
 Work in progress
