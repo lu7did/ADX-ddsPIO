@@ -121,8 +121,6 @@ bool upButton, downButton, txButton, syncButton;
 bool prevUpButton = true, prevDownButton = true, prevTxButton = true, prevSyncButton = true;
 
 /*---- Define RTC structure but do not expect a RTC to be present */
-
-
 datetime_t tcpu = {
     .year  = 2026,
     .month = 01,

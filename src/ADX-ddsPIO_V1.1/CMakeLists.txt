@@ -125,6 +125,7 @@ target_link_libraries(${PROJECT} PUBLIC
         hardware_pio
         hardware_adc
         hardware_i2c
+        hardware_rtc
         hardware_flash 
         hardware_sync
         #pico_cyw43_arch_lwip_threadsafe_background
@@ -140,6 +141,7 @@ target_link_libraries(${PROJECT} PUBLIC
         pico_multicore
         hardware_pio
         hardware_adc
+        hardware_rtc
         hardware_flash 
         hardware_sync
         hardware_i2c

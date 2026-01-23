@@ -22,6 +22,7 @@
  * - EEPROM support (save configuration)
  * - Superhet (ADX-S) board support
  * - CAT support (TS 2000 emulation)
+ * - Multiple Clock DCO (finger crosses)
  *----------------------------------------------------------------------------
  *----------------------------------------------------------------------------
  *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
@@ -120,10 +121,11 @@
 #define AUTHOR "Dr. Pedro E. Colla (LU7DZ)"
 #define VERSION  "1.1"
 #define BUILD     "00"
+
+#define BOOL2CHAR(x)  (x==true ? "True" : "False")
 //*==============================================================================================*
 //*                                  Build environment                                           *
 //*==============================================================================================*
-#define  DEBUG    1
 #define  RP2040Z  1
 //#define  PICO    1
 //#define   PICOW  1 
@@ -132,8 +134,17 @@
 //*==============================================================================================*
 //*                                Configuration definitions                                     *
 //*==============================================================================================*
-#define EEPROM    1   
-//#define CAT       1    
+#define  DEBUG     1
+#define  EEPROM    1   
+#define  CAT       1    
+#define  BOOTSYNC  1
+
+//*==============================================================================================*
+//*                                Configuration consistency rules                               *
+//*==============================================================================================*
+#ifdef CAT                      //If CAT enabled USB can not be used to debug
+#undef DEBUG
+#endif  
 
 //*==============================================================================================*
 //*                                  Includes and Source Libraries                               *
@@ -160,7 +171,13 @@
 #include "pico/stdio/driver.h"
 #include "piodco.h"
 #include "../build/dco2.pio.h"
+#include "hardware/rtc.h"
+#include "pico/util/datetime.h"
+
+
+#ifdef EEPROM
 #include "EEPROM.h"
+#endif //EEPROM
 
 #ifdef PICOW
 #include "pico/cyw43_arch.h"
@@ -169,6 +186,7 @@
 //*==============================================================================================*
 //*                             Macros and Structures                                            *
 //*==============================================================================================*
+#ifdef DEBUG
 #define cdc_printf(fmt, ...)                           \
     do {                                                \
         int _cdc_len = snprintf(hi,               \
@@ -181,12 +199,16 @@
             tud_cdc_write_flush();                \
         }                                               \
     } while (0)
+#else  //!DEBUG
+#define cdc_printf(...) (void)0
+#endif //DEBUG    
 
 //*==============================================================================================*
 //*                             Constants and parameters                                         *
 //*==============================================================================================*
 #define AUDIOSAMPLING    48000            // USB Audio sampling frequency (fixed)
 #define PLL_SYS_MHZ        270            // RP2040 System Clock (MHz)  
+#define PLL_SYS_MHZ_PLUS   290            // RP2040 System Clock (MHz) --OVERCLOCK--
 #define GEN_FRQ_HZ    14074000L           // Generator Frequency (in Hz)
 #define FT8_BASE_HZ       1000L           // FT8 base frequency (in Hz) <Not used>
 
@@ -275,6 +297,18 @@ int audio_read_number=0;
 //*--- for CDC buffering
 char cdc_read_buf[64];
 char cdc_write_buf[64];
+
+/*---- Define RTC structure but do not expect a RTC to be present */
+
+datetime_t tcpu = {
+    .year  = 2026,
+    .month = 01,
+    .day   = 01,
+    .dotw  = 4,  // 0 is Sunday, so 4 is Thursday
+    .hour  = 0,
+    .min   = 00,
+    .sec   = 00
+};
 
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
@@ -597,42 +631,50 @@ void checkButtons() {
   /*------------------------------------------------
      Explore and handle interactions with the user
      thru the UP/DOWN or TX buttons
-  */
+     Only TX button is operational if CAT is active
+   -------------------------------------------------*/
+
   /*----
      UP(Pressed) && DOWN(Pressed) && !Transmitting --> Start band selection mode
   */
-
+#ifndef CAT
   if ((!gpio_get(UP)) && (!gpio_get(DOWN)) && (Tx_Status==0)) {
      if(!testButton(UP) && !testButton(DOWN)){
        while(!testButton(UP) && !testButton(DOWN));
        Band_Select();
      }
   }
+#endif //!CAT  
 
   /*----
      UP(Pressed) && DOWN(!Pressed) and !Transmitting --> Increase mode in sequence
   */
-
+  #ifndef CAT
   if (!gpio_get(UP) && gpio_get(DOWN) && Tx_Status == 0) {
      if (!testButton(UP) && testButton(DOWN)){
         mode=mode-1;
         if (mode<1) mode=4;
         Mode_assign();
         while(!testButton(UP));
+        PioDCOSetFreq(&DCO,frqFT8,0U);
      }
   }
+  #endif //!CAT
 
   /*----
      UP(!Pressed) && DOWN(Pressed) && !Transmitting --> decrease mode in sequence
   */
+  #ifndef CAT
   if (gpio_get(UP) && !gpio_get(DOWN) && Tx_Status == 0) {
      if (testButton(UP) && !testButton(DOWN)){
         mode=mode+1;
         if (mode>4) mode=1;
         Mode_assign();
         while(!testButton(DOWN));
+        PioDCOSetFreq(&DCO,frqFT8,0U);
      }
   }
+  #endif //!CAT
 
   /*----
      If the TX button is pressed then activate the transmitter until the button is released
@@ -759,6 +801,7 @@ int main(void)
 
   stdio_init_all();
 
+ 
   //*--- Overclock the board a little
 
   const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
@@ -769,6 +812,14 @@ int main(void)
   stdio_init_all();
   sleep_ms(500);
  
+  #ifdef BOOTSYNC
+
+  //*----------- Setup RTC, this is only used to sync seconds   ---------------*
+  rtc_init();
+  rtc_set_datetime(&tcpu);
+  
+  #endif //BOOTSYNC
+
   //*--- define the DEFAULT (board) LED
 
   #if defined(PICO) || defined(RP2040Z)
@@ -783,6 +834,11 @@ int main(void)
 
   #endif //!PICOW
 
+  #if defined(PICO) || defined(RP2040Z)
+  ADXsetup();
+  #endif //PICO
+
+
   //*--- Start the DCO
 
   const uint32_t PIOclkhz = PLL_SYS_MHZ * 1000000L;
@@ -792,6 +848,23 @@ int main(void)
   //*--- Start the USB service loop
 
   tud_init(BOARD_TUD_RHPORT);
+
+  #ifdef BOOTSYNC
+  bool synced=false;
+  while (!gpio_get(TXSW)) {
+      blinkLED(TX,1,500);
+      rtc_set_datetime(&tcpu);
+      synced=true;
+  };
+
+  if (synced){
+     char datetime_str[64];
+     rtc_get_datetime(&tcpu);
+     datetime_to_str(datetime_str, sizeof(datetime_str), &tcpu);
+     cdc_printf("FT8 mode set with current time: %s\n", datetime_str);
+  }
+
+  #endif //BOOTSYNC
 
   
   //*--- Wireless library poll
@@ -803,10 +876,9 @@ int main(void)
 
   cdc_printf("Core 1 started. DCO worker initializing...\n");
 
-  #if defined(PICO) || defined(RP2040Z)
-  ADXsetup();
-  #endif //PICO
+  //*--- Previous ADXSetup
 
+  
   //*--- Sync time and define mode 
   #if defined(PICO) || defined(RP2040Z)
   Band_assign();
@@ -1085,7 +1157,12 @@ void cat(void)
   char parameter2[38]; 
   char sent[42];
   char sent2[42];
+
+  sprintf(receivedPart1,"%s","");
+  sprintf(receivedPart2,"%s","");
   
+  //*--- Receive and decode the CAT command
+
   uint8_t received_length = (uint8_t)cdc_read(); 
   if (received_length == 0) return;
   for (int i = 0;i<received_length;i++){                   //to Upper case
@@ -1096,6 +1173,8 @@ void cat(void)
       received_length--;              //replace(from "\n" to "")
     }
   }
+
+  //*--- Parse the CAT command
 
   char data[64];
   int bufferIndex = 0;
@@ -1129,6 +1208,8 @@ void cat(void)
     }
   }
 
+  //*--- Operate CAT commands
+
   strncpy(command, receivedPart1, 2); 
   command[2] = '\0'; 
   if (part1_length > 2){
@@ -1152,29 +1233,28 @@ void cat(void)
     {          
       long int freqset = strtol(parameter, NULL, 10);
       if (freqset >= 1000000 && freqset <= 54000000){
-        RF_freq = (uint64_t)freqset;
-        si5351_set_freq((RF_freq-(uint64_t)BFO_freq), SI5351_PLL_FIXED, SI5351_CLK1);
-        si5351_set_freq((RF_freq), SI5351_PLL_FIXED, SI5351_CLK0);
-        //NEOPIXEL LED change
-        put_pixel(urgb_u32(pixel_color[7].data[0], pixel_color[7].data[1], pixel_color[7].data[2]));
+
+        frqFT8 = (uint32_t)freqset;       
+        PioDCOSetFreq(&DCO,frqFT8,0U);
+        
         adc_fifo_drain ();
         adc_offset = adc();
       }
     }
     strcpy(sent, "FA"); // Return 11 digit frequency in Hz.
-    snprintf(parameter, 12, "%011d", (int)RF_freq);
+    snprintf(parameter, 12, "%011d", (int)frqFT8);
     strcat(sent,parameter); 
     strcat(sent, ";");
   }
   else if (strcmp(command,"FB")==0) {                   
     strcpy(sent, "FB"); // Return 11 digit frequency in Hz.
-    snprintf(parameter, 12, "%011d", (int)RF_freq);
+    snprintf(parameter, 12, "%011d", (int)frqFT8);
     strcat(sent,parameter); 
     strcat(sent, ";");
   }
   else if (strcmp(command,"IF")==0) {          
     strcpy(sent, "IF"); // Return 11 digit frequency in Hz.  
-    snprintf(parameter, 12, "%011d", (int)RF_freq);
+    snprintf(parameter, 12, "%011d", (int)frqFT8);
     strcat(sent, parameter);
     strcat(sent, "0001+0000000000"); 
     snprintf(parameter, 2, "%d", Tx_Status);
@@ -1194,7 +1274,7 @@ void cat(void)
     strcpy(sent, "AI0;");
   }
   else  if (strcmp(command,"RX")==0)  {  
-    strcpy(sent, "RX0;");
+    strcpy(sent, "RX0;");                //Just ignore TX/RX commands, it's a VOX transceiver
   }
   else  if (strcmp(command,"TX")==0)  {  
     strcpy(sent, "TX0;");
