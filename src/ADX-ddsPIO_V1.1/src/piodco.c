@@ -209,7 +209,6 @@ LOOP:
     pio_sm_put_blocking(pio, sm, i32wc);
     //*fix* i32acc_error += (i32wc << 24U) - i32reg;
     i32acc_error += (int32_t)(((int64_t)i32wc << 24) - (int64_t)i32reg);
-
     
     goto LOOP;
 }
