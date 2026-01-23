@@ -160,5 +160,6 @@ void PioDCOSetMode(PioDco *pdco, enum PioDcoMode emode);
 
 void RAM (PioDCOWorker)(PioDco *pDCO);
 void RAM (PioDCOWorker2)(PioDco *pDCO);
+void RAM (PioDCOWorker3)(PioDco *pDCO, PioDco * pDCO2);
 
 #endif

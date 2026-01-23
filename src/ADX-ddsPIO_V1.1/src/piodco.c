@@ -209,9 +209,46 @@ LOOP:
     pio_sm_put_blocking(pio, sm, i32wc);
     //*fix* i32acc_error += (i32wc << 24U) - i32reg;
     i32acc_error += (int32_t)(((int64_t)i32wc << 24) - (int64_t)i32reg);
+
     
     goto LOOP;
 }
+
+/// @brief Main worker task of DCO V.2. It is time critical, so it ought to be run on
+/// @brief the dedicated pi pico core.
+/// @param pDCO Ptr to DCO context.
+/// @return No return. It spins forever.
+void RAM (PioDCOWorker3)(PioDco *pDCO, PioDco *pDCO2)
+{
+    register PIO pio = pDCO->_pio;
+    register uint sm = (uint32_t)pDCO->_ism;
+
+    register PIO pio2 = pDCO2->_pio;
+    register uint sm2 = (uint32_t)pDCO2->_ism;
+
+
+
+    register int32_t i32acc_error = 0;
+    register uint32_t i32wc, i32reg;
+    
+LOOP:
+    //*fix* i32reg = si32precise_cycles;
+    i32reg = (uint32_t)si32precise_cycles;
+
+    //*test* i32wc = (i32reg - i32acc_error) >> 24U;
+    i32wc = (uint32_t)(((int64_t)i32reg - (int64_t)i32acc_error) >> 24);
+
+    pio_sm_put(pio, sm, i32wc);
+    pio_sm_put(pio2, sm2, i32wc);
+
+    //*fix* i32acc_error += (i32wc << 24U) - i32reg;
+    i32acc_error += (int32_t)(((int64_t)i32wc << 24) - (int64_t)i32reg);
+
+    
+    goto LOOP;
+}
+
+
 
 /// @brief Main worker task of DCO. It is time critical, so it ought to be run on
 /// @brief the dedicated pi pico core.

@@ -20,9 +20,7 @@
  *----------------------------------------------------------------------------
  * Version 1.1
  * - EEPROM support (save configuration)
- * - Superhet (ADX-S) board support
  * - CAT support (TS 2000 emulation)
- * - Multiple Clock DCO (finger crosses)
  *----------------------------------------------------------------------------
  *----------------------------------------------------------------------------
  *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
@@ -138,7 +136,7 @@
 #define  EEPROM    1   
 #define  CAT       1    
 #define  BOOTSYNC  1
-
+#define  DUALCLK   1
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
@@ -229,6 +227,7 @@
 #define pin_SW                3U          //pin for freq change switch (D10,input)
 
 #define RFOUT                14           //RF out pin
+#define RFLO                 13           //RF out Receiver LO
 #define FSKpin               27           //Frequency counter algorithm, signal input PIN (not used yet)
 
 /*----
@@ -266,6 +265,7 @@ uint8_t marker=0;
 
 //*--- Control block of PIO running the DCO
 PioDco DCO; /* External in order to access in both cores. */
+PioDco DCO2;
 
 //*--- for ADC offset at transceiver
 int32_t adc_offset = 0;   
@@ -537,7 +537,16 @@ void setTX(bool state) {
     if (state) {
 
        uint32_t f = frqFT8;
+
+       #ifdef DUALCLK
+
+       PioDCOStop(&DCO2);
+       PioDCOStart(&DCO);
+      
+       #endif //DUALCLK
+
        PioDCOSetFreq(&DCO, f, 0U);
+
        gpio_put(RXSW, 0);                   //(RXSW=1 enable Ant to RX, otherwise blocks it)
        gpio_put(TX, 1);                     //Turn on the TX led
        gpio_put(TXA, 0);                    //(TXA=0 enable OE of 74244)
@@ -546,7 +555,18 @@ void setTX(bool state) {
       } else {
 
         uint32_t f = frqFT8;
+        #ifdef DUALCLK
+
+        PioDCOSetFreq(&DCO2,f, 0U);
+        //PioDCOSetFreq(&DCO, f, 0U);
+        PioDCOStart(&DCO2);
+        PioDCOStop(&DCO);
+
+       #else
         PioDCOSetFreq(&DCO, f, 0U);
+       
+       #endif //DUALCLK
+
         cycle = 0;
         sampling = 0;
         mono_preprev = 0;
@@ -578,6 +598,7 @@ void ManualTX() {
 /* Change the band                                                            */                                         
 /*----------------------------------------------------------------------------*/
 void Band_Select() {
+
 
   gpio_put(TX,true);
   clearLED();
@@ -656,6 +677,10 @@ void checkButtons() {
         Mode_assign();
         while(!testButton(UP));
         PioDCOSetFreq(&DCO,frqFT8,0U);
+
+        #ifdef DUALCLK
+        PioDCOSetFreq(&DCO2,frqFT8,0U);
+        #endif //DUALCLK
      }
   }
   #endif //!CAT
@@ -670,7 +695,13 @@ void checkButtons() {
         if (mode>4) mode=1;
         Mode_assign();
         while(!testButton(DOWN));
+
         PioDCOSetFreq(&DCO,frqFT8,0U);
+
+        #ifdef DUALCLK
+        PioDCOSetFreq(&DCO2,frqFT8,0U);
+        #endif //DUALCLK
+
      }
   }
   #endif //!CAT
@@ -699,9 +730,19 @@ void core1_entry()
     PioDCOStart(&DCO);
     PioDCOSetFreq(&DCO, f, 0U);
 
+    #ifdef DUALCLK
+    PioDCOStop(&DCO);
+    PioDCOStart(&DCO2);
+    PioDCOSetFreq(&DCO2, f, 0U);
+    #endif //DUALCLK
+
     //*--- Run the main DCO algorithm. It spins forever. */
 
+    #ifdef DUALCLK
+    PioDCOWorker3(&DCO,&DCO2);
+    #else
     PioDCOWorker2(&DCO);
+    #endif //DUALCLK
 }
 //*==============================================================================================*
 //*                                  Board management                                            *
@@ -844,6 +885,10 @@ int main(void)
   cdc_printf("Core 1 started. DCO worker initializing...\n");
   PioDCOInit(&DCO, RFOUT, PIOclkhz);
 
+  #ifdef DUALCLK
+  PioDCOInit(&DCO2, RFLO, PIOclkhz);
+  #endif //DUALCLK
+  
   //*--- Start the USB service loop
 
   tud_init(BOARD_TUD_RHPORT);
