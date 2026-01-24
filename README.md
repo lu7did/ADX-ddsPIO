@@ -223,7 +223,7 @@ The ideal divisor would be
 
 $div_{ideal} = \frac{f_{clk}}{2 \cdot f_{obj}}$
 
-$div_{ideal} = \frac{270\,000\,000}{2 \cdot 28\,074\,000} = 4.8087198119$
+$div_{ideal} = \frac{270\,000\,000}{2 \cdot 465\,000} = 290.3236$
 
 As the hardware allows only for steps of 
 
@@ -231,32 +231,32 @@ $\Delta div = \frac{1}{256} \approx 0.00390625$
 
 A split is made:
 
-$INT = 4$
+$INT = 290$
 
-$FRAC = round(0.8087198119 \cdot 256) = 207$
+$FRAC = round(0.3236 \cdot 256) = 82$
 
 A split needs to be made
 
-$div_{real} = 4 + \frac{207}{256} = 4.80859375$
+$div_{real} = 290 + \frac{82}{256} = 290.3203$
 
 And the real frequency obtained would be
 
-$f_{real} = \frac{270\,000\,000}{2 \cdot 4.80859375}$
+$f_{real} = \frac{270\,000\,000}{2 \cdot 290.3203}$
 
-$f_{real} \approx 28\,074\,735.987 \ \text{Hz}$
+$f_{real} \approx 465\dot03.6529 \ \text{Hz}$
 
 The quantization introduces then an error of 
 
 $\Delta f = f_{real} - f_{obj}$
 
-$\Delta f \approx +735.987 \ \text{Hz}$
+$\Delta f \approx -3.6529 \ \text{Hz}$
 
 Being the relative error 
 
 $\varepsilon = \frac{\Delta f}{f_{obj}}$
-$\approx 2.62 \times 10^{-5}$
+$\approx 7.85 \times 10^{-6}$
 
-$\varepsilon \approx 26.2 \ \text{ppm}$
+$\varepsilon \approx 8 \ \text{ppm}$
 
 This error factor is accounting **only** for the fractional divisor error of the PIO. Other sources
 of error needs to be considered such as
