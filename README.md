@@ -267,7 +267,7 @@ of error needs to be considered such as
 
 However, the level of error obtained is a good compromise between performance, cost and simplicity.
 
-The waveform obtained at GPIO15 is as follows
+The waveform obtained at GPIO15 is as follows for a nominal $f_{BFO}=446400 \text{Hz}$
 
 ![Alt Text](doc/ADX-ddsPIO_BFO.png?raw=true "ADX-ddsPIO BFO")  
 
