@@ -197,16 +197,16 @@ The clock implementation uses a PIO for that purpose, the state machine (SM) of 
 runs at the frequency **f_sm**. If the program makes a toggle of the signal every cycle then the
 output frequency would be:
 
-$f_{out}=/frac{f_{sm}}{2}$
+$f_{out}=\frac{f_{sm}}{2}$
 
 For an estimated 465 KHz frequency for the IF of the receiver then
 
-$f_{sm}=2*465 KHz = 930 KHz$
+$f_{sm}= 2*465 KHz = 930 KHz$
 
 The clock used by the PIO is derived from the system clock (clk_sys) thru a fractional divisor,
 as the board is being clocked at 270 MHz then
 
-clkdiv = clk_sys / f_sm = 270e6 / 930e3 ≈290.32266
+$clk_{div} = \frac{clk_{sys}}{f_{sm}} = 270e6 / 930e3 ≈290.32266
 
 However, the actual divisor used by the rp2040 has a resolution of 1/256, so in this case:
 
