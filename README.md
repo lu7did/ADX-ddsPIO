@@ -194,8 +194,8 @@ The pinout assignment for this version is shown in the following table:
 ## BFO clock implementation
 
 The clock implementation uses a PIO for that purpose, the state machine (SM) of the selected PIO
-runs at the frequency **f_sm**. If the program makes a toggle of the signal every cycle then the
-output frequency would be:
+runs at the frequency $f_{sm}$. If the program makes a toggle of the signal every cycle then the
+output frequency ($f_{out}$) would be:
 
 $f_{out}=\frac{f_{sm}}{2}$
 
@@ -206,83 +206,57 @@ $f_{sm}= 2*465 KHz = 930 KHz$
 The clock used by the PIO is derived from the system clock (clk_sys) thru a fractional divisor,
 as the board is being clocked at 270 MHz then
 
-$clk_{div} = \frac{clk_{sys}}{f_{sm}} = 270e6 / 930e3 ≈290.32266
+$clk_{div} = \frac{clk_{sys}}{f_{sm}} = 270e6 / 930e3 \approx{290.32266}$
 
 However, the actual divisor used by the rp2040 has a resolution of 1/256, so in this case:
 
-\[
-f_{out} = \frac{f_{clk}}{2 \cdot div}
-\]
+
+$f_{out} = \frac{f_{clk}}{2 \cdot div}$
+
 
 where:
 
-\[
-div = INT + \frac{FRAC}{256}
-\]
+
+$div = INT + \frac{FRAC}{256}$
 
 The ideal divisor would be 
 
-\[
-div_{ideal} = \frac{f_{clk}}{2 \cdot f_{obj}}
-\]
+$div_{ideal} = \frac{f_{clk}}{2 \cdot f_{obj}}$
 
-\[
-div_{ideal} = \frac{270\,000\,000}{2 \cdot 28\,074\,000}
-= 4.8087198119
-\]
+$div_{ideal} = \frac{270\,000\,000}{2 \cdot 28\,074\,000} = 4.8087198119$
 
 As the hardware allows only for steps of 
 
-\[
-\Delta div = \frac{1}{256} \approx 0.00390625
-\]
+$\Delta div = \frac{1}{256} \approx 0.00390625$
 
 A split is made:
 
-\[
-INT = 4
-\]
+$INT = 4$
 
-\[
-FRAC = round(0.8087198119 \cdot 256) = 207
-\]
+$FRAC = round(0.8087198119 \cdot 256) = 207$
 
 A split needs to be made
 
-\[
-div_{real} = 4 + \frac{207}{256} = 4.80859375
-\]
+$div_{real} = 4 + \frac{207}{256} = 4.80859375$
 
 And the real frequency obtained would be
 
-\[
-f_{real} = \frac{270\,000\,000}{2 \cdot 4.80859375}
-\]
+$f_{real} = \frac{270\,000\,000}{2 \cdot 4.80859375}$
 
-\[
-f_{real} \approx 28\,074\,735.987 \ \text{Hz}
-\]
+$f_{real} \approx 28\,074\,735.987 \ \text{Hz}$
 
 The quantization introduces then an error of 
 
-\[
-\Delta f = f_{real} - f_{obj}
-\]
+$\Delta f = f_{real} - f_{obj}$
 
-\[
-\Delta f \approx +735.987 \ \text{Hz}
-\]
+$\Delta f \approx +735.987 \ \text{Hz}$
 
 Being the relative error 
 
-\[
-\varepsilon = \frac{\Delta f}{f_{obj}}
-\approx 2.62 \times 10^{-5}
-\]
+$\varepsilon = \frac{\Delta f}{f_{obj}}$
+$\approx 2.62 \times 10^{-5}$
 
-\[
-\varepsilon \approx 26.2 \ \text{ppm}
-\]
+$\varepsilon \approx 26.2 \ \text{ppm}$
 
 This error factor is accounting **only** for the fractional divisor error of the PIO. Other sources
 of error needs to be considered such as
