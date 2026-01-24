@@ -128,15 +128,20 @@ Mac running the MacOS version of WSJTX. For all practical purposes this is consi
 
 ## ADX-ddsPIO Firmware (Version 1.1)
 
-```
-Work in progress
-```
 
 Features
 
 * Permanent settings (EEPROM emulation).
 * CAT control (TS2000 emulation).
+
+## ADX-ddsPIO Firmware (Version 1.2)
+
+```
+Work in progress
+```
+
 * Superhet ADX-S support.
+* Implementation of a BFO (465 KHz) local oscillator.
 
 
 ## Build environment
