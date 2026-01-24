@@ -140,6 +140,7 @@
 #define  CAT       1    
 #define  BOOTSYNC  1
 #define  DUALCLK   1
+#define  SUPERHET  1
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
@@ -175,6 +176,9 @@
 #include "hardware/rtc.h"
 #include "pico/util/datetime.h"
 
+#ifdef SUPERHET
+#include "BFO.pio.h"
+#endif //SUPERHET
 
 #ifdef EEPROM
 #include "EEPROM.h"
@@ -212,6 +216,7 @@
 #define PLL_SYS_MHZ_PLUS   290            // RP2040 System Clock (MHz) --OVERCLOCK--
 #define GEN_FRQ_HZ    14074000L           // Generator Frequency (in Hz)
 #define FT8_BASE_HZ       1000L           // FT8 base frequency (in Hz) <Not used>
+#define FREQ_BFO        446400L           // BFO Frequency 
 
 #define SLOT                  3
 #define NBANDS                7
@@ -233,6 +238,11 @@
 #define RFLO                 13           //RF out Receiver LO
 #define FSKpin               27           //Frequency counter algorithm, signal input PIN (not used yet)
 
+#ifdef SUPERHET
+#define RFIF                 15           //RF out Receiver IF (465 KHz)
+
+#endif //SUPERHET
+
 /*----
    Output control lines
 */
@@ -251,7 +261,7 @@
 
 /*---
    Switches
-*/
+*/    
 #define TXSW                  8  //RX-TX Switch
 #define UP                   10  //UP Switch
 #define DOWN                 11  //DOWN Switch
@@ -263,6 +273,7 @@
 //*                                  Global Memory Areas                                         *
 //*==============================================================================================*
 uint32_t frqFT8  = GEN_FRQ_HZ;
+uint32_t frqbfo  = FREQ_BFO;
 char hi[80];
 uint8_t marker=0;
 
@@ -360,6 +371,36 @@ long unsigned int Bands[NBANDS][NMODES] = {
                                           {21094600,21078000,21140000,21074000},
                                           {28124600,28078000,28180000,28074000}};
 //*----------------------------------------------------------------------------------------------*
+#ifdef SUPERHET
+/*----------------------------------------------------------------------------*/
+/* Create PIO configuration for a square wave clock                           */
+/*----------------------------------------------------------------------------*/
+static void pio_square_wave(PIO pio, uint sm, uint offset, uint pin, float target_hz) {
+
+    // Con este PIO: 2 instrucciones por período => f_sm = 2 * f_out
+    float f_sm = 2.0f * target_hz;
+
+    uint32_t clk_sys_hz = clock_get_hz(clk_sys);
+    float div = (float)clk_sys_hz / f_sm;
+
+    pio_sm_config c = BFO_program_get_default_config(offset);
+
+    // Usamos SET para escribir "pins", por eso hay que setear el pin como SET pin
+    sm_config_set_set_pins(&c, pin, 1);
+    pio_gpio_init(pio, pin);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+
+    // Divisor fraccional del SM
+    sm_config_set_clkdiv(&c, div);
+
+    // Arranca en 0 para que sea determinístico
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+
+    cdc_printf("clk_sys=%u Hz, target=%0.3f Hz, div=%0.6f\n",(unsigned)clk_sys_hz, target_hz, div);
+}
+#endif //SUPERHET
+
 #ifdef EEPROM
 /*----------------------------------------------------------------------------*/
 /* updateEEPROM                                                               */
@@ -802,7 +843,6 @@ void ADXsetup(){
     gpio_init(BEACON);
     gpio_set_dir(BEACON, GPIO_IN);
 
-
     #ifdef EEPROM
     
     //*--- update EEPROM if not initialized yet
@@ -881,8 +921,18 @@ int main(void)
   ADXsetup();
   #endif //PICO
 
+  //*---- Start the local 465 KHz BFO oscillator if enabled
+  #ifdef SUPERHET
+  
+  PIO piobfo = pio1;
+  uint sm = 0;
+  uint offset = (uint) pio_add_program(piobfo, &BFO_program);
+  float fbfo=(float)frqbfo*1.0f;
+  pio_square_wave(piobfo, sm, offset, RFIF, fbfo);
 
-  //*--- Start the DCO
+  #endif //SUPERHET 
+
+  //*--- Start the DCO (either single or dual clock)
 
   const uint32_t PIOclkhz = PLL_SYS_MHZ * 1000000L;
   cdc_printf("Core 1 started. DCO worker initializing...\n");
@@ -908,7 +958,7 @@ int main(void)
      char datetime_str[64];
      rtc_get_datetime(&tcpu);
      datetime_to_str(datetime_str, sizeof(datetime_str), &tcpu);
-     cdc_printf("FT8 mode set with current time: %s\n", datetime_str);
+     cdc_printf("Internal clock has been set to: %s\n", datetime_str);
   }
 
   #endif //BOOTSYNC

@@ -47,11 +47,18 @@ set(PROJECT ADX-ddsPIO)
 set(TARGET ADX-ddsPIO)
 
 cmake_minimum_required(VERSION 3.12)
+#pico_sdk_init()
 
 #*---- Habilitado como recomendación para compilar picoW
 #include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 #pico_sdk_init()
 #*---- Habilitado para recomendación para compilar picoW
+
+# Pull in PICO SDK (must be before project)
+
+include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
+# NO LLAMAR pico_sdk_init() en este proyecto porque family_initialize_project() maneja la init
+
 
 
 
@@ -60,6 +67,9 @@ include(${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/family_support.cmake)
 project(${PROJECT} C CXX ASM)
 #pico_sdk_init()
 add_executable(${PROJECT} src/main.c)
+
+
+
 
 # gets PROJECT name for the example (e.g. <BOARD>-<DIR_NAME>)
 family_get_project_name(${PROJECT} ${CMAKE_CURRENT_LIST_DIR})
@@ -96,6 +106,7 @@ target_sources(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/EEPROM.c 
 
         )
+
 
 # Example include
 #target_include_directories(${PROJECT} PUBLIC
@@ -166,10 +177,12 @@ endif()
 endif() #PICOW
 #==============================[Específico para PicoW]=================================================
 
+
 pico_add_extra_outputs(${PROJECT})
 
 # Configure compilation flags and libraries for the example... see the corresponding function
 # in hw/bsp/FAMILY/family.cmake for details.
 family_configure_device_example(${PROJECT} noos)
 
+pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/BFO.pio)
 
