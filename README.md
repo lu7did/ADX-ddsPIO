@@ -191,6 +191,117 @@ The pinout assignment for this version is shown in the following table:
 
 ![Alt Text](doc/ADX-ddsPIO_pinout.png?raw=true "Raspberry Pi Pico pinout assignment")
 
+## BFO clock implementation
+
+The clock implementation uses a PIO for that purpose, the state machine (SM) of the selected PIO
+runs at the frequency **f_sm**. If the program makes a toggle of the signal every cycle then the
+output frequency would be:
+
+f_out = f_sm / 2
+
+For an estimated 465 KHz frequency for the IF of the receiver then
+
+f_sm = 2 * 465 kHz = 930 kHz
+
+The clock used by the PIO is derived from the system clock (clk_sys) thru a fractional divisor,
+as the board is being clocked at 270 MHz then
+
+clkdiv = clk_sys / f_sm = 270e6 / 930e3 ≈290.32266
+
+However, the actual divisor used by the rp2040 has a resolution of 1/256, so in this case:
+
+\[
+f_{out} = \frac{f_{clk}}{2 \cdot div}
+\]
+
+donde:
+
+\[
+div = INT + \frac{FRAC}{256}
+\]
+
+The ideal divisor would be 
+
+\[
+div_{ideal} = \frac{f_{clk}}{2 \cdot f_{obj}}
+\]
+
+\[
+div_{ideal} = \frac{270\,000\,000}{2 \cdot 28\,074\,000}
+= 4.8087198119
+\]
+
+As the hardware allows only for steps of 
+
+\[
+\Delta div = \frac{1}{256} \approx 0.00390625
+\]
+
+Se separa:
+
+\[
+INT = 4
+\]
+
+\[
+FRAC = round(0.8087198119 \cdot 256) = 207
+\]
+
+A split needs to be made
+
+\[
+div_{real} = 4 + \frac{207}{256} = 4.80859375
+\]
+
+And the real frequency obtained would be
+
+\[
+f_{real} = \frac{270\,000\,000}{2 \cdot 4.80859375}
+\]
+
+\[
+f_{real} \approx 28\,074\,735.987 \ \text{Hz}
+\]
+
+The quantization introduces then an error of 
+
+\[
+\Delta f = f_{real} - f_{obj}
+\]
+
+\[
+\Delta f \approx +735.987 \ \text{Hz}
+\]
+
+Being the relative error 
+
+\[
+\varepsilon = \frac{\Delta f}{f_{obj}}
+\approx 2.62 \times 10^{-5}
+\]
+
+\[
+\varepsilon \approx 26.2 \ \text{ppm}
+\]
+
+This error factor is accounting **only** for the fractional divisor error of the PIO. Other sources
+of error needs to be considered such as
+* Board crystal tolerances.
+* PLL error.
+* Thermal drift.
+* Fractional divider internal jitter.
+
+However, the level of error obtained is a good compromise between performance, cost and simplicity.
+
+## 6. Conclusión
+
+Con divisor fraccional fijo (resolución 1/256), el error mínimo alcanzable en este escenario es del orden de:
+
+> **±736 Hz (≈ 26 ppm)**
+
+lo cual excede ampliamente un objetivo de ±1 Hz.
+ 
+
 
 ## Test resources
 
