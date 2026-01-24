@@ -267,14 +267,6 @@ of error needs to be considered such as
 
 However, the level of error obtained is a good compromise between performance, cost and simplicity.
 
-## 6. Conclusión
-
-Con divisor fraccional fijo (resolución 1/256), el error mínimo alcanzable en este escenario es del orden de:
-
-> **±736 Hz (≈ 26 ppm)**
-
-lo cual excede ampliamente un objetivo de ±1 Hz.
-
 The waveform obtained at GPIO15 is as follows
 
 ![Alt Text](doc/ADX-ddsPIO_BFO.png?raw=true "ADX-ddsPIO BFO")  
