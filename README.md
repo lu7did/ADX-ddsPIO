@@ -203,7 +203,7 @@ For an estimated 465 KHz frequency for the IF of the receiver then
 
 $f_{sm}= 2*465 KHz = 930 KHz$
 
-The clock used by the PIO is derived from the system clock (clk_sys) thru a fractional divisor,
+The clock used by the PIO is derived from the system clock ($clk_{sys}) thru a fractional divisor,
 as the board is being clocked at 270 MHz then
 
 $clk_{div} = \frac{clk_{sys}}{f_{sm}} = 270e6 / 930e3 \approx{290.32266}$
@@ -243,7 +243,7 @@ And the real frequency obtained would be
 
 $f_{real} = \frac{270\,000\,000}{2 \cdot 290.3203}$
 
-$f_{real} \approx 465\dot03.6529 \ \text{Hz}$
+$f_{real} \approx 465003.6529 \ \text{Hz}$
 
 The quantization introduces then an error of 
 
