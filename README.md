@@ -271,6 +271,12 @@ The waveform obtained at GPIO15 is as follows for a nominal $f_{BFO}=446400 \tex
 
 ![Alt Text](doc/ADX-ddsPIO_BFO.png?raw=true "ADX-ddsPIO BFO")  
 
+The outputs at GPIO13 and GPIO14 would be a clock at the operating frequency whilst the output
+at GPIO15 (when option **#define SUPERHET 1** is set) would be a fixed clock of the established
+frequency (normally in the 450 KHz range) as shown in the following picture.
+
+![Alt Text](doc/ADX-ddsPIO_BFO2.png?raw=true "ADX-ddsPIO BFO")  
+
 
 ## Test resources
 
