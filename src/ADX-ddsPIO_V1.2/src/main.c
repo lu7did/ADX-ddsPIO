@@ -139,8 +139,8 @@
 #define  EEPROM    1   
 #define  CAT       1    
 #define  BOOTSYNC  1
-#define  DUALCLK   1
-#define  SUPERHET  1
+//#define  DUALCLK   1
+//#define  SUPERHET  1
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
@@ -936,7 +936,9 @@ int main(void)
 
   const uint32_t PIOclkhz = PLL_SYS_MHZ * 1000000L;
   cdc_printf("Core 1 started. DCO worker initializing...\n");
-  PioDCOInit(&DCO, RFOUT, PIOclkhz);
+  
+  //*fix* PioDCOInit(&DCO, RFOUT, PIOclkhz);
+  PioDCOInit(&DCO, RFLO, PIOclkhz);
 
   #ifdef DUALCLK
   PioDCOInit(&DCO2, RFLO, PIOclkhz);

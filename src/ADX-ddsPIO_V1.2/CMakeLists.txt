@@ -185,4 +185,5 @@ pico_add_extra_outputs(${PROJECT})
 family_configure_device_example(${PROJECT} noos)
 
 pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/BFO.pio)
+pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/dco2.pio)
 

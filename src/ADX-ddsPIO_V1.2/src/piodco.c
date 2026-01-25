@@ -100,7 +100,8 @@ int PioDCOInit(PioDco *pdco, int gpio, int cpuclkhz)
 
     sm_config_set_out_shift(&pdco->_pio_sm, true, true, 32);           // Autopull.
     sm_config_set_fifo_join(&pdco->_pio_sm, PIO_FIFO_JOIN_TX);
-    sm_config_set_set_pins(&pdco->_pio_sm, (uint32_t)pdco->_gpio, 1);
+    //*fix* sm_config_set_set_pins(&pdco->_pio_sm, (uint32_t)pdco->_gpio, 1);
+    sm_config_set_set_pins(&pdco->_pio_sm, (uint32_t)pdco->_gpio, 2);
     
     pio_sm_init(pdco->_pio, (uint32_t)pdco->_ism, (uint32_t)pdco->_offset, &pdco->_pio_sm);
 
