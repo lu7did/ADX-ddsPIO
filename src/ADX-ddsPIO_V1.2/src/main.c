@@ -25,6 +25,7 @@
  *----------------------------------------------------------------------------
  * Version 1.2
  * - Support for BFO at 465 KHz (superheterodyne version)
+ * - Enhance performance of the Dual Clock option, separated RX/TX RF out
  *----------------------------------------------------------------------------
  *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  *                       Libraries and Packages used                        *
@@ -139,7 +140,6 @@
 #define  EEPROM    1   
 #define  CAT       1    
 #define  BOOTSYNC  1
-//#define  DUALCLK   1
 //#define  SUPERHET  1
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
@@ -582,13 +582,6 @@ void setTX(bool state) {
 
        uint32_t f = frqFT8;
 
-       #ifdef DUALCLK
-
-       PioDCOStop(&DCO2);
-       PioDCOStart(&DCO);
-      
-       #endif //DUALCLK
-
        PioDCOSetFreq(&DCO, f, 0U);
 
        gpio_put(RXSW, 0);                   //(RXSW=1 enable Ant to RX, otherwise blocks it)
@@ -599,17 +592,7 @@ void setTX(bool state) {
       } else {
 
         uint32_t f = frqFT8;
-        #ifdef DUALCLK
-
-        PioDCOSetFreq(&DCO2,f, 0U);
-        //PioDCOSetFreq(&DCO, f, 0U);
-        PioDCOStart(&DCO2);
-        PioDCOStop(&DCO);
-
-       #else
         PioDCOSetFreq(&DCO, f, 0U);
-       
-       #endif //DUALCLK
 
         cycle = 0;
         sampling = 0;
@@ -722,9 +705,6 @@ void checkButtons() {
         while(!testButton(UP));
         PioDCOSetFreq(&DCO,frqFT8,0U);
 
-        #ifdef DUALCLK
-        PioDCOSetFreq(&DCO2,frqFT8,0U);
-        #endif //DUALCLK
      }
   }
   #endif //!CAT
@@ -741,10 +721,6 @@ void checkButtons() {
         while(!testButton(DOWN));
 
         PioDCOSetFreq(&DCO,frqFT8,0U);
-
-        #ifdef DUALCLK
-        PioDCOSetFreq(&DCO2,frqFT8,0U);
-        #endif //DUALCLK
 
      }
   }
@@ -774,19 +750,9 @@ void core1_entry()
     PioDCOStart(&DCO);
     PioDCOSetFreq(&DCO, f, 0U);
 
-    #ifdef DUALCLK
-    PioDCOStop(&DCO);
-    PioDCOStart(&DCO2);
-    PioDCOSetFreq(&DCO2, f, 0U);
-    #endif //DUALCLK
-
     //*--- Run the main DCO algorithm. It spins forever. */
 
-    #ifdef DUALCLK
-    PioDCOWorker3(&DCO,&DCO2);
-    #else
     PioDCOWorker2(&DCO);
-    #endif //DUALCLK
 }
 //*==============================================================================================*
 //*                                  Board management                                            *
@@ -936,14 +902,12 @@ int main(void)
 
   const uint32_t PIOclkhz = PLL_SYS_MHZ * 1000000L;
   cdc_printf("Core 1 started. DCO worker initializing...\n");
-  
-  //*fix* PioDCOInit(&DCO, RFOUT, PIOclkhz);
-  PioDCOInit(&DCO, RFLO, PIOclkhz);
 
-  #ifdef DUALCLK
-  PioDCOInit(&DCO2, RFLO, PIOclkhz);
-  #endif //DUALCLK
-  
+  //*fix* PioDCOInit(&DCO, RFOUT, PIOclkhz);
+  //*--- Output is produced replicated at GPIO13 and GPIO14 
+
+  PioDCOInit(&DCO, RFLO, PIOclkhz);
+ 
   //*--- Start the USB service loop
 
   tud_init(BOARD_TUD_RHPORT);
