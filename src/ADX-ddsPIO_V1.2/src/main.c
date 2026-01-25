@@ -141,6 +141,7 @@
 #define  CAT       1    
 #define  BOOTSYNC  1
 #define  SUPERHET  1
+//#define  DUALCLK   1
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
@@ -234,14 +235,14 @@
 #define pin_A0               26U          //pin for ADC (A0)
 #define pin_SW                3U          //pin for freq change switch (D10,input)
 
-#define RFOUT                14           //RF out pin
-#define RFLO                 13           //RF out Receiver LO
-#define FSKpin               27           //Frequency counter algorithm, signal input PIN (not used yet)
+#define RFOUT                13           //RF out pin
+#define RFLO                 14           //RF out Receiver LO
 
 #ifdef SUPERHET
 #define RFIF                 15           //RF out Receiver IF (465 KHz)
-
 #endif //SUPERHET
+
+#define FSKpin               27           //Frequency counter algorithm, signal input PIN (not used yet)
 
 /*----
    Output control lines
@@ -905,9 +906,13 @@ int main(void)
 
   //*fix* PioDCOInit(&DCO, RFOUT, PIOclkhz);
   //*--- Output is produced replicated at GPIO13 and GPIO14 
-
-  PioDCOInit(&DCO, RFLO, PIOclkhz);
  
+  #ifdef DUALCLK
+  PioDCOInit(&DCO, RFOUT, PIOclkhz,true);
+   #else
+  PioDCOInit(&DCO, RFOUT, PIOclkhz,false);
+   #endif //DUALCLK
+  
   //*--- Start the USB service loop
 
   tud_init(BOARD_TUD_RHPORT);

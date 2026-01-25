@@ -149,7 +149,7 @@ typedef struct
 
 } PioDco;
 
-int PioDCOInit(PioDco *pdco, int gpio, int cpuclkhz);
+int PioDCOInit(PioDco *pdco, int gpio, int cpuclkhz, bool dual);
 int PioDCOSetFreq(PioDco *pdco, uint32_t u32_frq_hz, int32_t u32_frq_millihz);
 int32_t PioDCOGetFreqShiftMilliHertz(const PioDco *pdco, uint64_t u64_desired_frq_millihz);
 
