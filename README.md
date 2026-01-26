@@ -519,6 +519,11 @@ A typical expected result would be
 
 The output of this clock is implemented to be obtained at pins GPIO14 (I) and GPIO15 (Q).
 
+The resulting waveform is similar to the following example (for 3.5 MHz)
+![Alt Text](doc/ADX-ddsPIO_quad.png?raw=true "ADX-ddsPIO Quadrature frequency synthetizer")  
+
+
+
 ```
 This clock is activated by the directive #define QUAD 1
 ```
@@ -527,7 +532,7 @@ This clock is activated by the directive #define QUAD 1
 
 The following test resources has been built
 
-### ADX-ddsPIO prototype
+### ADX-ddsPIO extended prototype
 
 To continue the development of the firmware adding the reception sub-systems an extended
 prototype including a receiver has been built.
