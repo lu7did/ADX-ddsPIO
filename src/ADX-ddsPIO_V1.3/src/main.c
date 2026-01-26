@@ -149,8 +149,8 @@
 //#define  CAT       1    
 #define  BOOTSYNC  1
 #define  SUPERHET  1
-//#define  DUALCLK   1
-#define QUAD 1
+#define  DUALCLK   1
+//#define QUAD 1
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
@@ -510,8 +510,9 @@ static void pio_square_wave(PIO pio, uint sm, uint offset, uint pin, float targe
     // Arranca en 0 para que sea determinístico
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
+    uint32_t fx=(uint32_t)target_hz;
 
-    cdc_printf("clk_sys=%u Hz, target=%0.3f Hz, div=%0.6f\n",(unsigned)clk_sys_hz, target_hz, div);
+    cdc_printf("clk_sys=%u Hz, target=%ld Hz, div=%f\n",(unsigned)clk_sys_hz, fx, (double)div);
 }
 #endif //SUPERHET
 
