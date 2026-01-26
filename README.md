@@ -191,11 +191,69 @@ The pinout assignment for this version is shown in the following table:
 
 ![Alt Text](doc/ADX-ddsPIO_pinout.png?raw=true "Raspberry Pi Pico pinout assignment")
 
-## BFO clock implementation
+## Clock Architecture
 
-The clock implementation uses a PIO for that purpose, the state machine (SM) of the selected PIO
-runs at the frequency $f_{sm}$. If the program makes a toggle of the signal every cycle then the
-output frequency ($f_{out}$) would be:
+The board supports and the firmware implements several clock models which can be configured
+for different board setups.
+
+* Single clock (DC Receiver).
+* Dual clock   (DC Receiver).
+* Dual clock + IF (Superheterodyne)
+* Quadrature (SDR)
+
+### Single clock
+
+In this setup a single clock serves the entire board, output is present at pin GPIO13 and
+deliver a single frequency depending on the band and the mode, typically is the lower
+frequency of the mode sub-band at each band (ie. FT8 at 10m 28074 KHz) when the board is
+in receiver mode and turns into the actual FSK modulation when in transmit mode.
+This clock has a resolution of $x = \pm 1 Hz$ and it's generated using the VCO
+technology derived from the work of Roman (R2BDT) described later in detail.
+
+```
+This option is the default when no clock option is activated at build time
+```
+
+### Dual clock 
+
+In this setup the clock is produced simultaneously from GPIO13 and GPIO14, both signals
+are identical, both in receiving or transmitting mode. It's intended to make the circuit
+simpler. Actual operation of the board will require other signals such as RXSW and TXA
+to properly operate to be controlled by the firmware. This clock also uses a derivative
+of the VCO done by Roman (R2BDT) modified to replicate the output of the PIO on pins
+GPIO13 and GPIO14 simultaneously.
+
+```
+This option is activated with the compilation directive #define DUALCLK 1
+```
+### Dual clock + IF
+
+Then be board operates with a superheterodyne receptor configuration the receiver process
+requires two clocks, the main one to operate the down-converter mixer from the HF frequency
+to an intermediate frequency and the intermediate frequency oscillator frequency.
+
+The down-converter local oscillator (RFLO) can be either one of the clocks despicted above.
+
+The intermediate frequency clock (RFIF) is a special clock, it's lower in frequency and 
+therefore it's easier to implement on a processor with limited resources. Also it's a 
+fixed frequency as it doesn't vary with the operation.
+
+Unfortunately attempts to extend the VCO concept to simultaneously create a different
+clock at a different frequency prooved to be beyond the limits of the processor; the VCO
+uses for itself a whole core (*core1*) in **blocking mode** so no other task can be interleaved
+without causing jitter, spurious outputs or frequency drift or all three together. At the same
+time the other core (*core0*) it's actually devoted to provide all the other tasks of the
+board such as USB Audio, USB CDC (serial), board management, signaling, timers, etc.
+
+A different approach is then intended. the rp2040 processor has several specialized processors
+called PIO (Programmable Input/Output) which are a limited memory, limited instruction set (RISC)
+engines but completely independent from the main processor. They are programmed in a special 
+Assembler language (*PioASM*) and are extremely useful to perform I/O without tying up the
+processor or forcing the handling of interrupts on the main cores.  
+
+To generate a clock for the intermediate frquency a PIO is assigned with that purpose
+the state machine (SM) of the selected PIO runs at the frequency $f_{sm}$.
+If the PIO program makes a toggle of the signal every cycle then the output frequency ($f_{out}$) would be:
 
 $f_{out}=\frac{f_{sm}}{2}$
 
@@ -277,6 +335,182 @@ frequency (normally in the 450 KHz range) as shown in the following picture.
 
 ![Alt Text](doc/ADX-ddsPIO_BFO2.png?raw=true "ADX-ddsPIO BFO")  
 
+```
+This option is activated with the compilation directive #define SUPERHET 1
+```
+
+### Quadrature clock
+
+If a Software Defined Radio (SDR) receiver is needed the board has to provide two specific signals
+called by convention clock *I* and clock *Q* which are of the same frequency but whose phases are
+90 $\textdegree$ appart or $\frac{\phi}{2}$ 
+
+Again, trying to obtain such signal using the VCO technology it's quite difficult with the 
+resources available, an approach to create them using again a PIO processor with that purpose
+is made.
+
+The result is a *digital quadrature frequency synth (I/Q)* and it's architecture and logic
+follows.
+
+ 
+#### Architecture
+
+The architecture combines:
+
+* Dynamic reconfiguration of the board clock (PLL_SYS).
+* Generate quadrature signals using a 4-state PIO logic.
+* Manipulate the fractional divisor (Q8.8) of the PIO state machine.
+* Perform a frequency optimization of the error.
+
+The system achieves typical errors in the 0-50 Hz range over the HF spectrum, being the receiver clock 
+and being stable on that error this is quite compatible with digital modes such as FT8, the only effect
+would be than the *"nominal"* frequency of the incoming signal with be shifted up or down by the error
+(few Hz) in a stable way.
+
+
+Main components are
+
+* PLL_SYS (RP2040).
+* Main boar clock (clk_sys).
+* Configurable divider:
+	* refdiv
+	* fbdiv
+	* postdiv1
+	* postdiv2
+* PIO (Programmable I/O)
+
+The PIO executes a cyclic firmware with 4 states which generates the quadrature
+signal over 2 output pins
+
+	00 → 01 → 11 → 10 → repeat
+
+Each instruction is executed in one clock cycle of the state machine, therefore
+manipulating the clock of that PIO state machine using a fractional divider the
+output frequency can be manipulated:
+
+$D=d_{int}+\frac{d_{frac}}{256}$
+
+Selecting two consecutive pins the signals *I* and *Q* can be extracted from each.
+
+The synthesis math model follows
+
+Each instruction of the PIO is executed in:
+$T_{inst}=\frac{D}{f_{clk_sys}}$ 
+
+In order to complete a full period all 4 instructions needs to be completed
+$T_{out}=$4 \times T_{inst}$=$\frac{4D}{f_{clk_sys}}$ 
+
+Therefore the output frequency ($f_{out}$) will be:
+$f_{out}=\frac{f_{clk_sys}}{4D}$
+
+Using
+$N=256D$
+
+Results
+
+$f_{out}=\frac{f_{clk_sys} \times 64}{N}$
+
+Which is the master equation of the system operation
+
+When a target frequency ($f_{req}$) is needed as a goal
+and the system is running with a clock ($f_{clk}$) the
+problem is to define a divider
+
+
+$N^*=\frac {f_{clk} \times 64}{f_{req}}$ 
+
+But the hardware is limited to 
+$N∈Z,1≤N≤65$535
+
+Therefore not all values of $N$ are feasible but
+$N=\round {N^*}$
+
+And the true frequency resulting would be
+
+$f_{out} (N)=\frac{f_clk \times 64}{N}$
+
+and the error 
+$ε=f_{out} (N)-f_{req}
+
+When computed over the HF range the error could become quite large, from
+several Hz in the lower bands to close to 30 KHz in the higher bands, this
+is not acceptable.
+
+To minimize the error two factors needs to be defined, the divisor but also the system clock
+in a way that an exploration of the  discrete space of solutions 
+$(&refdiv∈[1,16]@&fbdiv∈[16,320]@&postdiv1∈[1,7]@&postdiv2∈[1,postdi$
+
+With:
+$f_{ref}=\frac{f_{xosc}}{refdiv}$
+$f_{vco}=\frac{f_ref}{fbdiv}$
+$f_{clk}=\frac{f_{vco}}{postdiv1 \times postdiv2}$
+
+Sujeto a:
+Contraints:
+
+$400" " MHz≤f_vco≤1600" " MHz$
+$f_{clk}≤f{(max_sy}$)
+
+ 
+A minimization optimization problem can then be solved with the 
+following border conditions
+
+For each valid PLL configuration a computation is made
+$N^*=\frac {f_{clk} \times 64}{f_{req}}$ 
+
+All candidates are evaluated
+${N-1,N,N+1}$
+
+For each 
+$f_{out} (N)=\frac {f_{clk} \times 64}{N}$
+
+Searching for the minimum of 
+$∣ε∣=_{out}-f_{req}∣
+
+Selecting as a result the value with the minimum absolute 
+error 
+$f_{clk}ⓜ,$)
+
+This is a discrete search with a double optimization:
+* PLL quantization.
+* Divider (Q8.8) quantization
+
+The theoretical error limit is  
+$∣ΔN∣≤0$
+
+taking derivatives 
+$f(N)=\frac {f_{clk} \times 64}{N}$
+$df/dN=-\frac{f_{clk} \times 64}{N^2}$ 
+
+Being the approximate máximum error value:
+$∣ε{_ma}x = aprox \frac{f_{clk} \times 64}{2N^2}
+
+Since
+$N aprox \frac{f{_ck} \times 64}{f_{req}}$ 
+
+results
+$∣ε_max∣\frac{≈{(f_}re}{)/({2f_} \times 64}$
+
+As a consequence 
+
+* Error is reduced when $clk_{sys}$ increases.
+* Error grow quadratically with the $f_{req}$
+* The divisor cuantization controls the residual error.
+
+A typical expected result would be
+Band    Freq            clk_sys         Error
+80 m	3 573 000	167 428 571	0 Hz
+40 m	7 074 000	233 000 000	±3 Hz
+20 m	14 074 000	268 285 602	±2 Hz
+15 m	21 074 000	178 800 000	±30 Hz
+10 m	28 074 000	261 000 000	±50 Hz
+
+
+The output of this clock is implemented to be obtained at pins GPIO14 (I) and GPIO15 (Q).
+
+```
+This clock is activated by the directive #define QUADRA 1
+```
 
 ## Test resources
 
@@ -413,6 +647,13 @@ be seen the transmission and the decoding of it.
 
 At the bottom of the image the WSJT-X configuration dialog can be seen where the input and
 output devices is actually the ADX-ddsPIO board recognized as such.
+
+## Quadra
+
+This is the prototype of the digital quadrature frequency synth (I/Q) clock
+
+It's just used to evaluate the overall performance and yield unmodulated clock signals thru
+ports GPIO14 (I) and GPIO15 (Q)
 
 ## Others
 
