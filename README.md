@@ -247,7 +247,9 @@ board such as USB Audio, USB CDC (serial), board management, signaling, timers, 
 
 A different approach is then intended. the rp2040 processor has several specialized processors
 called PIO (Programmable Input/Output) which are a limited memory, limited instruction set (RISC)
-engines but completely independent from the main processor. They are programmed in a special 
+processors but completely independent from the main processor. Each processor executes their 
+program as part of a *state machine* (SM) which dictates which instruction is executed
+at each clock cycle.  They are programmed in a special 
 Assembler language (*PioASM*) and are extremely useful to perform I/O without tying up the
 processor or forcing the handling of interrupts on the main cores.  
 
@@ -397,8 +399,9 @@ The synthesis math model follows
 Each instruction of the PIO is executed in:
 $T_{inst}=\frac{D}{f_{clk_sys}}$ 
 
-In order to complete a full period all 4 instructions needs to be completed
-$T_{out}$=$4 \times T_{inst}$=$\frac{4D}{f_{clk_sys}}$ 
+In order to complete a full period all 4 instructions needs to be executed
+
+$T_{out}$=$4 \times T_{inst}$=$\frac{4D}{f_{clk_sys}$ 
 
 Therefore the output frequency ($f_{out}$) will be:
 $f_{out}=\frac{f_{clk_sys}}{4D}$
@@ -420,7 +423,7 @@ problem is to define a divider
 $N^*=\frac {f_{clk} \times 64}{f_{req}}$ 
 
 But the hardware is limited to 
-$N∈Z,1≤N≤65$$535
+$N∈Z,1≤N5535$
 
 Therefore not all values of $N$ are feasible but
 $N=Round({N^*})$
@@ -439,17 +442,20 @@ is not acceptable.
 To minimize the error two factors needs to be defined, the divisor but also the system clock
 in a way that an exploration of the  discrete space of solutions 
 
-$(&refdiv∈[1,16]@&fbdiv∈[16,320]@&postdiv1∈[1,7]@&postdiv2∈[1,postdi$
+* $refdiv\in[1,16]$
+* $fbdiv\in[16,320]$
+* $postdiv1\in[1,7]$
+* $postdiv2\in[1,postdiv]$
 
 With:
-$f_{ref}=\frac{f_{xosc}}{refdiv}$
-$f_{vco}=\frac{f_ref}{fbdiv}$
-$f_{clk}=\frac{f_{vco}}{postdiv1 \times postdiv2}$
+* $f_{ref}=\frac{f_{xosc}}{refdiv}$
+* $f_{vco}=\frac{f_ref}{fbdiv}$
+* $f_{clk}=\frac{f_{vco}}{postdiv1 \times postdiv2}$
 
-With the following Contraints:
+Subject to the following constraints:
 
-$400" " MHz≤f_vco≤1600" " MHz$
-$f_{clk}≤f{(max_sy}$)
+$400 \text{MHz} \le f_{vco} \le 1600 \text{MHz}$
+$f_{clk} \le f{(max_ssy}$)
 
  
 A minimization optimization problem can then be solved with the 
@@ -459,37 +465,36 @@ For each valid PLL configuration a computation is made
 $N^*=\frac {f_{clk} \times 64}{f_{req}}$ 
 
 All candidates are evaluated
-${N-1,N,N+1}$
+$[N-1,N,N+1]$
 
 For each 
 $f_{out} (N)=\frac {f_{clk} \times 64}{N}$
 
 Searching for the minimum of 
-$∣ε∣=_{out}-f_{req}∣
+$ \lvert \epsilon \rvert = \lvert f_{out}-f_{req} \rvert
 
 Selecting as a result the value with the minimum absolute 
 error 
-$f_{clk}ⓜ,$)
+$[f_{clk},N]$
 
 This is a discrete search with a double optimization:
 * PLL quantization.
 * Divider (Q8.8) quantization
 
 The theoretical error limit is  
-$∣ΔN∣≤0$
+$\lvert \delta N \rvert \le 0.5$
 
 taking derivatives 
-$f(N)=\frac {f_{clk} \times 64}{N}$
-$df/dN=-\frac{f_{clk} \times 64}{N^2}$ 
+$\frac {df}{dN}=- \frac{f_{clk} \times 64}{N^2}$
 
 Being the approximate máximum error value:
-$∣ε{_ma}x = aprox \frac{f_{clk} \times 64}{2N^2}
+$\lvert \epsilon_{max} \rvert \approx \frac{f_{clk} \times 64}{2 \times N^2}$
 
 Since
 $N \approx \frac{f_{clk} \times 64}{f_{req}}$ 
 
 results
-$ \lvert ε_max \rvert = \frac{f_{re}{2f \times 64}$
+$ \lvert ε_max \rvert \approx \frac{f_{req}^2}{2f_{clk} \times 64}$
 
 As a consequence 
 
