@@ -401,7 +401,7 @@ $T_{inst}=\frac{D}{f_{clk_sys}}$
 
 In order to complete a full period all 4 instructions needs to be executed
 
-$T_{out}$=$4 \times T_{inst}$=$\frac{4D}{f_{clk_sys}$ 
+$T_{out} \eq 4 \times T_{inst} \eq = \frac{4D}{f_{clk_sys}}$ 
 
 Therefore the output frequency ($f_{out}$) will be:
 $f_{out}=\frac{f_{clk_sys}}{4D}$
