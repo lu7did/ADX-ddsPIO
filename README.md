@@ -454,8 +454,8 @@ With:
 
 Subject to the following constraints:
 
-$400 \text{MHz} \le f_{vco} \le 1600 \text{MHz}$
-$f_{clk} \le f{(max_ssy}$)
+* $400 \text{MHz} \le f_{vco} \le 1600 \text{MHz}$
+* $f_{clk} \le f{(max_ssy}$
 
  
 A minimization optimization problem can then be solved with the 
@@ -471,7 +471,7 @@ For each
 $f_{out} (N)=\frac {f_{clk} \times 64}{N}$
 
 Searching for the minimum of 
-$ \lvert \epsilon \rvert = \lvert f_{out}-f_{req} \rvert
+$ \lvert \epsilon \rvert = \lvert f_{out}-f_{req} \rvert$
 
 Selecting as a result the value with the minimum absolute 
 error 
@@ -494,7 +494,7 @@ Since
 $N \approx \frac{f_{clk} \times 64}{f_{req}}$ 
 
 results
-$ \lvert ε_max \rvert \approx \frac{f_{req}^2}{2f_{clk} \times 64}$
+$ \lvert ε_{max} \rvert \approx \frac{f_{req}^2}{2f_{clk} \times 64}$
 
 As a consequence 
 
