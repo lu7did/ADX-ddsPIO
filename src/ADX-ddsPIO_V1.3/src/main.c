@@ -146,22 +146,22 @@
 //*==============================================================================================*
 #define  DEBUG     1
 #define  EEPROM    1   
-#define  CAT       1    
+//#define  CAT       1    
 #define  BOOTSYNC  1
 #define  SUPERHET  1
 //#define  DUALCLK   1
-//#define QUAD 1
+#define QUAD 1
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
 #ifdef CAT                      //If CAT enabled USB can not be used to debug
 #undef DEBUG
-#endif  
+#endif //CAT  
 
 #ifdef QUAD                     //If Quadrature oscillator activated all other clocks disabled
 #undef DUALCLK
 #undef SUPERHET
-#endif 
+#endif //QUAD 
 
 //*==============================================================================================*
 //*                                  Includes and Source Libraries                               *
@@ -193,6 +193,11 @@
 
 #ifdef SUPERHET
 #include "BFO.pio.h"
+#endif //SUPERHET
+
+#ifdef QUAD
+#include "quad.pio.h"
+#include "quad.h"
 #endif //SUPERHET
 
 #ifdef EEPROM
@@ -254,6 +259,7 @@
 
 #ifdef SUPERHET
 #define RFIF                 15           //RF out Receiver IF (465 KHz)
+
 #endif //SUPERHET
 
 #define SDA                  26           //I2C SDA (Data) bus
@@ -357,6 +363,98 @@ void audio_data_write(int16_t,int16_t);
 void cat(void);
 void clearLED();
 void blinkLED(uint8_t _gpio, uint8_t n, uint ms);
+
+//*--- Define quadrature QDO working areas
+#ifdef QUAD
+quad_solution_t sol;
+quad_osc_t      osc;
+#endif //QUAD
+//*==============================================================================================*
+//*                            Debug tools for Quadrature oscillator if defined                  *
+//*==============================================================================================*
+
+#if defined(DEBUG) && defined(QUAD)
+
+static void read_sm_clkdiv(PIO pio, uint sm, uint16_t *di, uint8_t *df);
+static uint32_t calc_fout_est(uint32_t clk_sys_hz, uint32_t N_q8_8);
+static void dump_solution(const char *tag,const quad_solution_t *s,PIO pio, uint sm);
+
+//*----------------------------------------------------------------------------
+//*              Read actual divider of the SM (Int and Frac Q8.8) 
+//*----------------------------------------------------------------------------
+static void read_sm_clkdiv(PIO pio, uint sm, uint16_t *di, uint8_t *df) {
+
+  //*---- SMx_CLKDIV INT part at bits 31:16 and FRAC at bits 18:8 (8 bits)
+
+  uint32_t reg = pio->sm[sm].clkdiv;
+  *di = (uint16_t)(reg >> 16);
+  *df = (uint8_t)((reg >> 8) & 0xffu);
+}
+//*----------------------------------------------------------------------------
+//*   Estimation of f_out from clk_sys and N (with N= div_int*256 + div_frac)
+//*----------------------------------------------------------------------------
+static uint32_t calc_fout_est(uint32_t clk_sys_hz, uint32_t N_q8_8) {
+
+  //*--- for a quad PIO with 4 states f_out = clk_sys * 64 / N
+
+  const uint32_t factor = 64u;
+  uint64_t num = (uint64_t)clk_sys_hz * (uint64_t)factor;
+  return (uint32_t)(num / (uint64_t)N_q8_8);
+}
+//*----------------------------------------------------------------------------
+//*   Utility function to print optimization solution for debugging purposes
+//*----------------------------------------------------------------------------
+static void dump_solution(const char *tag,
+                          const quad_solution_t *s,
+                          PIO pio, uint sm) {
+
+//*--- This function reads what the current Hw status really is in order to 
+//*--- check if the setup of the solution has been successfully deployed                            
+  uint32_t clk_now = clock_get_hz(clk_sys);
+  uint16_t di_hw; uint8_t df_hw;
+  read_sm_clkdiv(pio, sm, &di_hw, &df_hw);
+
+  uint32_t N_hw = (uint32_t)di_hw * 256u + (uint32_t)df_hw;
+  uint32_t fout_hw_est = calc_fout_est(clk_now, N_hw);
+
+  char b[320];
+  //*--- different values are now printed, the message is split to be handled
+  //*--- properly by the USB CDC, menwhile the USB service task is called to 
+  //*--- clean up the buffers and release space
+
+  int n = snprintf(b, sizeof(b),"\n[%s]\n REQ=%" PRIu32 "\n",tag,s->f_req_hz);
+  cdc_write(b, (uint16_t)n);
+  tud_cdc_write_flush();
+  for(int n=0;n<10;n++) {tud_task();}
+
+  n = snprintf(b, sizeof(b),"clk_sys(now)=%" PRIu32 "\n",s->clk_sys_hz);
+  cdc_write(b, (uint16_t)n);
+  tud_cdc_write_flush();
+  for(int n=0;n<10;n++) {tud_task();}
+
+  n = snprintf(b, sizeof(b),"SOL: clk_sys=%" PRIu32 "\n  vco=%" PRIu32 "\n",s->clk_sys_hz, s->vco_hz);
+  cdc_write(b, (uint16_t)n);
+  tud_cdc_write_flush();
+  for(int n=0;n<10;n++) {tud_task();}
+
+  n = snprintf(b, sizeof(b),"post=%u/%u  fbdiv=%u refdiv=%u\n",(unsigned)s->postdiv1, (unsigned)s->postdiv2,    (unsigned)s->fbdiv, (unsigned)s->refdiv);
+  cdc_write(b, (uint16_t)n);
+  tud_cdc_write_flush();
+  for(int n=0;n<10;n++) {tud_task();}
+
+  n = snprintf(b, sizeof(b),"SOL: N=%" PRIu32 "  div=%u+%u/256  f_out=%" PRIu32 "  err=%" PRId32 "\n",s->N, (unsigned)s->pio_div_int, (unsigned)s->pio_div_frac, s->f_out_hz, s->err_hz);
+  cdc_write(b, (uint16_t)n);
+  tud_cdc_write_flush();
+  for(int n=0;n<10;n++) {tud_task();}
+
+  n = snprintf(b, sizeof(b),"HW : N=%" PRIu32 "  div=%u+%u/256  f_out_est=%" PRIu32 "\n",N_hw, (unsigned)di_hw, (unsigned)df_hw, fout_hw_est); 
+  cdc_write(b, (uint16_t)n);
+  tud_cdc_write_flush();
+  for(int n=0;n<10;n++) {tud_task();}
+
+}
+
+#endif //DEBUG
 
 //*==============================================================================================*
 //*                                         BAND SELECT AND MANAGEMENT                           *
@@ -598,6 +696,11 @@ void setTX(bool state) {
 
        uint32_t f = frqFT8;
 
+       #ifdef QUAD
+          quad_stop(&osc);
+          PioDCOStart(&DCO);
+       #endif //QUAD
+
        PioDCOSetFreq(&DCO, f, 0U);
 
        gpio_put(RXSW, 0);                   //(RXSW=1 enable Ant to RX, otherwise blocks it)
@@ -608,7 +711,15 @@ void setTX(bool state) {
       } else {
 
         uint32_t f = frqFT8;
+
         PioDCOSetFreq(&DCO, f, 0U);
+
+        #ifdef QUAD
+           PioDCOStop(&DCO);
+           quad_start(&osc, f, false, &sol);
+           dump_solution("<1>", &sol, osc.pio , osc.sm);
+
+        #endif //QUAD
 
         cycle = 0;
         sampling = 0;
@@ -720,6 +831,11 @@ void checkButtons() {
         Mode_assign();
         while(!testButton(UP));
         PioDCOSetFreq(&DCO,frqFT8,0U);
+    
+        #ifdef QUAD
+        quad_set_frequency(&osc, frqFT8, false, &sol);  
+        dump_solution("<3>", &sol, osc.pio , osc.sm);
+        #endif //QUAD
 
      }
   }
@@ -737,6 +853,11 @@ void checkButtons() {
         while(!testButton(DOWN));
 
         PioDCOSetFreq(&DCO,frqFT8,0U);
+
+        #ifdef QUAD
+        quad_set_frequency(&osc, frqFT8, false, &sol);
+        dump_solution("<4>", &sol, osc.pio , osc.sm);
+        #endif //QUAD
 
      }
   }
@@ -866,7 +987,6 @@ int main(void)
 
   stdio_init_all();
 
- 
   //*--- Overclock the board a little
 
   const uint32_t clkhz = PLL_SYS_MHZ * 1000000L;
@@ -924,10 +1044,16 @@ int main(void)
  
   #ifdef DUALCLK
   PioDCOInit(&DCO, RFOUT, PIOclkhz,true);
-   #else
+  #else
   PioDCOInit(&DCO, RFOUT, PIOclkhz,false);
-   #endif //DUALCLK
-  
+  #endif //DUALCLK
+
+  //*--- Start the quadrature oscilator
+
+  #ifdef QUAD
+  quad_init(&osc, pio1, 0);
+  #endif //QUAD
+
   //*--- Start the USB service loop
 
   tud_init(BOARD_TUD_RHPORT);
@@ -984,6 +1110,14 @@ int main(void)
   multicore_launch_core1(core1_entry);
   sleep_ms(500);
   
+  #ifdef QUAD
+
+  //*--- Start the oscillator
+  quad_start(&osc, frqFT8, false, &sol);
+  dump_solution("<0>", &sol, osc.pio , osc.sm);
+  
+  #endif //QUAD
+
   //*--- ADC (receiver) initialization
   
   pcCounter=0;
@@ -1005,6 +1139,12 @@ int main(void)
   sleep_ms(100);
   adc_fifo_drain ();
   adc_offset = adc();
+
+//*--- Start the quadrature digital oscilator (QDO) if configured
+
+  #ifdef QUAD
+  quad_init(&osc, pio1, 0);
+  #endif //QUAD
 
   //*--- Get time for future synchronization
 
@@ -1161,11 +1301,11 @@ void receiving() {
   int16_t rx_adc = (int16_t)(adc() - adc_offset); //read ADC data (8kHz sampling)
   
   // write the same 6 stereo data to PC for 48kHz sampling (up-sampling: 8kHz x 6 = 48 kHz)
+  
   for (int i=0;i<6;i++){
     audio_data_write(rx_adc, rx_adc);
   }
-  //cdc_printf("adc()=%d\n",rx_adc);
-
+  
   return;
 
 }
@@ -1173,6 +1313,7 @@ void receiving() {
 //*  Audio data is sent over USB (Receiver)                                   */
 /*----------------------------------------------------------------------------*/
 void audio_data_write(int16_t left, int16_t right) {
+  
   if (pcCounter >= (48)) {                           //48: audio data number in 1ms
     USB_Audio_write(adc_data, pcCounter);
     pcCounter = 0;  
@@ -1188,6 +1329,7 @@ void receive(){
 
 
   // initialization of monodata[]
+  
   for (int i = 0; i < (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ / 4); i++) {
     monodata[i] = 0;
   } 
@@ -1213,6 +1355,7 @@ void adc_drain(){
 //* The ADC sub-system samples the mixer output of the receiver and sent it over USB*/
 //*---------------------------------------------------------------------------------*/
 int32_t adc() {
+  
   int32_t adc = 0;
   for (int i=0;i<24;i++){             // 192kHz/24 = 8kHz
     adc += adc_fifo_get_blocking();   // read from ADC fifo
@@ -1319,6 +1462,16 @@ void cat(void)
 
         frqFT8 = (uint32_t)freqset;       
         PioDCOSetFreq(&DCO,frqFT8,0U);
+
+        #ifdef QUAD
+        quad_set_frequency(&osc, frqFT8, false, &sol)
+        dump_solution("CAT", &sol, osc.pio , osc.sm);
+
+        #endif //QUAD
+
+        #ifdef QUAD
+
+        #endif //QUAD
         
         adc_fifo_drain ();
         adc_offset = adc();

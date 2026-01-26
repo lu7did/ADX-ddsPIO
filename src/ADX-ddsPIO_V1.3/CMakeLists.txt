@@ -104,17 +104,12 @@ target_sources(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/src/lib/assert.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_audio.c 
         ${CMAKE_CURRENT_SOURCE_DIR}/src/EEPROM.c 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/quad.c 
 
         )
 
 
-# Example include
-#target_include_directories(${PROJECT} PUBLIC
-#         ${CMAKE_CURRENT_SOURCE_DIR}/src
-#         ${PICO_SDK_PATH}/lib/tinyusb/hw
-#        )
 
-#target_include_directories(ADX-ddsPIO PRIVATE
 target_include_directories(ADX-ddsPIO PUBLIC
         ${PICO_SDK_PATH}/lib/tinyusb/hw
         ${PICO_SDK_PATH}/lib/tinyusb/src
@@ -156,6 +151,10 @@ target_link_libraries(${PROJECT} PUBLIC
         hardware_flash 
         hardware_sync
         hardware_i2c
+        hardware_clocks
+        hardware_pll
+        hardware_watchdog
+
         )
 endif()  #!PICOW
 
@@ -186,4 +185,5 @@ family_configure_device_example(${PROJECT} noos)
 
 pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/BFO.pio)
 pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/dco2.pio)
+pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/quad.pio)
 

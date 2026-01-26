@@ -178,7 +178,7 @@ At his point the Raspberry Pi Pico (standard) and the RP2040 Zero boards are *su
 
 The Raspberry Pi Pico W (wireless) is **not supported**.
 
-## Circuit Design (version 0.x)
+## Circuit Design Direct Conversion Receiver (version 0.x)
 
 This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA)).
 ![Alt Text](doc/ADX-ddsPIO-Schematic.png?raw=true "Transceiver Circuit (Version 0.x)")
@@ -188,11 +188,9 @@ The main differences with the original ADX circuit are:
 * Si5351 module no longer present.
 * Analog audio circuit has been removed as the audio information is received digitally thru USB.
 * Additional SYNC button (for future time sync).
-* Additional BEACON jumper (for future automatic beacon).
 
 
 The pinout assignment for this version is shown in the following table:
-
 
 ![Alt Text](doc/ADX-ddsPIO_pinout.png?raw=true "Raspberry Pi Pico pinout assignment")
 
@@ -230,6 +228,7 @@ GPIO13 and GPIO14 simultaneously.
 
 ```
 This option is activated with the compilation directive #define DUALCLK 1
+This option is deactivated with the compilation directive #define QUAD 1
 ```
 ### Dual clock + IF
 
@@ -344,6 +343,7 @@ frequency (normally in the 450 KHz range) as shown in the following picture.
 
 ```
 This option is activated with the compilation directive #define SUPERHET 1
+This option is deactivated with the compilation directive #define QUAD 1
 ```
 
 ### Quadrature clock
