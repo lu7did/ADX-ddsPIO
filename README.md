@@ -482,7 +482,7 @@ This is a discrete search with a double optimization:
 * Divider (Q8.8) quantization
 
 The theoretical error limit is  
-$\left \lvert \delta N \right \rvert \le 0.5$
+$\left \lvert \Delta N \right \rvert \le 0.5$
 
 taking derivatives 
 $\frac {df}{dN}=- \frac{f_{clk} \times 64}{N^2}$
@@ -494,7 +494,7 @@ Since
 $N \approx \frac{f_{clk} \times 64}{f_{req}}$ 
 
 results
-$ \left \lvert ε_{max} \right \rvert \approx \frac{f_{req}^2}{2f_{clk} \times 64}$
+$ \left \lvert \epsilon_{max} \right \rvert \approx \frac{f_{req}^2}{2f_{clk} \times 64}$
 
 As a consequence 
 
