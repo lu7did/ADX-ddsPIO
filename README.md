@@ -228,9 +228,9 @@ This option is activated with the compilation directive #define DUALCLK 1
 ```
 ### Dual clock + IF
 
-Then be board operates with a superheterodyne receptor configuration the receiver process
+Then the board operates with a superheterodyne receptor configuration the receiver process
 requires two clocks, the main one to operate the down-converter mixer from the HF frequency
-to an intermediate frequency and the intermediate frequency oscillator frequency.
+to an intermediate frequency and other as the intermediate frequency oscillator frequency.
 
 The down-converter local oscillator (RFLO) can be either one of the clocks despicted above.
 
@@ -261,7 +261,7 @@ For an estimated 465 KHz frequency for the IF of the receiver then
 
 $f_{sm}= 2*465 KHz = 930 KHz$
 
-The clock used by the PIO is derived from the system clock ($clk_{sys}) thru a fractional divisor,
+The clock used by the PIO is derived from the system clock ($clk_{sys}$) thru a fractional divisor,
 as the board is being clocked at 270 MHz then
 
 $clk_{div} = \frac{clk_{sys}}{f_{sm}} = 270e6 / 930e3 \approx{290.32266}$
@@ -343,7 +343,7 @@ This option is activated with the compilation directive #define SUPERHET 1
 
 If a Software Defined Radio (SDR) receiver is needed the board has to provide two specific signals
 called by convention clock *I* and clock *Q* which are of the same frequency but whose phases are
-90 $\textdegree$ appart or $\frac{\phi}{2}$ 
+90 $\textdegree$ appart or $\frac{\pi}{2}$ 
 
 Again, trying to obtain such signal using the VCO technology it's quite difficult with the 
 resources available, an approach to create them using again a PIO processor with that purpose
@@ -398,7 +398,7 @@ Each instruction of the PIO is executed in:
 $T_{inst}=\frac{D}{f_{clk_sys}}$ 
 
 In order to complete a full period all 4 instructions needs to be completed
-$T_{out}=$4 \times T_{inst}$=$\frac{4D}{f_{clk_sys}}$ 
+$T_{out}$=$4 \times T_{inst}$=$\frac{4D}{f_{clk_sys}}$ 
 
 Therefore the output frequency ($f_{out}$) will be:
 $f_{out}=\frac{f_{clk_sys}}{4D}$
@@ -420,17 +420,17 @@ problem is to define a divider
 $N^*=\frac {f_{clk} \times 64}{f_{req}}$ 
 
 But the hardware is limited to 
-$N∈Z,1≤N≤65$535
+$N∈Z,1≤N≤65$$535
 
 Therefore not all values of $N$ are feasible but
-$N=\round {N^*}$
+$N=Round({N^*})$
 
 And the true frequency resulting would be
 
 $f_{out} (N)=\frac{f_clk \times 64}{N}$
 
 and the error 
-$ε=f_{out} (N)-f_{req}
+$ε=f_{out} (N)-f_{req}$
 
 When computed over the HF range the error could become quite large, from
 several Hz in the lower bands to close to 30 KHz in the higher bands, this
@@ -438,6 +438,7 @@ is not acceptable.
 
 To minimize the error two factors needs to be defined, the divisor but also the system clock
 in a way that an exploration of the  discrete space of solutions 
+
 $(&refdiv∈[1,16]@&fbdiv∈[16,320]@&postdiv1∈[1,7]@&postdiv2∈[1,postdi$
 
 With:
@@ -445,8 +446,7 @@ $f_{ref}=\frac{f_{xosc}}{refdiv}$
 $f_{vco}=\frac{f_ref}{fbdiv}$
 $f_{clk}=\frac{f_{vco}}{postdiv1 \times postdiv2}$
 
-Sujeto a:
-Contraints:
+With the following Contraints:
 
 $400" " MHz≤f_vco≤1600" " MHz$
 $f_{clk}≤f{(max_sy}$)
@@ -486,7 +486,7 @@ Being the approximate máximum error value:
 $∣ε{_ma}x = aprox \frac{f_{clk} \times 64}{2N^2}
 
 Since
-$N aprox \frac{f{_ck} \times 64}{f_{req}}$ 
+$N \approx \frac{f{_ck} \times 64}{f_{req}}$ 
 
 results
 $∣ε_max∣\frac{≈{(f_}re}{)/({2f_} \times 64}$
@@ -498,18 +498,19 @@ As a consequence
 * The divisor cuantization controls the residual error.
 
 A typical expected result would be
-Band    Freq            clk_sys         Error
-80 m	3 573 000	167 428 571	0 Hz
-40 m	7 074 000	233 000 000	±3 Hz
-20 m	14 074 000	268 285 602	±2 Hz
-15 m	21 074 000	178 800 000	±30 Hz
-10 m	28 074 000	261 000 000	±50 Hz
+|Band|Freq|clk_sys|Error|
+| --- | --- | --- | --- |
+| 80 m |  3 573 000 | 167 428 571 |   0 Hz |
+| 40 m |  7 074 000 | 233 000 000 |  ±3 Hz |
+| 20 m | 14 074 000 | 268 285 602 |  ±2 Hz |
+| 15 m | 21 074 000 | 178 800 000 | ±30 Hz |
+| 10 m | 28 074 000 | 261 000 000 | ±50 Hz |
 
 
 The output of this clock is implemented to be obtained at pins GPIO14 (I) and GPIO15 (Q).
 
 ```
-This clock is activated by the directive #define QUADRA 1
+This clock is activated by the directive #define QUAD 1
 ```
 
 ## Test resources
