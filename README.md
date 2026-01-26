@@ -134,14 +134,19 @@ Features
 * Permanent settings (EEPROM emulation).
 * CAT control (TS2000 emulation).
 
+
 ## ADX-ddsPIO Firmware (Version 1.2)
+
+* Superhet ADX-S support.
+* Implementation of a BFO (465 KHz) local oscillator.
+
+## ADX-ddsPIO Firmware (Version 1.3)
 
 ```
 Work in progress
 ```
 
-* Superhet ADX-S support.
-* Implementation of a BFO (465 KHz) local oscillator.
+* Quadrature clock support.
 
 
 ## Build environment
@@ -423,7 +428,7 @@ problem is to define a divider
 $N^*=\frac {f_{clk} \times 64}{f_{req}}$ 
 
 But the hardware is limited to 
-$N∈Z,1≤N5535$
+$N \in Z,1 \le 65535$
 
 Therefore not all values of $N$ are feasible but
 $N=Round({N^*})$
@@ -654,7 +659,7 @@ be seen the transmission and the decoding of it.
 At the bottom of the image the WSJT-X configuration dialog can be seen where the input and
 output devices is actually the ADX-ddsPIO board recognized as such.
 
-## Quadra
+## Quad
 
 This is the prototype of the digital quadrature frequency synth (I/Q) clock
 
