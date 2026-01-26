@@ -178,6 +178,17 @@ At his point the Raspberry Pi Pico (standard) and the RP2040 Zero boards are *su
 
 The Raspberry Pi Pico W (wireless) is **not supported**.
 
+
+## Circuit Design Superhet Receiver (version 1.x)
+
+This circuit is largely based on the ADX transceiver modification made by Hitoshi Kawaji (JE1RAV) and
+marketed as a kit form by Adam Rong (BD6CR) at CRKits.com ([link](http://crkits.com/) ).
+![Alt Text](doc/ADX-ddsPIO_V1.x-Schematic.png?raw=true "Transceiver Circuit (Version 1.x)")
+
+The main differences with the verion 0.x:
+
+* The receiver configuration has been changed to a superhet.
+
 ## Circuit Design Direct Conversion Receiver (version 0.x)
 
 This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA)).
@@ -189,6 +200,7 @@ The main differences with the original ADX circuit are:
 * Analog audio circuit has been removed as the audio information is received digitally thru USB.
 * Additional SYNC button (for future time sync).
 
+## Pinout assignment
 
 The pinout assignment for this version is shown in the following table:
 
