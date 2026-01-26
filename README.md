@@ -489,7 +489,7 @@ Since
 $N \approx \frac{f_{clk} \times 64}{f_{req}}$ 
 
 results
-$∣ε_max∣\frac{≈{(f_}re}{)/({2f_} \times 64}$
+$ \lvert ε_max \rvert = \frac{f_{re}{2f \times 64}$
 
 As a consequence 
 
