@@ -455,7 +455,7 @@ With:
 Subject to the following constraints:
 
 * $400 \text{MHz} \le f_{vco} \le 1600 \text{MHz}$
-* $f_{clk} \le f{(max_ssy}$
+* $f_{clk} \le f_{max_sys}$
 
  
 A minimization optimization problem can then be solved with the 
@@ -471,7 +471,7 @@ For each
 $f_{out} (N)=\frac {f_{clk} \times 64}{N}$
 
 Searching for the minimum of 
-$ \lvert \epsilon \rvert = \lvert f_{out}-f_{req} \rvert$
+$\left \lvert \epsilon \right \rvert = \left \lvert {f_{out}-f_{req}} \right \rvert$
 
 Selecting as a result the value with the minimum absolute 
 error 
@@ -482,19 +482,19 @@ This is a discrete search with a double optimization:
 * Divider (Q8.8) quantization
 
 The theoretical error limit is  
-$\lvert \delta N \rvert \le 0.5$
+$\left \lvert \delta N \right \rvert \le 0.5$
 
 taking derivatives 
 $\frac {df}{dN}=- \frac{f_{clk} \times 64}{N^2}$
 
 Being the approximate máximum error value:
-$\lvert \epsilon_{max} \rvert \approx \frac{f_{clk} \times 64}{2 \times N^2}$
+$\left \lvert \epsilon_{max} \right \rvert \approx \frac{f_{clk} \times 64}{2 \times N^2}$
 
 Since
 $N \approx \frac{f_{clk} \times 64}{f_{req}}$ 
 
 results
-$ \lvert ε_{max} \rvert \approx \frac{f_{req}^2}{2f_{clk} \times 64}$
+$ \left \lvert ε_{max} \right \rvert \approx \frac{f_{req}^2}{2f_{clk} \times 64}$
 
 As a consequence 
 
