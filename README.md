@@ -494,7 +494,7 @@ Since
 $N \approx \frac{f_{clk} \times 64}{f_{req}}$ 
 
 results
-$ \left \lvert \epsilon_{max} \right \rvert \approx \frac{f_{req}^2}{2f_{clk} \times 64}$
+$\left \lvert {\epsilon}_{max} \right \rvert \approx \frac{f_{req}^2}{2 \times f_{clk} \times 64}$
 
 As a consequence 
 
