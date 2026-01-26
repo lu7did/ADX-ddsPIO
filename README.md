@@ -486,7 +486,7 @@ Being the approximate máximum error value:
 $∣ε{_ma}x = aprox \frac{f_{clk} \times 64}{2N^2}
 
 Since
-$N \approx \frac{f{_ck} \times 64}{f_{req}}$ 
+$N \approx \frac{f_{clk} \times 64}{f_{req}}$ 
 
 results
 $∣ε_max∣\frac{≈{(f_}re}{)/({2f_} \times 64}$
