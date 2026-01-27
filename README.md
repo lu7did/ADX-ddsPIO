@@ -569,16 +569,6 @@ This clock is activated by the directive #define QUAD 1
 
 The following test resources has been built
 
-### ADX-ddsPIO extended prototype
-
-To continue the development of the firmware adding the reception sub-systems an extended
-prototype including a receiver has been built.
-![Alt Text](doc/ADX-ddsPIO_prototype_rp2040Z.jpeg?raw=true "ADX-ddsPIO-prototype")
-This prototype contains the processor, the RF driver and the simple *CD2003GP* based
-DC receiver. The processor board used is the breakboard rp2040Z which provides the
-same funcionality than the Raspberry Pi Pico with a reduced availability of GPIO and
-other pins but with a much smaller board footprint.
-A small RF probe is feed into a wire for local "on the air tests".
 
 ### ADX-ddsPIO mockup
 
@@ -602,6 +592,29 @@ Just the transmitting part sans finals has been made as yet as the measurements 
 with the firmware development requires large periods with the board in TX mode and there
 is no point on running finals for that.
 ``` 
+### ADX-ddsPIO extended prototype
+
+To continue the development of the firmware adding the reception sub-systems an extended
+prototype including a receiver has been built.
+![Alt Text](doc/ADX-ddsPIO_prototype_rp2040Z.jpeg?raw=true "ADX-ddsPIO-prototype")
+This prototype contains the processor, the RF driver and the simple *CD2003GP* based
+DC receiver. The processor board used is the breakboard rp2040Z which provides the
+same funcionality than the Raspberry Pi Pico with a reduced availability of GPIO and
+other pins but with a much smaller board footprint.
+A small RF probe is feed into a wire for local "on the air tests".
+
+
+### Modified RDX board
+
+The RDX board can receive modifications which allows it to be used as a debug
+platform for the Si4732 receiver implementation.
+
+Mods follows:
+
+```
+Work in progress
+```
+
 
 ### testDDS utility
 
