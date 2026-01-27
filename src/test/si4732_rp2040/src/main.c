@@ -294,13 +294,14 @@ int main(void) {
   gpio_set_dir(TX, GPIO_OUT); //TX →　1, RX →　0 (for Driver switch)
   gpio_put(TX,0);             //Turn TX LED off, use it as a marker for debugging
 
+  //*--- Debug construct to force the flow wait for the CDC stream to be active
+  
   while(gpio_get(TXSW)) {tud_task();};     //Wait till the TX Switch is pressed (to be able to see the messages)
   gpio_put(TX,1);            //Turn TX LED on, ready to start
-
-  while(!gpio_get(!TXSW)) {tud_task();};   //Wait till the TX switch is released
+  while(!gpio_get(TXSW)) {tud_task();};   //Wait till the TX switch is released
+  gpio_put(TX,0);
 
   cdc_printf("\nUSB Bus initialized properly and ready\n");
-  gpio_put(TX,0);
 
   //*--- Ensure reset is high
 

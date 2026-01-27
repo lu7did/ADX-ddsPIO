@@ -342,6 +342,7 @@ static si4732_status_t power_up_common(si4732_t *dev, uint8_t func, bool patch_e
   uint8_t cmd[3] = { CMD_POWER_UP, arg1, 0x05u }; // opmode 0x05 (analog out)
   si4732_status_t rc = i2c_write_bytes(dev, cmd, sizeof(cmd));
   if (rc != SI4732_OK) return rc;
+  if (!dev->present) return SI4732_ERR_DEVICE;
 
   //*--- POWER_UP might take a little longer
 
@@ -352,7 +353,7 @@ static si4732_status_t power_up_common(si4732_t *dev, uint8_t func, bool patch_e
 
 si4732_status_t si4732_power_up_fm(si4732_t *dev) {
   if (!dev) return SI4732_ERR_ARG;
-
+  if (!dev->present) return SI4732_ERR_DEVICE;
   dev->mode = SI4732_MODE_FM;
   return power_up_common(dev, 0u, false);
 }
@@ -361,6 +362,7 @@ si4732_status_t si4732_power_up_fm(si4732_t *dev) {
 
 si4732_status_t si4732_power_up_am(si4732_t *dev, bool patch_enable) {
   if (!dev) return SI4732_ERR_ARG;
+  if (!dev->present) return SI4732_ERR_DEVICE;
   dev->mode = patch_enable ? SI4732_MODE_SSB : SI4732_MODE_AM;
   return power_up_common(dev, 1u, patch_enable);
 }
