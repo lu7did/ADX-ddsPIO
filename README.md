@@ -609,7 +609,7 @@ A small RF probe is feed into a wire for local "on the air tests".
 The RDX board can receive modifications which allows it to be used as a debug
 platform for the Si4732 receiver implementation.
 
-![Alt Text](doc/ADX-ddsPIO_RDX.jpeg?raw=true "ADX-ddsPIO RDX")
+![Alt Text](doc/ADX-ddsPIO_RDX.jpg?raw=true "ADX-ddsPIO RDX")
 
 Mods follows:
 
