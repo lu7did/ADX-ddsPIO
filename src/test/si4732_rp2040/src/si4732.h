@@ -110,6 +110,7 @@ typedef struct {
 
   uint sda_pin;
   uint scl_pin;
+  uint reset_pin;
   uint32_t baud_hz;
 
   si4732_region_t region;
@@ -127,8 +128,11 @@ si4732_status_t si4732_init(si4732_t *dev,
                             i2c_inst_t *i2c,
                             uint8_t addr,
                             uint sda_pin, uint scl_pin,
+                            uint reset_pin,
                             uint32_t baud_hz);
 
+//*--- Reset helper (active-low). Pulses reset low then releases high.
+si4732_status_t si4732_reset_pulse(si4732_t *dev, uint32_t low_ms, uint32_t settle_ms);
 si4732_status_t si4732_power_up_fm(si4732_t *dev);
 si4732_status_t si4732_power_up_am(si4732_t *dev, bool patch_enable);
 si4732_status_t si4732_power_down(si4732_t *dev);
@@ -170,6 +174,7 @@ si4732_status_t si4732_set_agc(si4732_t *dev, bool disable_agc, uint8_t gain_ind
 
 extern const uint8_t si4732_ssb_patch[];
 extern const size_t  si4732_ssb_patch_len;
+
 
 //*---  Generic patch loader (chunked). Placeholder patch is all zeros.
 si4732_status_t si4732_load_patch(si4732_t *dev, const uint8_t *patch, size_t patch_len);

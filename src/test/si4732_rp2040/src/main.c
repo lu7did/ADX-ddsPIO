@@ -47,7 +47,7 @@
 #define I2C_PORT i2c0
 #define SDA_PIN  16
 #define SCL_PIN  17
-
+#define RST_PIN  15
 static void cdc_write_str(const char *s) {
   if (!tud_cdc_connected()) return;
   tud_cdc_write_str(s);
@@ -154,6 +154,15 @@ static void process_line(si4732_t *radio, char *line) {
     cdc_write_str("seek rc="); char out[32]; snprintf(out, sizeof(out), "%d", (int)rc); cdc_write_ln(out);
     return;
   }
+  
+
+
+  if (!strcmp(cmd, "loadpatch")) {
+     si4732_status_t rc = si4732_load_patch(radio, si4732_ssb_patch, si4732_ssb_patch_len);
+     cdc_write_str("loadpatch rc="); char out[32]; snprintf(out, sizeof(out), "%d", (int)rc); cdc_write_ln(out);
+     return;
+  }
+
 
   if (!strcmp(cmd, "vol")) {
     char *arg = strtok(NULL, " \t\r\n");
@@ -191,7 +200,10 @@ int main(void) {
   //*--- Init radio
   
   si4732_t radio;
-  (void)si4732_init(&radio, I2C_PORT, SI4732_I2C_ADDR_DEFAULT, SDA_PIN, SCL_PIN, 400000);
+  si4732_init(&radio, I2C_PORT, SI4732_I2C_ADDR_DEFAULT, SDA_PIN, SCL_PIN, RST_PIN, 400000);
+  si4732_reset_pulse(&radio, 10, 50);
+
+
 
   //*--- Power up FM and apply region AR defaults
   

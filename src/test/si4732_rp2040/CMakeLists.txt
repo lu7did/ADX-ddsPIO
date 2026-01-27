@@ -47,6 +47,7 @@ add_executable(${PROJECT_NAME}
   src/si4732.c
   src/si4732_patch_ssb.c
   src/usb_descriptors.c
+  src/si4732_patch_ssb.c
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

@@ -105,36 +105,17 @@
 //*---------------------------------------------------------------------------------------*
 //*                                  I2C helpers                                          *
 //*---------------------------------------------------------------------------------------*
-
-//*--- write to the receiver chip
-
 static si4732_status_t i2c_write_bytes(si4732_t *dev, const uint8_t *buf, size_t len) {
   int rc = i2c_write_blocking(dev->i2c, dev->addr, buf, len, false);
-
-  if (rc < 0) {
-    return SI4732_ERR_I2C;
-  }
-
-  if ((size_t)rc != len) {
-    return SI4732_ERR_I2C;
-  }
-
+  if (rc < 0) return SI4732_ERR_I2C;
+  if ((size_t)rc != len) return SI4732_ERR_I2C;
   return SI4732_OK;
 }
 
-//*--- read from the receiver chip
-
 static si4732_status_t i2c_read_bytes(si4732_t *dev, uint8_t *buf, size_t len) {
   int rc = i2c_read_blocking(dev->i2c, dev->addr, buf, len, false);
-
-  if (rc < 0) {
-    return SI4732_ERR_I2C;
-  }
-
-  if ((size_t)rc != len) {
-    return SI4732_ERR_I2C;
-  }
-
+  if (rc < 0) return SI4732_ERR_I2C;
+  if ((size_t)rc != len) return SI4732_ERR_I2C;
   return SI4732_OK;
 }
 
@@ -182,14 +163,18 @@ static si4732_status_t cmd_write(si4732_t *dev, const uint8_t *cmd, size_t len, 
 si4732_status_t si4732_init(si4732_t *dev,
                             i2c_inst_t *i2c,
                             uint8_t addr,
-                            uint sda_pin, uint scl_pin,
-                            uint32_t baud_hz) {
+                            uint sda_pin, uint scl_pin,uint reset_pin,
+                            uint32_t baud_hz) 
+
+{
+
   if (!dev || !i2c) return SI4732_ERR_ARG;
 
   dev->i2c = i2c;
   dev->addr = addr;
   dev->sda_pin = sda_pin;
   dev->scl_pin = scl_pin;
+  dev->reset_pin = reset_pin;
   dev->baud_hz = baud_hz ? baud_hz : 400000u;
 
   dev->mode = SI4732_MODE_FM;
@@ -202,10 +187,23 @@ si4732_status_t si4732_init(si4732_t *dev,
   gpio_pull_up(dev->sda_pin);
   gpio_pull_up(dev->scl_pin);
 
+  gpio_init(dev->reset_pin);
+  gpio_set_dir(dev->reset_pin, GPIO_OUT);
+  gpio_put(dev->reset_pin, 1);   // release reset
+
   // default region
   dev->region = SI4732_REGION_AR;
   dev->region_profile = si4732_region_profile(dev->region);
 
+  return SI4732_OK;
+}
+
+si4732_status_t si4732_reset_pulse(si4732_t *dev, uint32_t low_ms, uint32_t settle_ms) {
+  if (!dev) return SI4732_ERR_ARG;
+  gpio_put(dev->reset_pin, 0);
+  sleep_ms(low_ms);
+  gpio_put(dev->reset_pin, 1);
+  sleep_ms(settle_ms);
   return SI4732_OK;
 }
 
@@ -521,7 +519,6 @@ si4732_status_t si4732_set_agc(si4732_t *dev, bool disable_agc, uint8_t gain_ind
 si4732_status_t si4732_load_patch(si4732_t *dev, const uint8_t *patch, size_t patch_len) {
   if (!dev || !patch || patch_len == 0) return SI4732_ERR_ARG;
 
-  // Chunked load; placeholder command. Real SSB patch flow may differ.
   const size_t CHUNK = 32;
   size_t off = 0;
 
@@ -529,11 +526,13 @@ si4732_status_t si4732_load_patch(si4732_t *dev, const uint8_t *patch, size_t pa
     size_t n = patch_len - off;
     if (n > CHUNK) n = CHUNK;
 
-    uint8_t buf[1 + CHUNK];
-    buf[0] = CMD_LOAD_PATCH;
-    for (size_t i = 0; i < n; i++) buf[1 + i] = patch[off + i];
+    si4732_status_t rc = wait_cts(dev, 1000);
+    if (rc != SI4732_OK) return rc;
 
-    si4732_status_t rc = cmd_write(dev, buf, 1 + n, 1000);
+    rc = i2c_write_bytes(dev, &patch[off], n);
+    if (rc != SI4732_OK) return rc;
+
+    rc = wait_cts(dev, 1000);
     if (rc != SI4732_OK) return rc;
 
     off += n;
