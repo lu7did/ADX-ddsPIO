@@ -60,6 +60,7 @@ typedef enum {
   SI4732_ERR_TIMEOUT = -2,
   SI4732_ERR_ARG = -3,
   SI4732_ERR_DEVICE = -4
+
 } si4732_status_t;
 
 typedef enum {
@@ -118,6 +119,8 @@ typedef struct {
 
   si4732_mode_t mode;
   uint32_t freq;                       // FM: 10kHz units; AM/SSB: kHz
+  bool     present;                    // true if the Si4732 answered when the init was performed
+  uint8_t  last_status;                // Last reading status (CTS status)
 } si4732_t;
  //*---------------------------------------------------------------------------------------*
  //*                                 Prototypes                                            *
@@ -132,6 +135,7 @@ si4732_status_t si4732_init(si4732_t *dev,
                             uint32_t baud_hz);
 
 //*--- Reset helper (active-low). Pulses reset low then releases high.
+
 si4732_status_t si4732_reset_pulse(si4732_t *dev, uint32_t low_ms, uint32_t settle_ms);
 si4732_status_t si4732_power_up_fm(si4732_t *dev);
 si4732_status_t si4732_power_up_am(si4732_t *dev, bool patch_enable);
@@ -184,6 +188,10 @@ si4732_status_t si4732_ssb_enter(si4732_t *dev);
 si4732_status_t si4732_ssb_set_bfo(si4732_t *dev, int16_t bfo_hz);
 si4732_status_t si4732_ssb_set_sideband(si4732_t *dev, bool usb); // true=USB false=LSB
 si4732_status_t si4732_ssb_set_filter(si4732_t *dev, uint8_t filter_idx);
+
+//*--- Probe if the board has an active Si4732 device
+bool si4732_probe(si4732_t *dev);
+
 
 #ifdef __cplusplus
 }

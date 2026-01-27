@@ -42,6 +42,14 @@
 #include "si4732.h"
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
+#include <string.h>
+
+//*--- Forward declarations (static)
+
+static si4732_status_t power_up_common(si4732_t *dev,
+                                       uint8_t func,
+                                       bool patch_enable);
+
 
 //*---------------------------------------------------------------------------------------*
 //*                                  commands                                             *
@@ -106,51 +114,110 @@
 //*                                  I2C helpers                                          *
 //*---------------------------------------------------------------------------------------*
 static si4732_status_t i2c_write_bytes(si4732_t *dev, const uint8_t *buf, size_t len) {
-  int rc = i2c_write_blocking(dev->i2c, dev->addr, buf, len, false);
+  absolute_time_t until = make_timeout_time_ms(20);
+  int rc = i2c_write_blocking_until(dev->i2c, dev->addr, buf, len, false, until);
   if (rc < 0) return SI4732_ERR_I2C;
   if ((size_t)rc != len) return SI4732_ERR_I2C;
   return SI4732_OK;
 }
 
 static si4732_status_t i2c_read_bytes(si4732_t *dev, uint8_t *buf, size_t len) {
-  int rc = i2c_read_blocking(dev->i2c, dev->addr, buf, len, false);
+  absolute_time_t until = make_timeout_time_ms(20);
+  int rc = i2c_read_blocking_until(dev->i2c, dev->addr, buf, len, false, until);
   if (rc < 0) return SI4732_ERR_I2C;
   if ((size_t)rc != len) return SI4732_ERR_I2C;
   return SI4732_OK;
+}
+
+bool si4732_probe(si4732_t *dev) {
+  if (!dev || !dev->i2c) return false;
+
+  uint8_t tmp = 0;
+
+  //*--- Short timeout to detect bus activity
+
+  absolute_time_t until = make_timeout_time_ms(2);
+
+  int rc = i2c_read_blocking_until(dev->i2c, dev->addr, &tmp, 1, false, until);
+  return (rc == 1);
 }
 
 //*---------------------------------------------------------------------------------------*
 //*                              receiver commands                                        *
 //*---------------------------------------------------------------------------------------*
 
-//*--- read status
+//* When not used ---> static __attribute__((unused))
+
+//*--- read status byte (updates dev->last_status)
+
 static si4732_status_t read_status(si4732_t *dev, uint8_t *st) {
-  return i2c_read_bytes(dev, st, 1);
+  if (!dev || !st) return SI4732_ERR_ARG;
+
+  si4732_status_t rc = i2c_read_bytes(dev, st, 1);
+  if (rc == SI4732_OK) dev->last_status = *st;
+  return rc;
 }
 
-//*--- Check CTS code
-static si4732_status_t wait_cts(si4732_t *dev, uint32_t timeout_ms) {
-  absolute_time_t deadline = make_timeout_time_ms(timeout_ms);
-  uint8_t st = 0;
+//*--- Clear/ack interrupt/status (helps clear latched ERR on some sequences)
 
-  while (absolute_time_diff_us(get_absolute_time(), deadline) > 0) {
+static si4732_status_t clear_int_status(si4732_t *dev) {
+  if (!dev) return SI4732_ERR_ARG;
+
+  uint8_t cmd = CMD_GET_INT_STATUS; // 0x14
+  si4732_status_t rc = i2c_write_bytes(dev, &cmd, 1);
+  if (rc != SI4732_OK) return rc;
+
+  uint8_t st = 0;
+  rc = read_status(dev, &st);       // read 1 byte back
+  return rc;
+}
+
+//*--- Wait CTS with one ERR-clear retry
+
+static si4732_status_t wait_cts(si4732_t *dev, uint32_t timeout_ms) {
+  if (!dev) return SI4732_ERR_ARG;
+
+  absolute_time_t deadline = make_timeout_time_ms(timeout_ms);
+  bool cleared_once = false;
+
+  while (!time_reached(deadline)) {
+    uint8_t st = 0;
     si4732_status_t rc = read_status(dev, &st);
     if (rc != SI4732_OK) return rc;
+
+    //*--- CTS set?
+
     if (st & ST_CTS) {
-      if (st & ST_ERR) return SI4732_ERR_DEVICE;
+      //*--- ERR set?
+      if (st & ST_ERR) {
+
+        //*--- Many Si47xx flows benefit from clearing status once then retrying.
+
+        if (!cleared_once) {
+          cleared_once = true;
+          (void)clear_int_status(dev);
+          sleep_ms(1);
+          continue;
+        }
+        return SI4732_ERR_DEVICE;
+      }
       return SI4732_OK;
     }
+
     sleep_ms(1);
   }
+
   return SI4732_ERR_TIMEOUT;
 }
 
-//*--- Command write
+//*--- Command write: write bytes then wait CTS
 
 static si4732_status_t cmd_write(si4732_t *dev, const uint8_t *cmd, size_t len, uint32_t timeout_ms) {
-  (void)wait_cts(dev, timeout_ms);
+  if (!dev || !cmd || len == 0) return SI4732_ERR_ARG;
+
   si4732_status_t rc = i2c_write_bytes(dev, cmd, len);
   if (rc != SI4732_OK) return rc;
+
   return wait_cts(dev, timeout_ms);
 }
 
@@ -158,45 +225,95 @@ static si4732_status_t cmd_write(si4732_t *dev, const uint8_t *cmd, size_t len, 
 //*                              Public API                                               *
 //*---------------------------------------------------------------------------------------*
 
+
 //*--- Init chipset
 
 si4732_status_t si4732_init(si4732_t *dev,
                             i2c_inst_t *i2c,
                             uint8_t addr,
-                            uint sda_pin, uint scl_pin,uint reset_pin,
-                            uint32_t baud_hz) 
-
+                            uint sda_pin, uint scl_pin,
+                            uint reset_pin,
+                            uint32_t baud_hz)
 {
-
   if (!dev || !i2c) return SI4732_ERR_ARG;
 
-  dev->i2c = i2c;
-  dev->addr = addr;
-  dev->sda_pin = sda_pin;
-  dev->scl_pin = scl_pin;
+  //*--- Clean up struct before use (kinky nasty bug might happen if not, don't ask how I know that)
+
+  memset(dev, 0, sizeof(*dev));
+
+  dev->i2c       = i2c;
+  dev->addr      = addr;
+  dev->sda_pin   = sda_pin;
+  dev->scl_pin   = scl_pin;
   dev->reset_pin = reset_pin;
-  dev->baud_hz = baud_hz ? baud_hz : 400000u;
+  dev->baud_hz   = baud_hz ? baud_hz : 400000u;
 
   dev->mode = SI4732_MODE_FM;
   dev->freq = 0;
 
-  // I2C pins
+  //*--- I2C init
+
   i2c_init(dev->i2c, dev->baud_hz);
   gpio_set_function(dev->sda_pin, GPIO_FUNC_I2C);
   gpio_set_function(dev->scl_pin, GPIO_FUNC_I2C);
   gpio_pull_up(dev->sda_pin);
   gpio_pull_up(dev->scl_pin);
 
+  //*--- RESET pin
+
   gpio_init(dev->reset_pin);
   gpio_set_dir(dev->reset_pin, GPIO_OUT);
-  gpio_put(dev->reset_pin, 1);   // release reset
 
-  // default region
+  //*--- The pullup isn't really necessary on output pins, however on actual testing it changed the bug I was experiencing
+
+  gpio_pull_up(dev->reset_pin);
+
+  gpio_put(dev->reset_pin, 1);
+  sleep_ms(10);
+
+  //*--- Set región default (Sorry, firmware made in Argentina, then the default region is Argentina)
+
   dev->region = SI4732_REGION_AR;
   dev->region_profile = si4732_region_profile(dev->region);
 
+  //*--- Reset the chip
+
+  (void)si4732_reset_pulse(dev, 10, 50);
+  sleep_ms(100);
+
+  //*--- Quickly check if the chip answers
+
+  if (!si4732_probe(dev)) {
+    dev->present = false;
+    return SI4732_ERR_I2C;
+  }
+
+  //*--- It seems there are a chip after all
+
+  dev->present = true;
+
+  //*--- This is absolutely critical POWER_UP must use XOSCEN if there is crystal of 32 KHz
+
+  si4732_status_t rc = power_up_common(dev, 0u, false); // FM_RX
+  if (rc != SI4732_OK) {
+    dev->present = false;
+    return rc;
+  }
+
+  //*---  GET_REV to confirm the chip is there
+
+  uint8_t rev[9];
+  rc = si4732_get_rev(dev, rev);
+  if (rc != SI4732_OK) {
+    dev->present = false;
+    return rc;
+  }
+
+  //*--- So far so good, the initialization has been completed
+  dev->present = true;
   return SI4732_OK;
 }
+
 
 si4732_status_t si4732_reset_pulse(si4732_t *dev, uint32_t low_ms, uint32_t settle_ms) {
   if (!dev) return SI4732_ERR_ARG;
@@ -212,22 +329,30 @@ si4732_status_t si4732_reset_pulse(si4732_t *dev, uint32_t low_ms, uint32_t sett
 //*--- For AM: func=AM_RX (1), opmode=0x05, patch_enable optional
 
 static si4732_status_t power_up_common(si4732_t *dev, uint8_t func, bool patch_enable) {
+  if (!dev) return SI4732_ERR_ARG;
+
   uint8_t arg1 = 0x00;
 
   //*--- bits: [CTSIEN][GPO2OEN][PATCH][XOSCEN][FUNC3..0]
-  //*--- We'll enable XOSCEN to use crystal (common setup).
 
-  if (patch_enable) arg1 |= (1u << 5);
-  arg1 |= (1u << 4); // XOSCEN
+  if (patch_enable) arg1 |= (1u << 5);   // PATCH
+  arg1 |= (1u << 4);                     // XOSCEN (cristal 32.768kHz)
   arg1 |= (uint8_t)(func & 0x0Fu);
 
-  uint8_t cmd[3] = { CMD_POWER_UP, arg1, 0x05u };
-  return cmd_write(dev, cmd, sizeof(cmd), 500);
+  uint8_t cmd[3] = { CMD_POWER_UP, arg1, 0x05u }; // opmode 0x05 (analog out)
+  si4732_status_t rc = i2c_write_bytes(dev, cmd, sizeof(cmd));
+  if (rc != SI4732_OK) return rc;
+
+  //*--- POWER_UP might take a little longer
+
+  return wait_cts(dev, 1000);
 }
 
 //*--- FM power-up
+
 si4732_status_t si4732_power_up_fm(si4732_t *dev) {
   if (!dev) return SI4732_ERR_ARG;
+
   dev->mode = SI4732_MODE_FM;
   return power_up_common(dev, 0u, false);
 }
@@ -244,6 +369,8 @@ si4732_status_t si4732_power_up_am(si4732_t *dev, bool patch_enable) {
 
 si4732_status_t si4732_power_down(si4732_t *dev) {
   if (!dev) return SI4732_ERR_ARG;
+  if (!dev->present) return SI4732_ERR_DEVICE;
+
   uint8_t cmd = CMD_POWER_DOWN;
   return cmd_write(dev, &cmd, 1, 500);
 }
@@ -252,19 +379,26 @@ si4732_status_t si4732_power_down(si4732_t *dev) {
 
 si4732_status_t si4732_get_rev(si4732_t *dev, uint8_t out_resp[9]) {
   if (!dev || !out_resp) return SI4732_ERR_ARG;
+
   uint8_t cmd = CMD_GET_REV;
-  (void)wait_cts(dev, 500);
+
   si4732_status_t rc = i2c_write_bytes(dev, &cmd, 1);
   if (rc != SI4732_OK) return rc;
+
   rc = wait_cts(dev, 500);
   if (rc != SI4732_OK) return rc;
+
   return i2c_read_bytes(dev, out_resp, 9);
 }
+
 
 //*--- Set property
 
 si4732_status_t si4732_set_property(si4732_t *dev, uint16_t prop, uint16_t value) {
+
   if (!dev) return SI4732_ERR_ARG;
+  if (!dev->present) return SI4732_ERR_DEVICE;
+
   uint8_t cmd[6] = {
     CMD_SET_PROPERTY, 0x00,
     (uint8_t)(prop >> 8), (uint8_t)(prop & 0xFF),
@@ -277,6 +411,8 @@ si4732_status_t si4732_set_property(si4732_t *dev, uint16_t prop, uint16_t value
 
 si4732_status_t si4732_get_property(si4732_t *dev, uint16_t prop, uint16_t *out_value) {
   if (!dev || !out_value) return SI4732_ERR_ARG;
+  if (!dev->present) return SI4732_ERR_DEVICE;
+
   uint8_t cmd[4] = { CMD_GET_PROPERTY, 0x00, (uint8_t)(prop >> 8), (uint8_t)(prop & 0xFF) };
   (void)wait_cts(dev, 500);
   si4732_status_t rc = i2c_write_bytes(dev, cmd, sizeof(cmd));
@@ -298,7 +434,9 @@ si4732_status_t si4732_get_property(si4732_t *dev, uint16_t prop, uint16_t *out_
 //*--- Define region profile
 
 si4732_region_profile_t si4732_region_profile(si4732_region_t r) {
-  // Practical defaults; adjust as needed for your target compliance.
+
+  //*--- Practical defaults; adjust as needed for your target compliance.
+
   si4732_region_profile_t rp = {0};
 
   switch (r) {
@@ -338,7 +476,8 @@ si4732_status_t si4732_apply_region(si4732_t *dev, si4732_region_t r) {
   dev->region = r;
   dev->region_profile = si4732_region_profile(r);
 
-  // Apply seek limits + spacing for current mode (caller may change band later)
+  //*--- Apply seek limits + spacing for current mode (caller may change band later)
+  
   if (dev->mode == SI4732_MODE_FM) {
     si4732_status_t rc;
     rc = si4732_set_property(dev, PROP_FM_SEEK_BAND_BOTTOM, dev->region_profile.fm_bottom_10khz); if (rc) return rc;
@@ -440,7 +579,7 @@ si4732_status_t si4732_tune(si4732_t *dev, uint32_t freq) {
 si4732_status_t si4732_seek(si4732_t *dev, bool up, bool wrap) {
   if (!dev) return SI4732_ERR_ARG;
 
-  // Common bit conventions: SEEKUP bit, WRAP bit; we keep this conservative.
+  //*--- Common bit conventions: SEEKUP bit, WRAP bit; we keep this conservative.
 
   uint8_t arg1 = 0;
   if (up)   arg1 |= (1u << 3);  // SEEKUP
@@ -474,6 +613,7 @@ si4732_status_t si4732_set_mute(si4732_t *dev, bool left_mute, bool right_mute) 
 }
 
 //*--- Softmute (FM)
+
 si4732_status_t si4732_set_softmute_fm(si4732_t *dev,
                                        uint16_t max_attn, uint16_t snr_thr,
                                        uint16_t slope, uint16_t attack,
@@ -490,6 +630,7 @@ si4732_status_t si4732_set_softmute_fm(si4732_t *dev,
 }
 
 //*--- Softmute (AM)
+
 si4732_status_t si4732_set_softmute_am(si4732_t *dev,
                                        uint16_t max_attn, uint16_t snr_thr,
                                        uint16_t slope, uint16_t attack,
