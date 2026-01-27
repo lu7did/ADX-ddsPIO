@@ -142,9 +142,16 @@ Features
 
 ## ADX-ddsPIO Firmware (Version 1.3)
 
+* Quadrature based receiver (SDR)
+
+## ADX-ddsPIO Firmware (Version 2.0)
+
+* Si4732 based receiver
+
 ```
 Work in progress
 ```
+
 
 * Quadrature clock support.
 
@@ -183,10 +190,19 @@ The Raspberry Pi Pico W (wireless) is **not supported**.
 This circuit is largely based on the former RDX_rp2040 design
 ![Alt Text](doc/ADX-ddsPIO_V2.x-Schematic.png?raw=true "Transceiver Circuit (Version 2.x)")
 
+Modifications could be made to the RDX board to operate with firmware level 2.x or up
+main advantage at this point is the availability of a PCB design which allows the usage
+of SMD components easily.
+
 The main differences with the verion 1.x:
 
 * The receiver configuration has been changed to use the Si4732 receiver chipset.
 
+### Modifications to adapt RDX board to ADX-ddsPIO
+
+```
+Work in progress
+```
 
 ## Circuit Design Superhet Receiver (version 1.x)
 
@@ -709,7 +725,7 @@ Unless otherwise specified do not expect to flash these projects on a raspberry 
 and obtain any functionality
 ```
 
-# DCO for Raspberry Pi Pico 
+## DCO for Raspberry Pi Pico 
 
 (Excerpts from the original **package pico-hf-oscillator** by Roman Piksaykin (R2BDY)
 https://www.qrz.com/db/R2BDY
