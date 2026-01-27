@@ -1,0 +1,574 @@
+/*
+ * =======================================================================================
+ * si4732
+ * (c) Dr. Pedro E. Colla (LU7DZ) <pedro.colla@gmail.com>
+ * 
+ * Implementation of a rp2040 based controller  of a si4732 digital receiver 
+ * =======================================================================================
+ * This is mainly an integration effort, the code in this library has been developed 
+ * from scratch for this project.
+ * However the work received an huge benefit from previous work from many parties,
+ * including myself as follows:
+ *----------------------------------------------------------------------------
+ * Version 1.0
+ * - Initial release
+ *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+ *                       Libraries and Packages used                        *
+ *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+ *
+ * The library has been written from the ground up, but it's strongly 
+ * inspired, and for some features reverse engineered from the titanic work
+ * made by Ricardo Caratti (PU2CLR) and specially from his world recognized
+ * library for the Arduino SI4735 (https://github.com/pu2clr/SI4735)
+ * This library has been written in C++ and it's not compatible with the
+ * C/C++ rp2040 SDK and many features of the Arduino platform aren't 
+ * really that portable to the rp2040 environment and Visual Studio Code.
+ * But I found myself searching on that code countless times to grasp the
+ * understanding of many aspects, probably this work can not be possible
+ * without that library. 
+ *---------------------------------------------------------------------------------------*
+ * This library receives the considerable learning made when developing the
+ * ADX-rp2040 package and specially the RDX package which provides support 
+ * for the rp2040 processor albeit using a cross platform compatibility layer
+ * allowing the usage of the Arduino libraries and IDE to develop for other boards
+ * in general and the rp2040 in particular, repositories for these projects are
+ * 
+ *     ADX-rp2040    https://github.com/lu7did/ADX-rp2040
+ *     RDX           https://github.com/lu7did/RDX-rp2040
+ */
+ //*---------------------------------------------------------------------------------------*
+ //*                                   includes                                            *
+ //*---------------------------------------------------------------------------------------*
+#include "si4732.h"
+#include "pico/stdlib.h"
+#include "hardware/gpio.h"
+
+//*---------------------------------------------------------------------------------------*
+//*                                  commands                                             *
+//*---------------------------------------------------------------------------------------*
+
+#define CMD_POWER_UP        0x01u
+#define CMD_GET_REV         0x10u
+#define CMD_POWER_DOWN      0x11u
+#define CMD_SET_PROPERTY    0x12u
+#define CMD_GET_PROPERTY    0x13u
+#define CMD_GET_INT_STATUS  0x14u
+
+#define CMD_FM_TUNE_FREQ    0x20u
+#define CMD_FM_SEEK_START   0x21u
+
+#define CMD_AM_TUNE_FREQ    0x40u
+#define CMD_AM_SEEK_START   0x41u
+
+#define CMD_AGC_OVERRIDE    0x48u
+
+//*--- Generic patch load (placeholder usage)
+
+#define CMD_LOAD_PATCH      0x15u
+
+//*--- Status bits
+#define ST_CTS              0x80u
+#define ST_ERR              0x40u
+
+//*---------------------------------------------------------------------------------------*
+//*                                  properties                                           *
+//*---------------------------------------------------------------------------------------*
+#define PROP_RX_VOLUME      0x4000u
+#define PROP_RX_HARD_MUTE   0x4001u
+
+//*--- FM seek band limits
+#define PROP_FM_SEEK_BAND_BOTTOM    0x1400u
+#define PROP_FM_SEEK_BAND_TOP       0x1401u
+#define PROP_FM_SEEK_FREQ_SPACING   0x1402u
+
+//*--- FM soft mute
+#define PROP_FM_SOFT_MUTE_RATE             0x1300u
+#define PROP_FM_SOFT_MUTE_SLOPE            0x1301u
+#define PROP_FM_SOFT_MUTE_MAX_ATTENUATION  0x1302u
+#define PROP_FM_SOFT_MUTE_SNR_THRESHOLD    0x1303u
+#define PROP_FM_SOFT_MUTE_RELEASE_RATE     0x1304u
+#define PROP_FM_SOFT_MUTE_ATTACK_RATE      0x1305u
+
+//*--- AM seek band limits / spacing
+#define PROP_AM_SEEK_BAND_BOTTOM           0x3400u
+#define PROP_AM_SEEK_BAND_TOP              0x3401u
+#define PROP_AM_SEEK_FREQ_SPACING          0x3402u
+
+//*--- AM soft mute
+#define PROP_AM_SOFT_MUTE_RATE             0x3300u
+#define PROP_AM_SOFT_MUTE_SLOPE            0x3301u
+#define PROP_AM_SOFT_MUTE_MAX_ATTENUATION  0x3302u
+#define PROP_AM_SOFT_MUTE_SNR_THRESHOLD    0x3303u
+#define PROP_AM_SOFT_MUTE_RELEASE_RATE     0x3304u
+#define PROP_AM_SOFT_MUTE_ATTACK_RATE      0x3305u
+
+//*---------------------------------------------------------------------------------------*
+//*                                  I2C helpers                                          *
+//*---------------------------------------------------------------------------------------*
+
+//*--- write to the receiver chip
+
+static si4732_status_t i2c_write_bytes(si4732_t *dev, const uint8_t *buf, size_t len) {
+  int rc = i2c_write_blocking(dev->i2c, dev->addr, buf, len, false);
+
+  if (rc < 0) {
+    return SI4732_ERR_I2C;
+  }
+
+  if ((size_t)rc != len) {
+    return SI4732_ERR_I2C;
+  }
+
+  return SI4732_OK;
+}
+
+//*--- read from the receiver chip
+
+static si4732_status_t i2c_read_bytes(si4732_t *dev, uint8_t *buf, size_t len) {
+  int rc = i2c_read_blocking(dev->i2c, dev->addr, buf, len, false);
+
+  if (rc < 0) {
+    return SI4732_ERR_I2C;
+  }
+
+  if ((size_t)rc != len) {
+    return SI4732_ERR_I2C;
+  }
+
+  return SI4732_OK;
+}
+
+//*---------------------------------------------------------------------------------------*
+//*                              receiver commands                                        *
+//*---------------------------------------------------------------------------------------*
+
+//*--- read status
+static si4732_status_t read_status(si4732_t *dev, uint8_t *st) {
+  return i2c_read_bytes(dev, st, 1);
+}
+
+//*--- Check CTS code
+static si4732_status_t wait_cts(si4732_t *dev, uint32_t timeout_ms) {
+  absolute_time_t deadline = make_timeout_time_ms(timeout_ms);
+  uint8_t st = 0;
+
+  while (absolute_time_diff_us(get_absolute_time(), deadline) > 0) {
+    si4732_status_t rc = read_status(dev, &st);
+    if (rc != SI4732_OK) return rc;
+    if (st & ST_CTS) {
+      if (st & ST_ERR) return SI4732_ERR_DEVICE;
+      return SI4732_OK;
+    }
+    sleep_ms(1);
+  }
+  return SI4732_ERR_TIMEOUT;
+}
+
+//*--- Command write
+
+static si4732_status_t cmd_write(si4732_t *dev, const uint8_t *cmd, size_t len, uint32_t timeout_ms) {
+  (void)wait_cts(dev, timeout_ms);
+  si4732_status_t rc = i2c_write_bytes(dev, cmd, len);
+  if (rc != SI4732_OK) return rc;
+  return wait_cts(dev, timeout_ms);
+}
+
+//*---------------------------------------------------------------------------------------*
+//*                              Public API                                               *
+//*---------------------------------------------------------------------------------------*
+
+//*--- Init chipset
+
+si4732_status_t si4732_init(si4732_t *dev,
+                            i2c_inst_t *i2c,
+                            uint8_t addr,
+                            uint sda_pin, uint scl_pin,
+                            uint32_t baud_hz) {
+  if (!dev || !i2c) return SI4732_ERR_ARG;
+
+  dev->i2c = i2c;
+  dev->addr = addr;
+  dev->sda_pin = sda_pin;
+  dev->scl_pin = scl_pin;
+  dev->baud_hz = baud_hz ? baud_hz : 400000u;
+
+  dev->mode = SI4732_MODE_FM;
+  dev->freq = 0;
+
+  // I2C pins
+  i2c_init(dev->i2c, dev->baud_hz);
+  gpio_set_function(dev->sda_pin, GPIO_FUNC_I2C);
+  gpio_set_function(dev->scl_pin, GPIO_FUNC_I2C);
+  gpio_pull_up(dev->sda_pin);
+  gpio_pull_up(dev->scl_pin);
+
+  // default region
+  dev->region = SI4732_REGION_AR;
+  dev->region_profile = si4732_region_profile(dev->region);
+
+  return SI4732_OK;
+}
+
+//*--- Power up sequences
+//*--- For FM: func=FM_RX (0), opmode=0x05 (analog out)
+//*--- For AM: func=AM_RX (1), opmode=0x05, patch_enable optional
+
+static si4732_status_t power_up_common(si4732_t *dev, uint8_t func, bool patch_enable) {
+  uint8_t arg1 = 0x00;
+
+  //*--- bits: [CTSIEN][GPO2OEN][PATCH][XOSCEN][FUNC3..0]
+  //*--- We'll enable XOSCEN to use crystal (common setup).
+
+  if (patch_enable) arg1 |= (1u << 5);
+  arg1 |= (1u << 4); // XOSCEN
+  arg1 |= (uint8_t)(func & 0x0Fu);
+
+  uint8_t cmd[3] = { CMD_POWER_UP, arg1, 0x05u };
+  return cmd_write(dev, cmd, sizeof(cmd), 500);
+}
+
+//*--- FM power-up
+si4732_status_t si4732_power_up_fm(si4732_t *dev) {
+  if (!dev) return SI4732_ERR_ARG;
+  dev->mode = SI4732_MODE_FM;
+  return power_up_common(dev, 0u, false);
+}
+
+//*--- AM power-up
+
+si4732_status_t si4732_power_up_am(si4732_t *dev, bool patch_enable) {
+  if (!dev) return SI4732_ERR_ARG;
+  dev->mode = patch_enable ? SI4732_MODE_SSB : SI4732_MODE_AM;
+  return power_up_common(dev, 1u, patch_enable);
+}
+
+//*--- Power-down
+
+si4732_status_t si4732_power_down(si4732_t *dev) {
+  if (!dev) return SI4732_ERR_ARG;
+  uint8_t cmd = CMD_POWER_DOWN;
+  return cmd_write(dev, &cmd, 1, 500);
+}
+
+//*--- Get chipset firmware review
+
+si4732_status_t si4732_get_rev(si4732_t *dev, uint8_t out_resp[9]) {
+  if (!dev || !out_resp) return SI4732_ERR_ARG;
+  uint8_t cmd = CMD_GET_REV;
+  (void)wait_cts(dev, 500);
+  si4732_status_t rc = i2c_write_bytes(dev, &cmd, 1);
+  if (rc != SI4732_OK) return rc;
+  rc = wait_cts(dev, 500);
+  if (rc != SI4732_OK) return rc;
+  return i2c_read_bytes(dev, out_resp, 9);
+}
+
+//*--- Set property
+
+si4732_status_t si4732_set_property(si4732_t *dev, uint16_t prop, uint16_t value) {
+  if (!dev) return SI4732_ERR_ARG;
+  uint8_t cmd[6] = {
+    CMD_SET_PROPERTY, 0x00,
+    (uint8_t)(prop >> 8), (uint8_t)(prop & 0xFF),
+    (uint8_t)(value >> 8), (uint8_t)(value & 0xFF)
+  };
+  return cmd_write(dev, cmd, sizeof(cmd), 500);
+}
+
+//*--- Get (read) property
+
+si4732_status_t si4732_get_property(si4732_t *dev, uint16_t prop, uint16_t *out_value) {
+  if (!dev || !out_value) return SI4732_ERR_ARG;
+  uint8_t cmd[4] = { CMD_GET_PROPERTY, 0x00, (uint8_t)(prop >> 8), (uint8_t)(prop & 0xFF) };
+  (void)wait_cts(dev, 500);
+  si4732_status_t rc = i2c_write_bytes(dev, cmd, sizeof(cmd));
+  if (rc != SI4732_OK) return rc;
+  rc = wait_cts(dev, 500);
+  if (rc != SI4732_OK) return rc;
+
+  uint8_t resp[4] = {0};
+  rc = i2c_read_bytes(dev, resp, sizeof(resp));
+  if (rc != SI4732_OK) return rc;
+  *out_value = (uint16_t)((resp[2] << 8) | resp[3]);
+  return SI4732_OK;
+}
+
+//*---------------------------------------------------------------------------------------*
+//*                           Regional profiles and band setup                            *
+//*---------------------------------------------------------------------------------------*
+
+//*--- Define region profile
+
+si4732_region_profile_t si4732_region_profile(si4732_region_t r) {
+  // Practical defaults; adjust as needed for your target compliance.
+  si4732_region_profile_t rp = {0};
+
+  switch (r) {
+    case SI4732_REGION_US:
+      rp.fm_bottom_10khz = 8790; rp.fm_top_10khz = 10790;
+      rp.fm_seek_spacing_khz = 200; rp.fm_tune_step_10khz = 20; // 200kHz
+      rp.am_bottom_khz = 520; rp.am_top_khz = 1710;
+      rp.am_seek_spacing_khz = 10; rp.am_tune_step_khz = 10;
+      break;
+    case SI4732_REGION_JP:
+      rp.fm_bottom_10khz = 7600; rp.fm_top_10khz = 9500;
+      rp.fm_seek_spacing_khz = 100; rp.fm_tune_step_10khz = 10;
+      rp.am_bottom_khz = 522; rp.am_top_khz = 1629;
+      rp.am_seek_spacing_khz = 9; rp.am_tune_step_khz = 9;
+      break;
+    case SI4732_REGION_EU:
+      rp.fm_bottom_10khz = 8750; rp.fm_top_10khz = 10800;
+      rp.fm_seek_spacing_khz = 100; rp.fm_tune_step_10khz = 10; // 100kHz
+      rp.am_bottom_khz = 531; rp.am_top_khz = 1602;
+      rp.am_seek_spacing_khz = 9; rp.am_tune_step_khz = 9;
+      break;
+    case SI4732_REGION_AR:
+    default:
+      rp.fm_bottom_10khz = 8750; rp.fm_top_10khz = 10800;
+      rp.fm_seek_spacing_khz = 100; rp.fm_tune_step_10khz = 10; // 100kHz typical usage
+      rp.am_bottom_khz = 530; rp.am_top_khz = 1710;
+      rp.am_seek_spacing_khz = 10; rp.am_tune_step_khz = 10;
+      break;
+  }
+  return rp;
+}
+
+//*--- Apply region profile
+
+si4732_status_t si4732_apply_region(si4732_t *dev, si4732_region_t r) {
+  if (!dev) return SI4732_ERR_ARG;
+  dev->region = r;
+  dev->region_profile = si4732_region_profile(r);
+
+  // Apply seek limits + spacing for current mode (caller may change band later)
+  if (dev->mode == SI4732_MODE_FM) {
+    si4732_status_t rc;
+    rc = si4732_set_property(dev, PROP_FM_SEEK_BAND_BOTTOM, dev->region_profile.fm_bottom_10khz); if (rc) return rc;
+    rc = si4732_set_property(dev, PROP_FM_SEEK_BAND_TOP,    dev->region_profile.fm_top_10khz);    if (rc) return rc;
+    rc = si4732_set_property(dev, PROP_FM_SEEK_FREQ_SPACING, dev->region_profile.fm_seek_spacing_khz); if (rc) return rc;
+    return SI4732_OK;
+  } else {
+    si4732_status_t rc;
+    rc = si4732_set_property(dev, PROP_AM_SEEK_BAND_BOTTOM, dev->region_profile.am_bottom_khz); if (rc) return rc;
+    rc = si4732_set_property(dev, PROP_AM_SEEK_BAND_TOP,    dev->region_profile.am_top_khz);    if (rc) return rc;
+    rc = si4732_set_property(dev, PROP_AM_SEEK_FREQ_SPACING, dev->region_profile.am_seek_spacing_khz); if (rc) return rc;
+    return SI4732_OK;
+  }
+}
+
+//*--- Define band preset
+
+si4732_band_t si4732_band_preset(si4732_band_preset_t p, si4732_region_profile_t rp) {
+  si4732_band_t b = {0};
+  switch (p) {
+    case SI4732_BAND_FM_BROADCAST:
+      b.mode = SI4732_MODE_FM;
+      b.min = rp.fm_bottom_10khz;
+      b.max = rp.fm_top_10khz;
+      b.step = rp.fm_tune_step_10khz;
+      b.spacing = rp.fm_seek_spacing_khz;
+      break;
+    case SI4732_BAND_AM_MW:
+      b.mode = SI4732_MODE_AM;
+      b.min = rp.am_bottom_khz;
+      b.max = rp.am_top_khz;
+      b.step = rp.am_tune_step_khz;
+      b.spacing = rp.am_seek_spacing_khz;
+      break;
+    case SI4732_BAND_SW_49M:
+      b.mode = SI4732_MODE_AM;
+      b.min = 5800; b.max = 6400; b.step = 5; b.spacing = 5;
+      break;
+    case SI4732_BAND_SW_40M:
+      b.mode = SI4732_MODE_AM;
+      b.min = 7000; b.max = 7300; b.step = 1; b.spacing = 1;
+      break;
+    case SI4732_BAND_SW_31M:
+    default:
+      b.mode = SI4732_MODE_AM;
+      b.min = 9400; b.max = 10000; b.step = 5; b.spacing = 5;
+      break;
+  }
+  return b;
+}
+
+//*--- Set specific band
+
+si4732_status_t si4732_set_band(si4732_t *dev, const si4732_band_t *band) {
+  if (!dev || !band) return SI4732_ERR_ARG;
+
+  dev->mode = band->mode;
+
+  if (band->mode == SI4732_MODE_FM) {
+    si4732_status_t rc;
+    rc = si4732_set_property(dev, PROP_FM_SEEK_BAND_BOTTOM, (uint16_t)band->min); if (rc) return rc;
+    rc = si4732_set_property(dev, PROP_FM_SEEK_BAND_TOP,    (uint16_t)band->max); if (rc) return rc;
+    rc = si4732_set_property(dev, PROP_FM_SEEK_FREQ_SPACING, band->spacing);      if (rc) return rc;
+    return SI4732_OK;
+  }
+
+  //*--- Set  AM / SSB
+  si4732_status_t rc;
+  rc = si4732_set_property(dev, PROP_AM_SEEK_BAND_BOTTOM, (uint16_t)band->min); if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_AM_SEEK_BAND_TOP,    (uint16_t)band->max); if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_AM_SEEK_FREQ_SPACING, band->spacing);      if (rc) return rc;
+  return SI4732_OK;
+}
+
+//*---------------------------------------------------------------------------------------*
+//*                           Tunning and Scanning                                        *
+//*---------------------------------------------------------------------------------------*
+si4732_status_t si4732_tune(si4732_t *dev, uint32_t freq) {
+  if (!dev) return SI4732_ERR_ARG;
+
+  if (dev->mode == SI4732_MODE_FM) {
+    uint16_t f10 = (uint16_t)freq;
+    uint8_t cmd[6] = { CMD_FM_TUNE_FREQ, 0x00, (uint8_t)(f10 >> 8), (uint8_t)(f10 & 0xFF), 0x00, 0x00 };
+    si4732_status_t rc = cmd_write(dev, cmd, sizeof(cmd), 800);
+    if (rc == SI4732_OK) dev->freq = freq;
+    return rc;
+  }
+
+  //*--- AM/SSB in kHz
+  uint16_t fk = (uint16_t)freq;
+  uint8_t cmd[6] = { CMD_AM_TUNE_FREQ, 0x00, (uint8_t)(fk >> 8), (uint8_t)(fk & 0xFF), 0x00, 0x00 };
+  si4732_status_t rc = cmd_write(dev, cmd, sizeof(cmd), 800);
+  if (rc == SI4732_OK) dev->freq = freq;
+  return rc;
+}
+
+//*--- Seek
+
+si4732_status_t si4732_seek(si4732_t *dev, bool up, bool wrap) {
+  if (!dev) return SI4732_ERR_ARG;
+
+  // Common bit conventions: SEEKUP bit, WRAP bit; we keep this conservative.
+
+  uint8_t arg1 = 0;
+  if (up)   arg1 |= (1u << 3);  // SEEKUP
+  if (wrap) arg1 |= (1u << 2);  // WRAP
+
+  if (dev->mode == SI4732_MODE_FM) {
+    uint8_t cmd[2] = { CMD_FM_SEEK_START, arg1 };
+    return cmd_write(dev, cmd, sizeof(cmd), 1500);
+  } else {
+    uint8_t cmd[2] = { CMD_AM_SEEK_START, arg1 };
+    return cmd_write(dev, cmd, sizeof(cmd), 1500);
+  }
+}
+
+//*--- Control Audio volume 
+
+si4732_status_t si4732_set_volume(si4732_t *dev, uint8_t vol) {
+  if (!dev) return SI4732_ERR_ARG;
+  if (vol > 63) vol = 63;
+  return si4732_set_property(dev, PROP_RX_VOLUME, (uint16_t)vol);
+}
+
+//*--- Mute the receiver
+
+si4732_status_t si4732_set_mute(si4732_t *dev, bool left_mute, bool right_mute) {
+  if (!dev) return SI4732_ERR_ARG;
+  uint16_t v = 0;
+  if (right_mute) v |= 0x0001u;
+  if (left_mute)  v |= 0x0002u;
+  return si4732_set_property(dev, PROP_RX_HARD_MUTE, v);
+}
+
+//*--- Softmute (FM)
+si4732_status_t si4732_set_softmute_fm(si4732_t *dev,
+                                       uint16_t max_attn, uint16_t snr_thr,
+                                       uint16_t slope, uint16_t attack,
+                                       uint16_t release, uint16_t rate) {
+  if (!dev) return SI4732_ERR_ARG;
+  si4732_status_t rc;
+  rc = si4732_set_property(dev, PROP_FM_SOFT_MUTE_MAX_ATTENUATION, max_attn); if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_FM_SOFT_MUTE_SNR_THRESHOLD,   snr_thr);  if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_FM_SOFT_MUTE_SLOPE,           slope);    if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_FM_SOFT_MUTE_ATTACK_RATE,     attack);   if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_FM_SOFT_MUTE_RELEASE_RATE,    release);  if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_FM_SOFT_MUTE_RATE,            rate);     if (rc) return rc;
+  return SI4732_OK;
+}
+
+//*--- Softmute (AM)
+si4732_status_t si4732_set_softmute_am(si4732_t *dev,
+                                       uint16_t max_attn, uint16_t snr_thr,
+                                       uint16_t slope, uint16_t attack,
+                                       uint16_t release, uint16_t rate) {
+  if (!dev) return SI4732_ERR_ARG;
+  si4732_status_t rc;
+  rc = si4732_set_property(dev, PROP_AM_SOFT_MUTE_MAX_ATTENUATION, max_attn); if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_AM_SOFT_MUTE_SNR_THRESHOLD,   snr_thr);  if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_AM_SOFT_MUTE_SLOPE,           slope);    if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_AM_SOFT_MUTE_ATTACK_RATE,     attack);   if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_AM_SOFT_MUTE_RELEASE_RATE,    release);  if (rc) return rc;
+  rc = si4732_set_property(dev, PROP_AM_SOFT_MUTE_RATE,            rate);     if (rc) return rc;
+  return SI4732_OK;
+}
+
+//*--- Set AGC
+
+si4732_status_t si4732_set_agc(si4732_t *dev, bool disable_agc, uint8_t gain_index) {
+  if (!dev) return SI4732_ERR_ARG;
+  uint8_t cmd[3] = { CMD_AGC_OVERRIDE, (uint8_t)(disable_agc ? 0x01u : 0x00u), gain_index };
+  return cmd_write(dev, cmd, sizeof(cmd), 500);
+}
+
+//*---------------------------------------------------------------------------------------*
+//*                           SSB patch (not official)                                    *
+//*---------------------------------------------------------------------------------------*
+si4732_status_t si4732_load_patch(si4732_t *dev, const uint8_t *patch, size_t patch_len) {
+  if (!dev || !patch || patch_len == 0) return SI4732_ERR_ARG;
+
+  // Chunked load; placeholder command. Real SSB patch flow may differ.
+  const size_t CHUNK = 32;
+  size_t off = 0;
+
+  while (off < patch_len) {
+    size_t n = patch_len - off;
+    if (n > CHUNK) n = CHUNK;
+
+    uint8_t buf[1 + CHUNK];
+    buf[0] = CMD_LOAD_PATCH;
+    for (size_t i = 0; i < n; i++) buf[1 + i] = patch[off + i];
+
+    si4732_status_t rc = cmd_write(dev, buf, 1 + n, 1000);
+    if (rc != SI4732_OK) return rc;
+
+    off += n;
+  }
+  return SI4732_OK;
+}
+
+//*--- switch to SSB
+
+si4732_status_t si4732_ssb_enter(si4732_t *dev) {
+  if (!dev) return SI4732_ERR_ARG;
+  dev->mode = SI4732_MODE_SSB;
+  return SI4732_OK;
+}
+
+//*--- set bfo
+
+si4732_status_t si4732_ssb_set_bfo(si4732_t *dev, int16_t bfo_hz) {
+  (void)dev; (void)bfo_hz;
+  // Placeholder: depends on patch command set.
+  return SI4732_OK;
+}
+
+//*--- select sideband
+
+si4732_status_t si4732_ssb_set_sideband(si4732_t *dev, bool usb) {
+  (void)dev; (void)usb;
+  // Placeholder: depends on patch command set.
+  return SI4732_OK;
+}
+
+//*--- set internal filter
+
+si4732_status_t si4732_ssb_set_filter(si4732_t *dev, uint8_t filter_idx) {
+  (void)dev; (void)filter_idx;
+  // Placeholder: depends on patch command set.
+  return SI4732_OK;
+}

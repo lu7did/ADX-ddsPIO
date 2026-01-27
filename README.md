@@ -683,6 +683,10 @@ This is the prototype of the digital quadrature frequency synth (I/Q) clock
 It's just used to evaluate the overall performance and yield unmodulated clock signals thru
 ports GPIO14 (I) and GPIO15 (Q)
 
+## si4732_rp2040
+
+This is the prototype and test bench for a rp2040 based si4732 library
+
 ## Others
 
 There are other implementations which aren't functional by itself but only part of 
