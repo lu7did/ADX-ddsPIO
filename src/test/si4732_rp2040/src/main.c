@@ -142,7 +142,7 @@ static void process_line(si4732_t *radio, char *line) {
     char *arg = strtok(NULL, " \t\r\n");
     si4732_region_t r = parse_region(arg);
     si4732_status_t rc = si4732_apply_region(radio, r);  
-    cdc_printf("Region set rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+    cdc_printf("Region set rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
@@ -151,13 +151,13 @@ static void process_line(si4732_t *radio, char *line) {
     char *arg = strtok(NULL, " \t\r\n");
     if (arg && !strcmp(arg, "fm")) {
       si4732_status_t rc = si4732_power_up_fm(radio);
-      cdc_printf("mode FM rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+      cdc_printf("mode FM rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
       return;
     }
     if (arg && !strcmp(arg, "am")) {
       si4732_status_t rc = si4732_power_up_am(radio, false);
-      cdc_printf("mode AM rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+      cdc_printf("mode AM rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
       return;
     }
@@ -174,12 +174,12 @@ static void process_line(si4732_t *radio, char *line) {
     //*--- Ensure correct power up for FM/AM
 
     si4732_status_t rc = (b.mode == SI4732_MODE_FM) ? si4732_power_up_fm(radio) : si4732_power_up_am(radio, false);
-    cdc_printf("power up rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+    cdc_printf("power up rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     if (rc != SI4732_OK) { cdc_write_ln("ERR: power up failed"); return; }
 
     rc = si4732_set_band(radio, &b);
-    cdc_printf("band set rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+    cdc_printf("band set rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
     return;
   }
 
@@ -188,7 +188,7 @@ static void process_line(si4732_t *radio, char *line) {
     if (!arg) { cdc_write_ln("ERR: tune <freq>"); return; }
     uint32_t f = (uint32_t)strtoul(arg, NULL, 10);
     si4732_status_t rc = si4732_tune(radio, f);
-    cdc_printf("tune rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+    cdc_printf("tune rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
@@ -198,7 +198,7 @@ static void process_line(si4732_t *radio, char *line) {
     if (!arg) { cdc_write_ln("ERR: seek up|down"); return; }
     bool up = !strcmp(arg, "up");
     si4732_status_t rc = si4732_seek(radio, up, true);
-    cdc_printf("seek rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+    cdc_printf("seek rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
@@ -207,7 +207,7 @@ static void process_line(si4732_t *radio, char *line) {
 
   if (!strcmp(cmd, "loadpatch")) {
      si4732_status_t rc = si4732_load_patch(radio, si4732_ssb_patch, si4732_ssb_patch_len);
-     cdc_printf("load patch rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+     cdc_printf("load patch rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
      return;
   }
 
@@ -217,7 +217,7 @@ static void process_line(si4732_t *radio, char *line) {
     if (!arg) { cdc_write_ln("ERR: vol <0..63>"); return; }
     uint32_t v = (uint32_t)strtoul(arg, NULL, 10);
     si4732_status_t rc = si4732_set_volume(radio, (uint8_t)v);
-    cdc_printf("vol seet rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+    cdc_printf("vol seet rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
@@ -227,12 +227,12 @@ static void process_line(si4732_t *radio, char *line) {
     if (!arg) { cdc_write_ln("ERR: mute <0|1>"); return; }
     int m = atoi(arg);
     si4732_status_t rc = si4732_set_mute(radio, m != 0, m != 0);
-    cdc_printf("mute rc=%d last_status=0x%02X",(int)rc, radio->last_status);
+    cdc_printf("mute rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
 
-  cdc_write_ln("ERR: unknown command. try 'help'");
+  cdc_write_ln("ERR: unknown command. try 'help'\n");
 }
 
 //*--- strip a string from a given character 
@@ -413,10 +413,12 @@ if (rc == SI4732_OK) {
           case 15: sprintf(line,"mute 0");break;
           case 16: sprintf(line,"mute 1");break;
           case 17: sprintf(line,"region ar");break;
+          case 18: sprintf(line,"loadpatch");break;
+
         }
         cdc_printf("Executing automatic FSM state(%d) cmd(%s)\n",c,line);
         c++;
-        if (c>17) {c=0;}
+        if (c>18) {c=0;}
         unsigned int len=strlen(line);
 
         if (len<=128) {
