@@ -178,6 +178,15 @@ At his point the Raspberry Pi Pico (standard) and the RP2040 Zero boards are *su
 
 The Raspberry Pi Pico W (wireless) is **not supported**.
 
+## Circuit Design Si4732 based Receiver (version 2.x)
+
+This circuit is largely based on the former RDX_rp2040 design
+![Alt Text](doc/ADX-ddsPIO_V2.x-Schematic.png?raw=true "Transceiver Circuit (Version 2.x)")
+
+The main differences with the verion 1.x:
+
+* The receiver configuration has been changed to use the Si4732 receiver chipset.
+
 
 ## Circuit Design Superhet Receiver (version 1.x)
 
