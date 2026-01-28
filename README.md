@@ -226,7 +226,6 @@ The main differences with the original ADX circuit are:
 
 * Si5351 module no longer present.
 * Analog audio circuit has been removed as the audio information is received digitally thru USB.
-* Additional SYNC button (for future time sync).
 
 ## Pinout assignment
 
@@ -638,9 +637,6 @@ This code is a crude porting of the test.c program from the pico-hf-oscillator p
 This utility has been created as a reduced scope test bed for the board and some of the
 DDS functions applied to the generation of FT8 signals.
 
-* When boot if the SYNC button is **NOT** pressed the firmware enters the LED test mode
-  where when each of the buttons are pressed a different LED is lit.
-  Meanwhile the DDS generates RF at the frequency indicated by the *GEN_FRQ_HZ* parameter.
 * When boot if the SYNC button **IS KEPT** pressed the firmware waits and upon release enters the FT8 test mode, it's 
   important the SYNC button is released as close to the top of the minute (sec=0) of
   any minute. In this way the internal clock is set at a random date time but the 
