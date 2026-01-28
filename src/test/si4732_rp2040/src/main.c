@@ -45,7 +45,8 @@
 
 char hi[128];
 bool blink=false;
-  
+
+static volatile bool cdc_dtr = false;
 //*----------------------------------------------------------------------------
 //*                             Prototypes
 //*----------------------------------------------------------------------------
@@ -55,13 +56,22 @@ void cdc_write(char *buf, uint16_t length);
 //*                             Board configuration
 //*----------------------------------------------------------------------------
 #define I2C_PORT i2c0
+//#define I2C_PORT i2c1
 
 //*--- this is the pinout configuration of the RDX board used to develop this
 
-#define SDA_PIN        16
-#define SCL_PIN        17
-#define RST_PIN         1
+#define SDA_PIN        16          //There must be an alternative as the rp2040Z does not exposse this
+#define SCL_PIN        17          //nor this but alternatives in clear view are 26 & 27 which are also used by
+                                   //the ADC block and therefore in conflict with the RX integration
+//#define SDA_PIN        0         //or 0 and 1 which in the RDX board 1 is used for the RESET and it'd hard to 
+//#define SCL_PIN        1         //introduce a MOD for that
+
+
+#define RST_PIN         1          //pin 9 is available in rp2040Z and free in RDX but 1 is in conflict
+//#define RST_PIN         9        //so at this point pin assignment is used differently in rp2040Z and RDX
+
 #define TX              3  //TX LED
+#define FT8             4  //FT8 LED
 #define TXSW            8  //RX-TX Switch
 
 #define BLINKFAST 200
@@ -108,7 +118,7 @@ static si4732_band_preset_t parse_band(const char *s) {
 //*--- print help 
 
 static void print_help(void) {
-  cdc_write_ln("SI4732 CDC Demo commands:");
+  cdc_write_ln("command SI4732 CDC Demo commands:");
   cdc_write_ln("  help");
   cdc_write_ln("  region us|eu|jp|ar");
   cdc_write_ln("  mode fm|am");
@@ -127,11 +137,11 @@ static void process_line(si4732_t *radio, char *line) {
   
   char *cmd = strtok(line, " \t\r\n");
   if (!cmd) {
-    cdc_printf("**Error** no command received\n");
+    cdc_printf("command **Error** no command received\n");
     return;
   }
 
-  cdc_printf("Command received is cmd(%s)\n",cmd);
+  cdc_printf("command received(%s)\n",cmd);
 
   if (!strcmp(cmd, "help")) {
     print_help();
@@ -142,7 +152,7 @@ static void process_line(si4732_t *radio, char *line) {
     char *arg = strtok(NULL, " \t\r\n");
     si4732_region_t r = parse_region(arg);
     si4732_status_t rc = si4732_apply_region(radio, r);  
-    cdc_printf("Region set rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+    cdc_printf("command region set rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
@@ -151,17 +161,17 @@ static void process_line(si4732_t *radio, char *line) {
     char *arg = strtok(NULL, " \t\r\n");
     if (arg && !strcmp(arg, "fm")) {
       si4732_status_t rc = si4732_power_up_fm(radio);
-      cdc_printf("mode FM rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+      cdc_printf("command mode FM rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
       return;
     }
     if (arg && !strcmp(arg, "am")) {
       si4732_status_t rc = si4732_power_up_am(radio, false);
-      cdc_printf("mode AM rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+      cdc_printf("command mode AM rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
       return;
     }
-    cdc_write_ln("ERR: mode fm|am");
+    cdc_write_ln("command **error*  mode fm|am");
 
     return;
   }
@@ -174,12 +184,12 @@ static void process_line(si4732_t *radio, char *line) {
     //*--- Ensure correct power up for FM/AM
 
     si4732_status_t rc = (b.mode == SI4732_MODE_FM) ? si4732_power_up_fm(radio) : si4732_power_up_am(radio, false);
-    cdc_printf("power up rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+    cdc_printf("command power up rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     if (rc != SI4732_OK) { cdc_write_ln("ERR: power up failed"); return; }
 
     rc = si4732_set_band(radio, &b);
-    cdc_printf("band set rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+    cdc_printf("command band set rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
     return;
   }
 
@@ -188,7 +198,7 @@ static void process_line(si4732_t *radio, char *line) {
     if (!arg) { cdc_write_ln("ERR: tune <freq>"); return; }
     uint32_t f = (uint32_t)strtoul(arg, NULL, 10);
     si4732_status_t rc = si4732_tune(radio, f);
-    cdc_printf("tune rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+    cdc_printf("command tune rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
@@ -198,7 +208,7 @@ static void process_line(si4732_t *radio, char *line) {
     if (!arg) { cdc_write_ln("ERR: seek up|down"); return; }
     bool up = !strcmp(arg, "up");
     si4732_status_t rc = si4732_seek(radio, up, true);
-    cdc_printf("seek rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+    cdc_printf("command seek rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
@@ -207,7 +217,7 @@ static void process_line(si4732_t *radio, char *line) {
 
   if (!strcmp(cmd, "loadpatch")) {
      si4732_status_t rc = si4732_load_patch(radio, si4732_ssb_patch, si4732_ssb_patch_len);
-     cdc_printf("load patch rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+     cdc_printf("command load patch rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
      return;
   }
 
@@ -217,7 +227,7 @@ static void process_line(si4732_t *radio, char *line) {
     if (!arg) { cdc_write_ln("ERR: vol <0..63>"); return; }
     uint32_t v = (uint32_t)strtoul(arg, NULL, 10);
     si4732_status_t rc = si4732_set_volume(radio, (uint8_t)v);
-    cdc_printf("vol seet rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+    cdc_printf("command vol seet rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
@@ -227,7 +237,7 @@ static void process_line(si4732_t *radio, char *line) {
     if (!arg) { cdc_write_ln("ERR: mute <0|1>"); return; }
     int m = atoi(arg);
     si4732_status_t rc = si4732_set_mute(radio, m != 0, m != 0);
-    cdc_printf("mute rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+    cdc_printf("command mute rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
     return;
   }
@@ -255,6 +265,15 @@ void cdc_write(char *buf, uint16_t length) {
 
   tud_cdc_write(buf, length);
   tud_cdc_write_flush();
+}
+
+
+// Callback de TinyUSB: cambios de DTR/RTS
+void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
+{
+  (void)itf;
+  (void)rts;
+  cdc_dtr = dtr;
 }
 //*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 //*                                           MAIN 
@@ -294,15 +313,49 @@ int main(void) {
   gpio_set_dir(TX, GPIO_OUT); //TX →　1, RX →　0 (for Driver switch)
   gpio_put(TX,0);             //Turn TX LED off, use it as a marker for debugging
 
+  gpio_init(FT8);
+  gpio_set_dir(FT8, GPIO_OUT); //TX →　1, RX →　0 (for Driver switch)
+  gpio_put(FT8,0);             //Turn TX LED off, use it as a marker for debugging
+
   //*--- Debug construct to force the flow wait for the CDC stream to be active
-  
+
+  /*
   while(gpio_get(TXSW)) {tud_task();};     //Wait till the TX Switch is pressed (to be able to see the messages)
   gpio_put(TX,1);            //Turn TX LED on, ready to start
   while(!gpio_get(TXSW)) {tud_task();};   //Wait till the TX switch is released
   gpio_put(TX,0);
+  */
 
+  uint32_t t;
+  gpio_put(TX,1); 
+
+  blink=false;
+  t=to_ms_since_boot(get_absolute_time());
+  while (true) {
+    tud_task();                 // mantiene USB vivo
+    if (tud_cdc_connected() && cdc_dtr) break;  // host abrió el puerto
+    sleep_ms(1);
+    if (to_ms_since_boot(get_absolute_time())-t > 200) {
+        t=to_ms_since_boot(get_absolute_time());
+        blink=!blink;
+        gpio_put(TX,blink);
+        gpio_put(FT8,!blink);
+ 
+      }
+  }
+
+  for (int i=0; i<100; i++) {
+     tud_task();
+     sleep_ms(1);
+  }
+
+  tud_task();
   cdc_printf("\nUSB Bus initialized properly and ready\n");
-
+  for (int i=0;i<10;i++){tud_task();}
+  gpio_put(TX,0); 
+  gpio_put(FT8,0); 
+  
+  tud_task();
   //*--- Ensure reset is high
 
   gpio_put(RST_PIN,1);
@@ -312,11 +365,11 @@ int main(void) {
   
   si4732_t radio;
   si4732_status_t rc = si4732_init(&radio, I2C_PORT, SI4732_I2C_ADDR_DEFAULT, SDA_PIN, SCL_PIN, RST_PIN, 400000);
-  cdc_printf("init rc=%d present=%d last=0x%02X\n", (int)rc, (int)radio.present, radio.last_status);
+  cdc_printf("Si4732 init rc=%d present=%d last=0x%02X\n", (int)rc, (int)radio.present, radio.last_status);
 
 if (rc == SI4732_OK) {
   rc = si4732_power_up_fm(&radio);
-  cdc_printf("power_up_fm rc=%d last=0x%02X\n", (int)rc, radio.last_status);
+  cdc_printf("Si4732 power_up_fm rc=%d last=0x%02X\n", (int)rc, radio.last_status);
 
   if (rc == SI4732_OK) {
     (void)si4732_apply_region(&radio, SI4732_REGION_AR);
@@ -331,12 +384,15 @@ if (rc == SI4732_OK) {
   //*--- Prepare for the main loop, the PIO clock is running
 
   bool keypress=false;
-  uint32_t t=to_ms_since_boot(get_absolute_time());
+  t=to_ms_since_boot(get_absolute_time());
+  
   static bool greeted = false;
   uint8_t c=0;
 
 
   //*---- Forever loop
+
+  cdc_printf("Board initialization completed\n");
 
   while (true) {
     tud_task();
@@ -352,7 +408,7 @@ if (rc == SI4732_OK) {
 
        gpio_put(TX,1);
        keypress=true;
-       cdc_printf("TX key pressed\n");
+       cdc_printf("loop() TX key pressed\n");
 
        //*--- Wait till the switch is released, execute the USB task while waiting
        while(!gpio_get(TXSW)) {
@@ -376,7 +432,7 @@ if (rc == SI4732_OK) {
 
     if (keypress) {
        keypress=false;
-       cdc_printf("TX key released\n");      
+       cdc_printf("loop() TX key released\n");      
        sleep_ms(5);
        greeted=false;
 
@@ -389,7 +445,7 @@ if (rc == SI4732_OK) {
 
       if (!greeted) {
          greeted = true;
-         cdc_printf("SI4732_rp2040 CDC ready Ok(%d). Type 'help'.\n",(int)radio.present);
+         cdc_printf("CDC Serial ready Ok(%d). Type 'help'.\n",(int)radio.present);
 
          if (!radio.present) {
             cdc_write_ln("WARN: SI4732 not detected on I2C. Driver disabled; CDC stays alive.\n");
@@ -417,7 +473,7 @@ if (rc == SI4732_OK) {
           case 18: sprintf(line,"loadpatch");break;
 
         }
-        cdc_printf("Executing automatic FSM state(%d) cmd(%s)\n",c,line);
+        cdc_printf("loop() Executing automatic FSM state(%d) cmd(%s)\n",c,line);
         c++;
         if (c>18) {c=0;}
         unsigned int len=strlen(line);
@@ -426,7 +482,7 @@ if (rc == SI4732_OK) {
            line[len]='\n';
            line[len+1]='\0';
         } else {
-          cdc_printf("Command line longer than allowed\n");
+          cdc_printf("loop() Command line longer than allowed\n");
         }
         process_line(&radio,line);     
     }
