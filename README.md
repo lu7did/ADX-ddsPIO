@@ -188,17 +188,20 @@ The Raspberry Pi Pico W (wireless) is **not supported**.
 ## Circuit Design Si4732 based Receiver (version 2.x)
 
 This circuit is largely based on the former RDX_rp2040 design
-![Alt Text](doc/ADX-ddsPIO_V2.x-Schematic.png?raw=true "Transceiver Circuit (Version 2.x)")
+![Alt Text](doc/ADX-ddsPIO_V2.x_si4732-Schematic.png?raw=true "Transceiver Circuit (Version 2.x)")
 
-Modifications could be made to the RDX board to operate with firmware level 2.x or up
-main advantage at this point is the availability of a PCB design which allows the usage
-of SMD components easily.
 
 The main differences with the verion 1.x:
 
 * The receiver configuration has been changed to use the Si4732 receiver chipset.
 
 ### Modifications to adapt RDX board to ADX-ddsPIO
+
+Modifications could be made to the RDX board to operate with firmware level 2.x or up
+main advantage at this point is the availability of a PCB design which allows the usage
+of SMD components easily.
+
+The required mods for the RDX board to work with the ADX-ddsPIO firmware are:
 
 ```
 Work in progress
@@ -208,16 +211,16 @@ Work in progress
 
 This circuit is largely based on the ADX transceiver modification made by Hitoshi Kawaji (JE1RAV) and
 marketed as a kit form by Adam Rong (BD6CR) at CRKits.com ([link](http://crkits.com/) ).
-![Alt Text](doc/ADX-ddsPIO_V1.x-Schematic.png?raw=true "Transceiver Circuit (Version 1.x)")
+![Alt Text](doc/ADX-ddsPIO_V1.x_superhet-Schematic.png?raw=true "Transceiver Circuit (Version 1.x)")
 
 The main differences with the verion 0.x:
 
 * The receiver configuration has been changed to a superhet.
 
-## Circuit Design Direct Conversion Receiver (version 0.x)
+## Circuit Design Direct Conversion Receiver (version 1.x)
 
 This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA)).
-![Alt Text](doc/ADX-ddsPIO_V0.x-Schematic.png?raw=true "Transceiver Circuit (Version 0.x)")
+![Alt Text](doc/ADX-ddsPIO_DC_V1.x-Schematic.png?raw=true "Transceiver Circuit (Version 1.x) Direct Conversion")
 
 The main differences with the original ADX circuit are:
 
