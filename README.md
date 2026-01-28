@@ -220,7 +220,7 @@ The main differences with the verion 0.x:
 ## Circuit Design Direct Conversion Receiver (version 1.x)
 
 This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA)).
-![Alt Text](doc/ADX-ddsPIO_DC_V1.x-Schematic.png?raw=true "Transceiver Circuit (Version 1.x) Direct Conversion")
+![Alt Text](doc/ADX-ddsPIO_V1.x_DC-Schematic.png?raw=true "Transceiver Circuit (Version 1.x) Direct Conversion")
 
 The main differences with the original ADX circuit are:
 
