@@ -101,6 +101,7 @@ target_sources(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_descriptors.c
         ${CMAKE_CURRENT_LIST_DIR}/src/piodco.c
+        ${CMAKE_CURRENT_LIST_DIR}/src/si4732.c
         ${CMAKE_CURRENT_LIST_DIR}/src/lib/assert.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_audio.c 
         ${CMAKE_CURRENT_SOURCE_DIR}/src/EEPROM.c 

@@ -11,6 +11,7 @@
 
 VERSION="2.0"
 LIBPATH="/Users/PCOLLA/Documents/GitHub/ADX-ddsPIO/src/ADX-ddsPIO_V"$VERSION
+export PICO_SDK_PATH=/Users/PCOLLA/Documents/GitHub/pico/pico-sdk
 
 clear
 cd $LIBPATH

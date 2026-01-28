@@ -163,20 +163,27 @@
 //#define  RP2040Z  1
 //#define   PICOW  1 
 
-
 //*==============================================================================================*
 //*                                Configuration definitions                                     *
 //*==============================================================================================*
 #define  DEBUG     1
 #define  EEPROM    1   
 //#define  CAT       1    
-#define  BOOTSYNC  1
+//#define  RTC  1
 #define  SUPERHET  1
 #define  DUALCLK   1
 //#define QUAD 1
+#define SI4732 1
+#define WAITSERIAL 1
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
+#ifdef SI4732                    //If Si4732 chipset enabled it's the dominant receiver
+#undef SUPERHET
+#undef DUALCLK 
+#undef QUAD
+#endif //SI4732
+
 #ifdef CAT                      //If CAT enabled USB can not be used to debug
 #undef DEBUG
 #endif //CAT  
@@ -184,7 +191,12 @@
 #ifdef QUAD                     //If Quadrature oscillator activated all other clocks disabled
 #undef DUALCLK
 #undef SUPERHET
+#undef SI4732
 #endif //QUAD 
+
+#ifndef DEBUG
+#undef WAITSERIAL
+#endif //!DEBUG
 
 //*==============================================================================================*
 //*                                  Includes and Source Libraries                               *
@@ -213,6 +225,10 @@
 #include "../build/dco2.pio.h"
 #include "hardware/rtc.h"
 #include "pico/util/datetime.h"
+
+#ifdef SI4732
+#include "si4732.h"
+#endif //SI4732
 
 #ifdef SUPERHET
 #include "BFO.pio.h"
@@ -276,14 +292,25 @@
 #define pin_A0               28U          //pin for ADC (A2)
 #define pin_SW                3U          //pin for freq change switch (D10,input)
 
-#define RFOUT                13           //RF out pin
-#define RFLO                 14           //RF out Receiver LO
+//#define RFOUT                13           //RF out pin
+//#define RFLO                 14           //RF out Receiver LO
+
+#define  CLK0                13           //RF output (transmitter)
+#define  CLK1                12           //RF output (receiver)
 
 #ifdef SUPERHET
-#define RFIF                 15           //RF out Receiver IF (465 KHz)
-
+#define CLK2                 15           //RF out Receiver IF (465 KHz)
 #endif //SUPERHET
 
+#ifdef QUAD
+#define RFI                 14
+#define RFQ                 15
+#endif //QUAD
+
+/*---
+   I2C configuration control 
+*/
+#define I2C_PORT           i2c0
 #define SDA                  26           //I2C SDA (Data) bus
 #define SCL                  27           //I2C SCL (Clock) bus
 
@@ -313,6 +340,18 @@
 #define SYNC                 13  //Time SYNC Switch
 
 
+/*----
+   Definitions for the Si4732 support
+*/
+#ifdef SI4732
+
+#define I2C_PORT i2c0
+#define SDA_PIN              16  //There must be an alternative as the rp2040Z does not exposse this
+#define SCL_PIN              17  //nor this but alternatives in clear view are 26 & 27 which are also used by
+#define RST_PIN               1  //pin 9 is available in rp2040Z and free in RDX but 1 is in conflict
+
+#endif //SI4732
+
 //*==============================================================================================*
 //*                                  Global Memory Areas                                         *
 //*==============================================================================================*
@@ -320,10 +359,13 @@ uint32_t frqFT8  = GEN_FRQ_HZ;
 uint32_t frqbfo  = FREQ_BFO;
 char hi[80];
 uint8_t marker=0;
+uint32_t t;
+bool blink=false;
 
 //*--- Control block of PIO running the DCO
 PioDco DCO; /* External in order to access in both cores. */
-PioDco DCO2;
+
+//PioDco DCO2;
 
 //*--- for ADC offset at transceiver
 int32_t adc_offset = 0;   
@@ -367,6 +409,12 @@ datetime_t tcpu = {
     .min   = 00,
     .sec   = 00
 };
+
+
+#ifdef SI4732
+static volatile bool cdc_dtr = false;
+
+#endif //SI4732
 
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
@@ -602,6 +650,7 @@ void Mode_assign() {
   cdc_printf("Assigning mode(%d) for Band(%d)\n", mode, Band);
   int b=band2idx(Band);
   frqFT8=Bands[b][mode-1];
+  PioDCOSetFreq(&DCO, frqFT8, 0U);    //*--- Change frequency according to band and mode
   
   clearLED();
 
@@ -1020,15 +1069,7 @@ int main(void)
   stdio_init_all();
   sleep_ms(500);
  
-  #ifdef BOOTSYNC
-
-  //*----------- Setup RTC, this is only used to sync seconds   ---------------*
-  rtc_init();
-  rtc_set_datetime(&tcpu);
-  
-  #endif //BOOTSYNC
-
-  //*--- define the DEFAULT (board) LED
+    //*--- define the DEFAULT (board) LED
 
   #if defined(PICO) || defined(RP2040Z)
 
@@ -1042,19 +1083,65 @@ int main(void)
 
   #endif //!PICOW
 
+  //*--- Start the USB service loop
+  tud_init(BOARD_TUD_RHPORT);
+  //tusb_init();
+  
+  absolute_time_t t0 = get_absolute_time();
+  while (!tud_mounted()) {
+    tud_task();
+    if (absolute_time_diff_us(t0, get_absolute_time()) > 3 * 1000 * 1000) {
+        break;           // timeout 3 secs, do not hang the system
+    }
+  }
+
+  #ifdef WAITSERIAL
+  gpio_put(PICO_DEFAULT_LED_PIN,blink); 
+  blink=false;
+  t=to_ms_since_boot(get_absolute_time());
+  while (true) {
+    tud_task();                 // mantiene USB vivo
+    if (tud_cdc_connected() && cdc_dtr) break;  // host abrió el puerto
+    sleep_ms(1);
+    if (to_ms_since_boot(get_absolute_time())-t > 200) {
+        t=to_ms_since_boot(get_absolute_time());
+        blink=!blink;
+        gpio_put(PICO_DEFAULT_LED_PIN,blink); 
+      }
+  }
+
+  for (int i=0; i<100; i++) {
+     tud_task();
+     sleep_ms(1);
+  }
+  #endif //WAITSERIAL
+
+  cdc_printf("%s version(%s) build(%s)\n",PROGNAME,VERSION,BUILD);
+
+  #ifdef WAITSERIAL
+  cdc_printf("Support for Serial Monitor started\n");
+  #endif //WAITSERIAL
+
   #if defined(PICO) || defined(RP2040Z)
   ADXsetup();
   #endif //PICO
 
+  #ifdef RTC
+  //*----------- Setup RTC, this is only used to sync seconds   ---------------*
+  rtc_init();
+  rtc_set_datetime(&tcpu);
+  cdc_printf("Support for RTC loaded\n");
+  #endif //RTC
+
+
   //*---- Start the local 465 KHz BFO oscillator if enabled
   #ifdef SUPERHET
-  
   PIO piobfo = pio1;
   uint sm = 0;
   uint offset = (uint) pio_add_program(piobfo, &BFO_program);
   float fbfo=(float)frqbfo*1.0f;
-  pio_square_wave(piobfo, sm, offset, RFIF, fbfo);
-
+  pio_square_wave(piobfo, sm, offset, CLK2, fbfo);
+  cdc_printf("Superhet support BFO initialized\n");
   #endif //SUPERHET 
 
   //*--- Start the DCO (either single or dual clock)
@@ -1062,26 +1149,19 @@ int main(void)
   const uint32_t PIOclkhz = PLL_SYS_MHZ * 1000000L;
   cdc_printf("Core 1 started. DCO worker initializing...\n");
 
-  //*fix* PioDCOInit(&DCO, RFOUT, PIOclkhz);
   //*--- Output is produced replicated at GPIO13 and GPIO14 
  
-  #ifdef DUALCLK
-  PioDCOInit(&DCO, RFOUT, PIOclkhz,true);
-  #else
-  PioDCOInit(&DCO, RFOUT, PIOclkhz,false);
-  #endif //DUALCLK
-
+  PioDCOInit(&DCO, CLK1, PIOclkhz,true);
+  
   //*--- Start the quadrature oscilator
 
   #ifdef QUAD
-  quad_init(&osc, pio1, 0);
+  quad_init(&osc, pio1, 0,(int)RFI,(int)RFQ);
+  cdc_printf("Quadrature oscillator started\n");
   #endif //QUAD
 
-  //*--- Start the USB service loop
 
-  tud_init(BOARD_TUD_RHPORT);
-
-  #ifdef BOOTSYNC
+  #ifdef RTC
   bool synced=false;
   while (!gpio_get(TXSW)) {
       blinkLED(TX,1,500);
@@ -1095,8 +1175,7 @@ int main(void)
      datetime_to_str(datetime_str, sizeof(datetime_str), &tcpu);
      cdc_printf("Internal clock has been set to: %s\n", datetime_str);
   }
-
-  #endif //BOOTSYNC
+  #endif //RTC
 
   
   //*--- Wireless library poll
@@ -1105,12 +1184,8 @@ int main(void)
   #endif //PICOW
 
   //*--- Initialize the ADX board
-
   cdc_printf("Core 1 started. DCO worker initializing...\n");
-
-  //*--- Previous ADXSetup
-
-  
+ 
   //*--- Sync time and define mode 
   #if defined(PICO) || defined(RP2040Z)
   Band_assign();
@@ -1134,11 +1209,10 @@ int main(void)
   sleep_ms(500);
   
   #ifdef QUAD
-
   //*--- Start the oscillator
   quad_start(&osc, frqFT8, false, &sol);
   dump_solution("<0>", &sol, osc.pio , osc.sm);
-  
+ 
   #endif //QUAD
 
   //*--- ADC (receiver) initialization
@@ -1149,7 +1223,7 @@ int main(void)
   adc_run(true);                              // start ADC free running
   adc_set_clkdiv(249.0);                      // 192kHz sampling  (48000 / (249.0 +1) = 192)
   adc_fifo_setup(true,false,0,false,false);   // fifo
-  cdc_printf("ADC receiver system initialized\n");
+  cdc_printf("ADC receiver sub-system initialized\n");
 
 
   //*--- USB Audio initialization (initialization of monodata[])

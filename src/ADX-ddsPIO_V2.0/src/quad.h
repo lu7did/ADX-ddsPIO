@@ -19,8 +19,8 @@ extern "C" {
 //*--------------------------------------------------
 //* Used GPIO pins
 //*--------------------------------------------------
-#define QUAD_I_PIN   14u
-#define QUAD_Q_PIN   15u
+//#define QUAD_I_PIN   14u
+//#define QUAD_Q_PIN   15u
 
 //*--- This is the maximum allowed clock, the solutions must not go higher than that
 #define QUAD_CLK_SYS_MAX_HZ 270000000u
@@ -53,6 +53,8 @@ typedef struct {
   PIO  pio;
   uint sm;
   uint offset;
+  uint pinI;
+  uint pinQ;
   bool initialized;
   bool running;
 } quad_osc_t;
@@ -60,7 +62,8 @@ typedef struct {
 //*----------------------------------------------------
 //* External API as seen by the caller
 //*----------------------------------------------------
-bool quad_init(quad_osc_t *q, PIO pio, uint sm);
+//bool quad_init(quad_osc_t *q, PIO pio, uint sm);
+bool quad_init(quad_osc_t *q, PIO pio, uint sm, int gpioI, int gpioQ);
 
 bool quad_start(quad_osc_t *q,
                 uint32_t f_hz,

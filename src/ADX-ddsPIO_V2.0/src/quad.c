@@ -191,7 +191,7 @@ static void apply_pll_sys(const quad_solution_t *s)
 //*---------------------------------------------------------------------------------------*
 //*                       Quad clock initialization                                       *
 //*---------------------------------------------------------------------------------------*
-bool quad_init(quad_osc_t *q, PIO pio, uint sm)
+bool quad_init(quad_osc_t *q, PIO pio, uint sm, int gpioI, int gpioQ)
 {
   if (!q) return false;
 
@@ -199,6 +199,8 @@ bool quad_init(quad_osc_t *q, PIO pio, uint sm)
   q->sm  = sm;
   q->running = false;
   q->initialized = false;
+  q->pinI=(uint)gpioI;
+  q->pinQ=(uint)gpioQ;
 
   //*--- Load PIO program
   int offset = pio_add_program(pio, &quad_program);
@@ -210,16 +212,17 @@ bool quad_init(quad_osc_t *q, PIO pio, uint sm)
   //*--- Set base configuration of the SM
   
   pio_sm_config c = quad_program_get_default_config(q->offset);
-  sm_config_set_set_pins(&c, QUAD_I_PIN, 2);
+  //sm_config_set_set_pins(&c, QUAD_I_PIN, 2);
+  sm_config_set_set_pins(&c, q->pinI, 2);
 
   //*--- Init GPIO output functions
 
-  pio_gpio_init(pio, QUAD_I_PIN);
-  pio_gpio_init(pio, QUAD_Q_PIN);
+  pio_gpio_init(pio, q->pinI);
+  pio_gpio_init(pio, q->pinQ);
 
   //*--- Define two consecutive pins as output
   
-  pio_sm_set_consecutive_pindirs(pio, sm, QUAD_I_PIN, 2, true);
+  pio_sm_set_consecutive_pindirs(pio, sm, q->pinI, 2, true);
 
   //*--- Reset the SM (but do not start as yet)
   
