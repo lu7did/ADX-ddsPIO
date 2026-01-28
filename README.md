@@ -203,6 +203,14 @@ of SMD components easily.
 
 The required mods for the RDX board to work with the ADX-ddsPIO firmware are:
 
+* Cut the PCB wire PICO ADC0 (GPIO26) to R10/R11/C10.
+* Run a wire  from R10/R11/C10 to PICO ADC2 (GPIO28).
+* Run 2 pullup 10K resistors from PICO GPIO16 to +3.3V and GPIO17 to +3.3V.
+* Do not use a Si5351 breakout board
+* Run a wire from GPIO13 to the CLK0 pin of the Si5351 place.
+* Run a 10K pullup resistor from Si4732 pin 3 (INTB) to +3.3V.
+* If running with an external +12V cc supply remove jumper J7.
+  
 ```
 Work in progress
 ```
