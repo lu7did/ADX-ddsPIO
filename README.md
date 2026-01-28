@@ -146,7 +146,8 @@ Features
 
 ## ADX-ddsPIO Firmware (Version 2.0)
 
-* Si4732 based receiver
+* Si4732 based receiver chipset support
+
 
 ```
 Work in progress
