@@ -171,16 +171,14 @@
 //#define  CAT       1    
 //#define  RTC  1
 #define  SUPERHET  1
-#define  DUALCLK   1
-//#define QUAD 1
-#define SI4732 1
+#define  QUAD      1
+//#define SI4732 1
 #define WAITSERIAL 1
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
 #ifdef SI4732                    //If Si4732 chipset enabled it's the dominant receiver
 #undef SUPERHET
-#undef DUALCLK 
 #undef QUAD
 #endif //SI4732
 
@@ -189,7 +187,6 @@
 #endif //CAT  
 
 #ifdef QUAD                     //If Quadrature oscillator activated all other clocks disabled
-#undef DUALCLK
 #undef SUPERHET
 #undef SI4732
 #endif //QUAD 
@@ -299,7 +296,7 @@
 #define  CLK1                12           //RF output (receiver)
 
 #ifdef SUPERHET
-#define CLK2                 15           //RF out Receiver IF (465 KHz)
+#define CLK2                 14           //RF out Receiver IF (465 KHz)
 #endif //SUPERHET
 
 #ifdef QUAD
@@ -410,11 +407,7 @@ datetime_t tcpu = {
     .sec   = 00
 };
 
-
-#ifdef SI4732
 static volatile bool cdc_dtr = false;
-
-#endif //SI4732
 
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
@@ -439,6 +432,13 @@ void blinkLED(uint8_t _gpio, uint8_t n, uint ms);
 quad_solution_t sol;
 quad_osc_t      osc;
 #endif //QUAD
+
+
+
+//void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts);
+
+
+
 //*==============================================================================================*
 //*                            Debug tools for Quadrature oscillator if defined                  *
 //*==============================================================================================*
@@ -1110,6 +1110,8 @@ int main(void)
       }
   }
 
+  gpio_put(PICO_DEFAULT_LED_PIN,0);
+
   for (int i=0; i<100; i++) {
      tud_task();
      sleep_ms(1);
@@ -1240,7 +1242,7 @@ int main(void)
 //*--- Start the quadrature digital oscilator (QDO) if configured
 
   #ifdef QUAD
-  quad_init(&osc, pio1, 0);
+  quad_init(&osc, pio1, 0,(int)RFI,(int)RFQ);
   #endif //QUAD
 
   //*--- Get time for future synchronization
@@ -1650,6 +1652,15 @@ void cat(void)
 #endif //CAT
 }
 
+/*----------------------------------------------------------------------------------*/
+//* TinyUSB callback to detect changes in DTR/RTS                                   */
+//*---------------------------------------------------------------------------------*/
+void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
+{
+  (void)itf;
+  (void)rts;
+  cdc_dtr = dtr;
+}
 //*---------------------------------------------------------------------------------*/
 //* Functions to manage the CDC serial emulation (for debug and CAT)                */
 //*---------------------------------------------------------------------------------*/
