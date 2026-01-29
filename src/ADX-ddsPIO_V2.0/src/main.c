@@ -289,14 +289,12 @@
 #define pin_A0               28U          //pin for ADC (A2)
 #define pin_SW                3U          //pin for freq change switch (D10,input)
 
-//#define RFOUT                13           //RF out pin
-//#define RFLO                 14           //RF out Receiver LO
-
 #define  CLK0                13           //RF output (transmitter)
 #define  CLK1                12           //RF output (receiver)
 
 #ifdef SUPERHET
 #define CLK2                 14           //RF out Receiver IF (465 KHz)
+
 #endif //SUPERHET
 
 #ifdef QUAD
@@ -334,7 +332,6 @@
 #define UP                   10  //UP Switch
 #define DOWN                 11  //DOWN Switch
 #define BEACON               12  //BEACON Jumper
-#define SYNC                 13  //Time SYNC Switch
 
 
 /*----
@@ -432,12 +429,6 @@ void blinkLED(uint8_t _gpio, uint8_t n, uint ms);
 quad_solution_t sol;
 quad_osc_t      osc;
 #endif //QUAD
-
-
-
-//void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts);
-
-
 
 //*==============================================================================================*
 //*                            Debug tools for Quadrature oscillator if defined                  *
@@ -608,6 +599,12 @@ void updateEEPROM() {
 
 }
 #endif //EEPROM
+void pump_tud_task() {
+  for (int i=0; i<100; i++) {
+     tud_task();
+     sleep_ms(1);
+  }
+}
 /*----------------------------------------------------------------------------*/
 /* Convert slot to band                                                       */
 /*----------------------------------------------------------------------------*/
@@ -885,9 +882,12 @@ void checkButtons() {
   */
 #ifndef CAT
   if ((!gpio_get(UP)) && (!gpio_get(DOWN)) && (Tx_Status==0)) {
-     if(!testButton(UP) && !testButton(DOWN)){
+    if(!testButton(UP) && !testButton(DOWN)){
+ 
        while(!testButton(UP) && !testButton(DOWN));
        Band_Select();
+       cdc_printf("Band selection action started|n");
+       pump_tud_task();
      }
   }
 #endif //!CAT  
@@ -897,11 +897,13 @@ void checkButtons() {
   */
   #ifndef CAT
   if (!gpio_get(UP) && gpio_get(DOWN) && Tx_Status == 0) {
-     if (!testButton(UP) && testButton(DOWN)){
+    pump_tud_task();
+    if (!testButton(UP) && testButton(DOWN)){
         mode=mode-1;
         if (mode<1) mode=4;
         Mode_assign();
         while(!testButton(UP));
+        cdc_printf("UP Mode down button released\n");
         PioDCOSetFreq(&DCO,frqFT8,0U);
     
         #ifdef QUAD
@@ -918,8 +920,9 @@ void checkButtons() {
   */
   #ifndef CAT
   if (gpio_get(UP) && !gpio_get(DOWN) && Tx_Status == 0) {
-     if (testButton(UP) && !testButton(DOWN)){
-        mode=mode+1;
+    if (testButton(UP) && !testButton(DOWN)){
+        cdc_printf("DOWN mode pressed Band selection action started|n");
+         mode=mode+1;
         if (mode>4) mode=1;
         Mode_assign();
         while(!testButton(DOWN));
@@ -930,7 +933,7 @@ void checkButtons() {
         quad_set_frequency(&osc, frqFT8, false, &sol);
         dump_solution("<4>", &sol, osc.pio , osc.sm);
         #endif //QUAD
-
+        cdc_printf("Mode up mode pressed\n");
      }
   }
   #endif //!CAT
@@ -939,9 +942,11 @@ void checkButtons() {
      If the TX button is pressed then activate the transmitter until the button is released
   */
   if (!gpio_get(TXSW) && Tx_Status == 0){
+     cdc_printf("TX key pressed\n");
      if (!testButton(TXSW)) {
         ManualTX();
      }
+     cdc_printf("TX key released\n");
   }
 
 }
@@ -1005,19 +1010,17 @@ void ADXsetup(){
 
     gpio_init(TXSW);
     gpio_set_dir(TXSW, GPIO_IN);
+    gpio_pull_up(TXSW);
 
     gpio_init(UP);
     gpio_set_dir(UP, GPIO_IN);
+    gpio_pull_up(UP);
 
     gpio_init(DOWN);
     gpio_set_dir(DOWN, GPIO_IN);    
-
-    gpio_init(SYNC);
-    gpio_set_dir(SYNC, GPIO_IN);
-    
-    gpio_init(BEACON);
-    gpio_set_dir(BEACON, GPIO_IN);
-
+    gpio_pull_up(DOWN);
+   
+  
     #ifdef EEPROM
     
     //*--- update EEPROM if not initialized yet
@@ -1149,10 +1152,10 @@ int main(void)
   //*--- Start the DCO (either single or dual clock)
 
   const uint32_t PIOclkhz = PLL_SYS_MHZ * 1000000L;
-  cdc_printf("Core 1 started. DCO worker initializing...\n");
-
+  
   //*--- Output is produced replicated at GPIO13 and GPIO14 
  
+  cdc_printf("DCO sub-system initializing...\n");
   PioDCOInit(&DCO, CLK1, PIOclkhz,true);
   
   //*--- Start the quadrature oscilator
@@ -1206,7 +1209,7 @@ int main(void)
   defaultLED(false);
   #endif //PICO
 
-  cdc_printf("launching DCO worker on core 1...\n");
+  cdc_printf("DCO worker launching at core 1...\n");
   multicore_launch_core1(core1_entry);
   sleep_ms(500);
   
@@ -1214,7 +1217,7 @@ int main(void)
   //*--- Start the oscillator
   quad_start(&osc, frqFT8, false, &sol);
   dump_solution("<0>", &sol, osc.pio , osc.sm);
- 
+  cdc_printf("Quad oscillator started\n");
   #endif //QUAD
 
   //*--- ADC (receiver) initialization
@@ -1237,19 +1240,27 @@ int main(void)
   
   sleep_ms(100);
   adc_fifo_drain ();
+
+  cdc_printf("Computing ADC offset\n");
+
   adc_offset = adc();
+  cdc_printf("ADC input offset callibrated\n");
 
 //*--- Start the quadrature digital oscilator (QDO) if configured
 
+/*
   #ifdef QUAD
   quad_init(&osc, pio1, 0,(int)RFI,(int)RFQ);
   #endif //QUAD
-
+*/
   //*--- Get time for future synchronization
 
   Tx_last_mod_time=to_ms_since_boot(get_absolute_time());
   
   //*--- Enter the infinite loop
+  t=to_ms_since_boot(get_absolute_time());
+  blink=false;
+  cdc_printf("Transceiver  ready\n");
 
   //*----------------------------------------------------------------------------*/
   //*                    This is the main service loop                           */
@@ -1260,10 +1271,18 @@ int main(void)
     //*--- TUD (TinyUSB Dispatcher call)
     tud_task();        // TinyUSB device task
 
-    //*--- Check for buttons and other status changes 
+    if (to_ms_since_boot(get_absolute_time())-t > 1000) {
+        t=to_ms_since_boot(get_absolute_time());
+        blink=!blink;
+        gpio_put(PICO_DEFAULT_LED_PIN,blink); 
+    }
+  
+    //*--- Check for buttons and other status changes   
+    
     #if defined(PICO) || defined(RP2040Z)
     checkButtons();
     #endif //PICO
+     
 
     //*--- CAT (using CDC, not implemented yet
     cat(); // remote control (simulating Kenwood TS-2000) 
@@ -1273,9 +1292,8 @@ int main(void)
         receiving();
     } else {
         transmitting();
-    }
-    
-  }
+    }    
+}
 }
 /*===================================[ End of Main]=================================================*/
 //*----------------------------------------------------------------------------*/
