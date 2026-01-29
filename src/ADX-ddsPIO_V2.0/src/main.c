@@ -471,6 +471,7 @@ static void dump_solution(const char *tag,
 
 //*--- This function reads what the current Hw status really is in order to 
 //*--- check if the setup of the solution has been successfully deployed                            
+
   uint32_t clk_now = clock_get_hz(clk_sys);
   uint16_t di_hw; uint8_t df_hw;
   read_sm_clkdiv(pio, sm, &di_hw, &df_hw);
@@ -483,32 +484,32 @@ static void dump_solution(const char *tag,
   //*--- properly by the USB CDC, menwhile the USB service task is called to 
   //*--- clean up the buffers and release space
 
-  int n = snprintf(b, sizeof(b),"\n[%s]\n REQ=%" PRIu32 "\n",tag,s->f_req_hz);
+  int n = snprintf(b, sizeof(b),"\n[%s]\nREQ=%" PRIu32 " Hz\n",tag,s->f_req_hz);
   cdc_write(b, (uint16_t)n);
   tud_cdc_write_flush();
   for(int n=0;n<10;n++) {tud_task();}
 
-  n = snprintf(b, sizeof(b),"clk_sys(now)=%" PRIu32 "\n",s->clk_sys_hz);
+  n = snprintf(b, sizeof(b),"clk_sys(now)=%" PRIu32 " Hz\n",s->clk_sys_hz);
   cdc_write(b, (uint16_t)n);
   tud_cdc_write_flush();
   for(int n=0;n<10;n++) {tud_task();}
 
-  n = snprintf(b, sizeof(b),"SOL: clk_sys=%" PRIu32 "\n  vco=%" PRIu32 "\n",s->clk_sys_hz, s->vco_hz);
+  n = snprintf(b, sizeof(b),"SOL: clk_sys=%" PRIu32 " Hz\n     VCO=%" PRIu32 " Hz\n",s->clk_sys_hz, s->vco_hz);
   cdc_write(b, (uint16_t)n);
   tud_cdc_write_flush();
   for(int n=0;n<10;n++) {tud_task();}
 
-  n = snprintf(b, sizeof(b),"post=%u/%u  fbdiv=%u refdiv=%u\n",(unsigned)s->postdiv1, (unsigned)s->postdiv2,    (unsigned)s->fbdiv, (unsigned)s->refdiv);
+  n = snprintf(b, sizeof(b),"Divisor post=%u/%u  fbdiv=%u refdiv=%u\n",(unsigned)s->postdiv1, (unsigned)s->postdiv2,    (unsigned)s->fbdiv, (unsigned)s->refdiv);
   cdc_write(b, (uint16_t)n);
   tud_cdc_write_flush();
   for(int n=0;n<10;n++) {tud_task();}
 
-  n = snprintf(b, sizeof(b),"SOL: N=%" PRIu32 "  div=%u+%u/256  f_out=%" PRIu32 "  err=%" PRId32 "\n",s->N, (unsigned)s->pio_div_int, (unsigned)s->pio_div_frac, s->f_out_hz, s->err_hz);
+  n = snprintf(b, sizeof(b),"SOL: N=%" PRIu32 "  div=%u+%u/256  f_out=%" PRIu32 " Hz  err=%" PRId32 " Hz\n",s->N, (unsigned)s->pio_div_int, (unsigned)s->pio_div_frac, s->f_out_hz, s->err_hz);
   cdc_write(b, (uint16_t)n);
   tud_cdc_write_flush();
   for(int n=0;n<10;n++) {tud_task();}
-
-  n = snprintf(b, sizeof(b),"HW : N=%" PRIu32 "  div=%u+%u/256  f_out_est=%" PRIu32 "\n",N_hw, (unsigned)di_hw, (unsigned)df_hw, fout_hw_est); 
+  cdc_printf("*HW Verification*\n");
+  n = snprintf(b, sizeof(b),"HW : N=%" PRIu32 "  div=%u+%u/256  f_out=%" PRIu32 " Hz (est)\n",N_hw, (unsigned)di_hw, (unsigned)df_hw, fout_hw_est); 
   cdc_write(b, (uint16_t)n);
   tud_cdc_write_flush();
   for(int n=0;n<10;n++) {tud_task();}
@@ -786,8 +787,7 @@ void setTX(bool state) {
         #ifdef QUAD
            PioDCOStop(&DCO);
            quad_start(&osc, f, false, &sol);
-           dump_solution("<1>", &sol, osc.pio , osc.sm);
-
+           dump_solution("I/Q Init ", &sol, osc.pio , osc.sm);
         #endif //QUAD
 
         cycle = 0;
@@ -908,7 +908,7 @@ void checkButtons() {
     
         #ifdef QUAD
         quad_set_frequency(&osc, frqFT8, false, &sol);  
-        dump_solution("<3>", &sol, osc.pio , osc.sm);
+        dump_solution("Button", &sol, osc.pio , osc.sm);
         #endif //QUAD
 
      }
@@ -931,7 +931,7 @@ void checkButtons() {
 
         #ifdef QUAD
         quad_set_frequency(&osc, frqFT8, false, &sol);
-        dump_solution("<4>", &sol, osc.pio , osc.sm);
+        dump_solution("Button ", &sol, osc.pio , osc.sm);
         #endif //QUAD
         cdc_printf("Mode up mode pressed\n");
      }
@@ -1216,7 +1216,7 @@ int main(void)
   #ifdef QUAD
   //*--- Start the oscillator
   quad_start(&osc, frqFT8, false, &sol);
-  dump_solution("<0>", &sol, osc.pio , osc.sm);
+  dump_solution("Start I/Q", &sol, osc.pio , osc.sm);
   cdc_printf("Quad oscillator started\n");
   #endif //QUAD
 
