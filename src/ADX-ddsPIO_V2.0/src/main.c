@@ -166,24 +166,26 @@
 //*==============================================================================================*
 //*                                Configuration definitions                                     *
 //*==============================================================================================*
-#define  DEBUG     1
-#define  EEPROM    1   
-//#define  CAT       1    
-//#define  RTC  1
-#define  SUPERHET  1
-#define  QUAD      1
-//#define SI4732 1
-#define WAITSERIAL 1
+#define  DEBUG      1
+#define  EEPROM     1   
+#define  SUPERHET   1
+#define  QUAD       1
+#define  SI4732     1
+#define  WAITSERIAL 1
+//#define  RTC        1
+//#define  CAT        1    
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
 #ifdef SI4732                    //If Si4732 chipset enabled it's the dominant receiver
 #undef SUPERHET
 #undef QUAD
+#undef RTC
 #endif //SI4732
 
 #ifdef CAT                      //If CAT enabled USB can not be used to debug
 #undef DEBUG
+#undef RTC
 #endif //CAT  
 
 #ifdef QUAD                     //If Quadrature oscillator activated all other clocks disabled
@@ -193,6 +195,7 @@
 
 #ifndef DEBUG
 #undef WAITSERIAL
+#undef RTC
 #endif //!DEBUG
 
 //*==============================================================================================*
@@ -258,12 +261,12 @@
                 _cdc_len = sizeof(hi);            \
             cdc_write(hi, (uint16_t)_cdc_len);    \
             tud_cdc_write_flush();                \
+            tud_task();                           \
         }                                               \
     } while (0)
 #else  //!DEBUG
 #define cdc_printf(...) (void)0
 #endif //DEBUG    
-
 //*==============================================================================================*
 //*                             Constants and parameters                                         *
 //*==============================================================================================*
@@ -277,6 +280,11 @@
 #define SLOT                  3
 #define NBANDS                7
 #define NMODES                4
+
+#ifdef SI4732
+
+
+#endif //SI4732
 //*==============================================================================================*
 //*                                  Hardware configuration                                      *
 //*==============================================================================================*
@@ -305,9 +313,9 @@
 /*---
    I2C configuration control 
 */
-#define I2C_PORT           i2c0
-#define SDA                  26           //I2C SDA (Data) bus
-#define SCL                  27           //I2C SCL (Clock) bus
+//#define I2C_PORT           i2c0
+//#define SDA                  26           //I2C SDA (Data) bus
+//#define SCL                  27           //I2C SCL (Clock) bus
 
 /*----
    Output control lines
@@ -343,6 +351,19 @@
 #define SDA_PIN              16  //There must be an alternative as the rp2040Z does not exposse this
 #define SCL_PIN              17  //nor this but alternatives in clear view are 26 & 27 which are also used by
 #define RST_PIN               1  //pin 9 is available in rp2040Z and free in RDX but 1 is in conflict
+
+
+#define SI4732_DEFAULT_REGION  "ar"
+#define SI4732_DEFAULT_MODE   "ssb"
+#define SI4732_DEFAULT_BAND   "20m"
+#define SI4732_DEFAULT_VOLUME    50
+#define SI4732_DEFAULT_MUTE       0
+
+#define SI4732_INIT_OK            0
+#define SI4732_POWER_FAILURE      1
+#define SI4732_INIT_FAILURE       2
+
+#define SI4732_LOAD_PATCH         1
 
 #endif //SI4732
 
@@ -406,6 +427,11 @@ datetime_t tcpu = {
 
 static volatile bool cdc_dtr = false;
 
+//*--- Define data areas for Si4732 operation
+
+#ifdef SI4732
+si4732_t radio;
+#endif //SI4732
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
 //*==============================================================================================*
@@ -429,6 +455,21 @@ void blinkLED(uint8_t _gpio, uint8_t n, uint ms);
 quad_solution_t sol;
 quad_osc_t      osc;
 #endif //QUAD
+
+#ifdef SI4732
+static si4732_region_t parse_region(char *s);
+static si4732_band_preset_t parse_band(char *s);
+static void si4732_set_frequency(si4732_t *radio, uint32_t f);
+static si4732_status_t  si4732_setup(si4732_t *radio);
+
+
+char    si4732_region[]=SI4732_DEFAULT_REGION;
+char    si4732_mode[]=SI4732_DEFAULT_MODE;
+char    si4732_band[]=SI4732_DEFAULT_BAND;
+uint8_t si4732_vol=SI4732_DEFAULT_VOLUME;
+bool    si4732_mute=false;
+#endif //SI4732
+
 
 //*==============================================================================================*
 //*                            Debug tools for Quadrature oscillator if defined                  *
@@ -650,6 +691,10 @@ void Mode_assign() {
   frqFT8=Bands[b][mode-1];
   PioDCOSetFreq(&DCO, frqFT8, 0U);    //*--- Change frequency according to band and mode
   
+  #ifdef SI4732
+  si4732_set_frequency(&radio,frqFT8);
+  #endif //SI4732
+
   clearLED();
 
   //adc_drain();
@@ -771,6 +816,10 @@ void setTX(bool state) {
           PioDCOStart(&DCO);
        #endif //QUAD
 
+       #ifdef SI4732
+          PioDCOStart(&DCO);
+       #endif //SI4732   
+
        PioDCOSetFreq(&DCO, f, 0U);
 
        gpio_put(RXSW, 0);                   //(RXSW=1 enable Ant to RX, otherwise blocks it)
@@ -789,6 +838,10 @@ void setTX(bool state) {
            quad_start(&osc, f, false, &sol);
            dump_solution("I/Q Init ", &sol, osc.pio , osc.sm);
         #endif //QUAD
+
+        #ifdef SI4732
+           PioDCOStop(&DCO);
+        #endif //SI4732
 
         cycle = 0;
         sampling = 0;
@@ -905,6 +958,9 @@ void checkButtons() {
         while(!testButton(UP));
         cdc_printf("UP Mode down button released\n");
         PioDCOSetFreq(&DCO,frqFT8,0U);
+        #ifdef SI4732
+        si4732_set_frequency(&radio,frqFT8);
+        #endif //SI4732
     
         #ifdef QUAD
         quad_set_frequency(&osc, frqFT8, false, &sol);  
@@ -928,6 +984,10 @@ void checkButtons() {
         while(!testButton(DOWN));
 
         PioDCOSetFreq(&DCO,frqFT8,0U);
+
+        #ifdef SI4732
+        si4732_set_frequency(&radio,frqFT8);
+        #endif 
 
         #ifdef QUAD
         quad_set_frequency(&osc, frqFT8, false, &sol);
@@ -964,6 +1024,8 @@ void core1_entry()
     PioDCOStart(&DCO);
     PioDCOSetFreq(&DCO, f, 0U);
 
+    setTX(false);
+    
     //*--- Run the main DCO algorithm. It spins forever. */
 
     PioDCOWorker2(&DCO);
@@ -1182,7 +1244,11 @@ int main(void)
   }
   #endif //RTC
 
-  
+  #ifdef SI4732
+  si4732_status_t s=si4732_setup(&radio);
+  cdc_printf("Si4732 initialization procedure completed rc(%d)\n",s);
+  #endif //SI4732 
+   
   //*--- Wireless library poll
   #ifdef PICOW
   cyw43_arch_poll(); 
@@ -1208,6 +1274,8 @@ int main(void)
   #if defined(PICO) || defined(RP2040Z)
   defaultLED(false);
   #endif //PICO
+
+  //*--- If operating on a Si4732 board initialize the chipset
 
   cdc_printf("DCO worker launching at core 1...\n");
   multicore_launch_core1(core1_entry);
@@ -1671,6 +1739,36 @@ void cat(void)
 }
 
 /*----------------------------------------------------------------------------------*/
+//* Print string thru CDC                                                           */
+//*---------------------------------------------------------------------------------*/
+static void cdc_write_str(const char *s) {
+  if (!tud_cdc_connected()) return;
+  tud_cdc_write_str(s);
+  tud_cdc_write_flush();
+}
+/*----------------------------------------------------------------------------------*/
+//* strip characters from a string                                                  */
+//*---------------------------------------------------------------------------------*/
+void strip(char* str, char c) {
+    char *pr = str, *pw = str;
+    while (*pr) {
+        *pw = *pr++; // Always copy the character from read to write position and advance read
+        if (*pw != c) {
+            pw++;      // Advance write pointer only if the character is kept
+        }
+    }
+    *pw = '\0'; // Null-terminate the new, shorter string
+}
+/*----------------------------------------------------------------------------------*/
+//* Print line using CDC                                                            */
+//*---------------------------------------------------------------------------------*/
+static void __attribute__((unused))
+cdc_write_ln(const char *s) {
+  cdc_write_str(s);
+  cdc_write_str("\r\n");
+}
+
+/*----------------------------------------------------------------------------------*/
 //* TinyUSB callback to detect changes in DTR/RTS                                   */
 //*---------------------------------------------------------------------------------*/
 void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
@@ -1715,3 +1813,142 @@ uint32_t cdc_read(void)
 }
 #endif //CAT
 
+//*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+//*                               Si4732 Receiver Sub-System
+//*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+
+/*----------------------------------------------------------------------------------*/
+//* Convert string token region code                                                */
+//*---------------------------------------------------------------------------------*/
+static si4732_region_t parse_region(char *s) {
+  if (!s) return SI4732_REGION_AR;
+  if (!strcmp(s, "us")) return SI4732_REGION_US;
+  if (!strcmp(s, "eu")) return SI4732_REGION_EU;
+  if (!strcmp(s, "jp")) return SI4732_REGION_JP;
+  return SI4732_REGION_AR;
+}
+
+/*----------------------------------------------------------------------------------*/
+//* parse_band                                                                      */
+//*---------------------------------------------------------------------------------*/
+
+static si4732_band_preset_t parse_band(char *s) {
+  if (!s) return SI4732_BAND_FM_BROADCAST;
+  if (!strcmp(s, "fm"))  return SI4732_BAND_FM_BROADCAST;
+  if (!strcmp(s, "mw"))  return SI4732_BAND_AM_MW;
+  if (!strcmp(s, "49m")) return SI4732_BAND_SW_49M;
+  if (!strcmp(s, "80m")) return SI4732_BAND_HAM_80M;
+  if (!strcmp(s, "40m")) return SI4732_BAND_HAM_40M;
+  if (!strcmp(s, "30m")) return SI4732_BAND_HAM_30M;
+  if (!strcmp(s, "20m")) return SI4732_BAND_HAM_20M;
+  if (!strcmp(s, "18m")) return SI4732_BAND_HAM_17M;
+  if (!strcmp(s, "15m")) return SI4732_BAND_HAM_15M;
+  if (!strcmp(s, "12m")) return SI4732_BAND_HAM_12M;
+  if (!strcmp(s, "10m")) return SI4732_BAND_HAM_10M;
+
+  return SI4732_BAND_HAM_20M;
+}
+
+/*----------------------------------------------------------------------------------*/
+//* Set the frequency                                                               */
+//*---------------------------------------------------------------------------------*/
+static void si4732_set_frequency(si4732_t *radio, uint32_t frqFT8) {
+    uint16_t f=(uint16_t)(frqFT8/1000);
+    si4732_status_t rc = si4732_tune(radio, f);
+    cdc_printf("si4732: frequency (%d) rc=%d last_status=0x%02X\n",f, (int)rc,radio->last_status);
+    return;
+}
+/*----------------------------------------------------------------------------------*/
+//* Master setup procedure                                                          */
+//*---------------------------------------------------------------------------------*/
+ static si4732_status_t  si4732_setup(si4732_t *radio) {
+
+  cdc_printf("si4732: Starting setup procedure\n");
+
+  //*--- Ensure the RESET pin stays high at the start
+  gpio_put(RST_PIN,1);
+
+  //*--- Initialize device
+
+  si4732_status_t rc = si4732_init(radio, I2C_PORT, SI4732_I2C_ADDR_DEFAULT, SDA_PIN, SCL_PIN, RST_PIN, 400000);
+  cdc_printf("Si4732 init rc=%d present=%d last=0x%02X\n", (int)rc, (int)radio->present, radio->last_status);
+
+  //*--- If init went ok then power up (boot the internal engine)
+
+  if (rc == SI4732_OK) {
+     rc = si4732_power_up_fm(radio);
+     cdc_printf("Si4732 power_up_fm rc=%d last=0x%02X\n", (int)rc, radio->last_status);
+
+     //*--- If the power up went wrong message it
+
+     if (rc != SI4732_OK) {
+        cdc_printf("si4732: (init) failure to power up device rc(%d)\n",rc);
+        return (si4732_status_t)SI4732_POWER_FAILURE;
+     }
+  } else {
+     cdc_printf("si4732: (init) failure to initialize device rc(%d)\n",rc);
+     return (si4732_status_t)SI4732_INIT_FAILURE;
+  }
+  
+  //*--- Setup the region
+
+  si4732_region_t r = parse_region(si4732_region);      
+  rc = si4732_apply_region(radio, r);  
+  cdc_printf("si4732: (init) region(%s) set rc=%d last_status=0x%02X\n",si4732_region,(int)rc, radio->last_status);
+
+
+  //*--- Apply default volume, this is fixed since the transceiver has no volume control
+
+  if (si4732_vol > 64) {
+     cdc_printf("si4732: volume out of range\n");
+     si4732_vol=63;
+  }
+
+  rc = si4732_set_volume(radio, si4732_vol);
+  cdc_printf("si4732: (init) vol set vol(%d) rc=%d last_status=0x%02X\n",(int)si4732_vol,(int)rc, radio->last_status);
+
+  //*--- Unmute the receiver
+
+  rc = si4732_set_mute(radio, false, false);
+  cdc_printf("si4732: (init) mute unset rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+
+  //*--- Set default band
+
+  si4732_band_preset_t bp = parse_band(si4732_band);
+  si4732_band_t b = si4732_band_preset(bp, radio->region_profile);
+
+  sleep_ms(100);
+  
+  //*--- Ensure correct power up for FM/AM
+  
+  rc = (b.mode == SI4732_MODE_FM) ? si4732_power_up_fm(radio) : si4732_power_up_am(radio, false);
+  cdc_printf("si4732: (init) power up rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+
+  if (rc != SI4732_OK) { 
+    cdc_printf("si4732: (init) setup power up failed\n");
+  } else {
+    rc = si4732_set_band(radio, &b);
+    cdc_printf("si4732: (init) band(%s) set rc=%d last_status=0x%02X\n",si4732_band,(int)rc, radio->last_status);
+  }
+
+    //*--- Default should be "ssb" but the init cover them all
+
+  sleep_ms(100);
+  
+  if (strcmp(si4732_mode, "fm")) {
+     rc = si4732_power_up_fm(radio);
+     cdc_printf("si4732: (init) power up FM rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+     return (si4732_status_t)SI4732_INIT_OK;
+  } else {
+     if (strcmp(si4732_mode, "am") || strcmp(si4732_mode,"ssb")) {
+        rc = si4732_power_up_am(radio, false);
+        cdc_printf("si4732: (init) power up AM/SSB rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+        if (strcmp(si4732_mode,"ssb")) {
+           rc = si4732_load_patch(radio, si4732_ssb_patch, si4732_ssb_patch_len);
+           cdc_printf("si4732: (init) load SSB patch rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+        }
+     }
+  }
+
+  return (si4732_status_t)SI4732_INIT_OK;
+}

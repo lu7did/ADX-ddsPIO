@@ -39,18 +39,6 @@ extern "C" {
 #define SI4732_I2C_ADDR_DEFAULT 0x11u
 #endif
 
-#define cdc_printf(fmt, ...)                           \
-    do {                                                \
-        int _cdc_len = snprintf(hi,               \
-                                sizeof(hi),       \
-                                (fmt), ##__VA_ARGS__);  \
-        if (_cdc_len > 0) {                             \
-            if (_cdc_len > (int)sizeof(hi))       \
-                _cdc_len = sizeof(hi);            \
-            cdc_write(hi, (uint16_t)_cdc_len);    \
-            tud_cdc_write_flush();                \
-        }                                               \
-    } while (0)
  //*----------------------------------------------------------------------------------------*
  //*                                 Control structures and definitions                    *
  //*---------------------------------------------------------------------------------------*
@@ -99,11 +87,29 @@ typedef struct {
 
 typedef enum {
   SI4732_BAND_FM_BROADCAST = 0,
-  SI4732_BAND_AM_MW        = 1,
-  SI4732_BAND_SW_49M       = 2,
-  SI4732_BAND_SW_40M       = 3,
-  SI4732_BAND_SW_31M       = 4
+  SI4732_BAND_AM_MW,
+
+  // --- HF Ham bands ---
+  SI4732_BAND_HAM_160M,
+  SI4732_BAND_HAM_80M,
+  SI4732_BAND_HAM_60M,
+  SI4732_BAND_HAM_40M,
+  SI4732_BAND_HAM_30M,
+  SI4732_BAND_HAM_20M,
+  SI4732_BAND_HAM_17M,
+  SI4732_BAND_HAM_15M,
+  SI4732_BAND_HAM_12M,
+  SI4732_BAND_HAM_10M,
+
+  // --- Shortwave broadcast (si querés mantenerlas)
+  SI4732_BAND_SW_49M,
+  SI4732_BAND_SW_31M
+
 } si4732_band_preset_t;
+
+
+
+
 
 typedef struct {
   i2c_inst_t *i2c;

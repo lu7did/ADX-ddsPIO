@@ -518,7 +518,7 @@ si4732_band_t si4732_band_preset(si4732_band_preset_t p, si4732_region_profile_t
       b.mode = SI4732_MODE_AM;
       b.min = 5800; b.max = 6400; b.step = 5; b.spacing = 5;
       break;
-    case SI4732_BAND_SW_40M:
+    case SI4732_BAND_HAM_40M:
       b.mode = SI4732_MODE_AM;
       b.min = 7000; b.max = 7300; b.step = 1; b.spacing = 1;
       break;

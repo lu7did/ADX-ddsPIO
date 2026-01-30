@@ -107,6 +107,8 @@ target_sources(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_audio.c 
         ${CMAKE_CURRENT_SOURCE_DIR}/src/EEPROM.c 
         ${CMAKE_CURRENT_SOURCE_DIR}/src/quad.c 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/si4732_patch_ssb.c
+
 
         )
 
