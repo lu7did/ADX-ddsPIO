@@ -740,6 +740,11 @@ ports GPIO14 (I) and GPIO15 (Q)
 
 This is the prototype and test bench for a rp2040 based si4732 library
 
+## testFS
+
+This is the prototype and test bench for a configuration filesystem (FAT) to support
+a configuration file (CONFIG.TXT) using the board as a USB MSC (aka pen drive).
+
 ## Others
 
 There are other implementations which aren't functional by itself but only part of 
