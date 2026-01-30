@@ -1,14 +1,31 @@
+/*
+ * =======================================================================================
+ * diskio
+ * (c) Dr. Pedro E. Colla (LU7DZ) <pedro.colla@gmail.com>
+ * 
+ * Implementation of a rp2040 based controller  of a physical file system (date)
+ * =======================================================================================
+ * This is mainly an integration effort, the code in this library has been developed 
+ * from scratch for this project.
+ * However the work received an huge benefit from previous work from many parties,
+ * including myself as follows:
+ *----------------------------------------------------------------------------
+ * Version 1.0
+ * - Initial release
+ */
+
 #include "pico/stdlib.h"
 #include "hardware/rtc.h"
 #include "ff.h"
 
-// FatFs timestamp:
-// bit31:25 Year from 1980 (0..127)
-// bit24:21 Month (1..12)
-// bit20:16 Day (1..31)
-// bit15:11 Hour (0..23)
-// bit10:5  Minute (0..59)
-// bit4:0   Second/2 (0..29)
+//*--- FatFs timestamp:
+//*---   bit31:25 Year from 1980 (0..127)
+//*---   bit24:21 Month (1..12)
+//*---   bit20:16 Day (1..31)
+//*---   bit15:11 Hour (0..23)
+//*---   bit10:5  Minute (0..59)
+//*---   bit4:0   Second/2 (0..29)
+
 DWORD get_fattime(void) {
   datetime_t t;
   if (rtc_get_datetime(&t)) {
@@ -23,7 +40,7 @@ DWORD get_fattime(void) {
                    (hour << 11) | (min << 5) | (sec2));
   }
 
-  // Si no tenés RTC seteado, devolvemos una fecha fija “válida”
-  // (1 Jan 2026 00:00:00)
+  //*--- Really don't care about the date
+
   return (DWORD)(((2026 - 1980) << 25) | (1 << 21) | (1 << 16));
 }

@@ -1,3 +1,19 @@
+/*
+ * =======================================================================================
+ * diskio
+ * (c) Dr. Pedro E. Colla (LU7DZ) <pedro.colla@gmail.com>
+ * 
+ * Implementation of a rp2040 based controller  of a physical file system 
+ * =======================================================================================
+ * This is mainly an integration effort, the code in this library has been developed 
+ * from scratch for this project.
+ * However the work received an huge benefit from previous work from many parties,
+ * including myself as follows:
+ *----------------------------------------------------------------------------
+ * Version 1.0
+ * - Initial release
+ */
+
 #ifndef _DISKIO_DEFINED
 #define _DISKIO_DEFINED
 

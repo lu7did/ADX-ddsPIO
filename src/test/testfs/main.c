@@ -1,33 +1,28 @@
-#include <stdio.h>
-#include <stdlib.h>   // <- NECESARIO para strtoul
-
-#include "pico/stdlib.h"
-
-#include "tusb.h"
-
-#include "fs.h"
-
-
-#define PICO_DEFAULT_LED_PIN 25
+/*
+ * =======================================================================================
+ * testFS
+ * (c) Dr. Pedro E. Colla (LU7DZ) <pedro.colla@gmail.com>
+ * 
+ * new generation rp2040 ADX based digital transceiver 
+ * 
+ * This is mainly an integration effort with some new code developed for this project,
+ * some unique features has been developed for this firmware as well such as the
+ * quadrature digital frequency synth.
+ *  
+ * The integration effort is being built on top of previous work from many parties,
+ * including myself as follows:
+ *
+ * Implementation of small USB Filesystem using USB MSC, this stores a JSON
+ * file called CONFIG.TXT (with random data in this demo) to be used as a
+ * configuration tool
+ *----------------------------------------------------------------------------
+ */
 
 char hi[512];
-bool blink=false;
-char region[16] = {0};
-char vco_str[32] = {0};
-char bfo_str[32] = {0};
-char note[32] = {0};
-
-char json[512];
-size_t n = 0;
 
 
-
-static volatile bool cdc_dtr = false;
-//*----------------------------------------------------------------------------
-//*                             Prototypes
-//*----------------------------------------------------------------------------
-void cdc_write(char *buf, uint16_t length);
-
+//*--- Defines
+#define PICO_DEFAULT_LED_PIN 25
 #define cdc_printf(fmt, ...)                           \
     do {                                                \
         int _cdc_len = snprintf(hi,               \
@@ -44,27 +39,52 @@ void cdc_write(char *buf, uint16_t length);
 
 
 
+//*--- Imcludes
+
+#include <stdio.h>
+#include <stdlib.h>   
+#include "pico/stdlib.h"
+#include "tusb.h"
+#include "fs.h"
+#include <string.h>
+
+
+//*--- Global areas
+
+bool blink=false;
+char region[16] = {0};
+char vco_str[32] = {0};
+char bfo_str[32] = {0};
+char note[32] = {0};
+char json[512];
+size_t n = 0;
+char buf[256];
+
+//*-- Callback to manage to wait till serial monitor is available
+static volatile bool cdc_dtr = false;
+
+//*--- Prototypes
+void cdc_write(char *buf, uint16_t length);
+
+
 //*----------------------------------------------------------------------------
 //*                         USB CDC functions
 //*----------------------------------------------------------------------------
-/*----------------------------------------------------------------------------------*/
-//* Print string thru CDC                                                           */
-//*---------------------------------------------------------------------------------*/
-//*---------------------------------------------------------------------------------*/
-//* Functions to manage the CDC serial emulation (for debug and CAT)                */
-//*---------------------------------------------------------------------------------*/
+//*--- Write a buffer
 void cdc_write(char *buf, uint16_t length)
 {
   tud_cdc_write(buf, length);
   tud_cdc_write_flush();
 }
 
+//*--- Write a string
 static void cdc_write_str(const char *s) {
   if (!tud_cdc_connected()) return;
   tud_cdc_write_str(s);
   tud_cdc_write_flush();
 }
-// Callback de TinyUSB: cambios de DTR/RTS
+
+//*--- Callback to receive control line changes (DTR/RTS)
 void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
 {
   (void)itf;
@@ -72,8 +92,8 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
   cdc_dtr = dtr;
 }
 
+//*--- Minimum Audio callbacks (not used, just for future integration)
 
-// Callbacks mínimos Audio (no procesamos streaming todavía)
 bool tud_audio_set_req_cb(uint8_t rhport, tusb_control_request_t const* request, uint8_t* buffer, uint16_t bufsize) {
   (void)rhport; (void)request; (void)buffer; (void)bufsize;
   return false;
@@ -91,6 +111,8 @@ bool tud_audio_tx_done_post_load_cb(uint8_t func_id, uint8_t ep_in, uint16_t cur
   return true;
 }
 
+//*--- This is to force characters to be drained from the TUD pipe
+
 void tud_pump() {
      for (int i=0; i<100; i++) {
      tud_task();
@@ -98,50 +120,47 @@ void tud_pump() {
   }
 
 }
+
+//*--- Main
+
 int main(void) {
 
+  //*--- Init I/O
   stdio_init_all();
   sleep_ms(1200);
-
   gpio_init(PICO_DEFAULT_LED_PIN);
   gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-  
+
+  //*--- Init the MSC device  
+
   bool FSinit = fs_init_and_mount();
-
-  char buf[256];
-  size_t n = 0;
   
-  bool FSread = fs_read_text(buf, sizeof(buf), &n);
+  //*--- Read a buffer and perform different operations to check availability
 
+  bool FSread = fs_read_text(buf, sizeof(buf), &n);
   int fr_mount = fs_last_fr_mount();
   int fr_mkfs  = fs_last_fr_mkfs();
   int fr_open  = fs_last_fr_open();
   int fr_read  = fs_last_fr_read();
-
   sleep_ms(1000);
 
-// --- Prueba de recuperar claves individuales (una sola vez) ---
+  //*--- Read the entire CONFIG.TXT configuration file, can not send over serial yet
+  n = 0;
+  bool ok_read = fs_read_text(json, sizeof(json), &n);
 
-   #include <stdlib.h>   // <- para strtoul
-   #include <string.h>
+  //*--- Extract different keys from the JSON file
 
-// ...
-   char json[512];
-   n = 0;
+  bool ok_region = ok_read && fs_get_kv(json, "region", region, sizeof(region));
+  bool ok_vco = ok_read && fs_get_kv(json, "vco_hz", vco_str, sizeof(vco_str));
+  bool ok_bfo = ok_read && fs_get_kv(json, "bfo_hz", bfo_str, sizeof(bfo_str));
+  bool ok_note = ok_read && fs_get_kv(json, "note", note, sizeof(note));
+  uint32_t vco_hz = ok_vco ? (uint32_t)strtoul(vco_str, NULL, 10) : 120000000u;
+  uint32_t bfo_hz = ok_bfo ? (uint32_t)strtoul(bfo_str, NULL, 10) : 455000u;
 
-   bool ok_read = fs_read_text(json, sizeof(json), &n);
-
-   bool ok_region = ok_read && fs_get_kv(json, "region", region, sizeof(region));
-   bool ok_vco = ok_read && fs_get_kv(json, "vco_hz", vco_str, sizeof(vco_str));
-   bool ok_bfo = ok_read && fs_get_kv(json, "bfo_hz", bfo_str, sizeof(bfo_str));
-   bool ok_note = ok_read && fs_get_kv(json, "note", note, sizeof(note));
-
-   uint32_t vco_hz = ok_vco ? (uint32_t)strtoul(vco_str, NULL, 10) : 120000000u;
-   uint32_t bfo_hz = ok_bfo ? (uint32_t)strtoul(bfo_str, NULL, 10) : 455000u;
-
-  // 2) Desmontar FatFs antes de exponer MSC (bien)
+  //*--- Unmount USB MSC, from now on the FileSysten won't be available 2) Desmontar FatFs antes de exponer MSC (bien)
   fs_unmount();
 
+  //*--- Now starts the Audio and CDC portions
   tusb_init();
 
   absolute_time_t t0 = get_absolute_time();
@@ -152,12 +171,14 @@ int main(void) {
     }
   }
 
+  //*--- Hold any writting till the serial monitor is activated, blink fast meanwhile
+
   blink=false;
   gpio_put(PICO_DEFAULT_LED_PIN,blink);
   absolute_time_t t=to_ms_since_boot(get_absolute_time());
   while (true) {
-    tud_task();                 // mantiene USB vivo
-    if (tud_cdc_connected() && cdc_dtr) break;  // host abrió el puerto
+    tud_task();                                  // USB keepalive
+    if (tud_cdc_connected() && cdc_dtr) break;   // USB open port
     sleep_ms(1);
     if (to_ms_since_boot(get_absolute_time())-t > 200) {
         t=to_ms_since_boot(get_absolute_time());
@@ -168,6 +189,7 @@ int main(void) {
   sleep_ms(1000);
   tud_pump();
 
+  //*--- Now the Serial monitor is available, so print all the witheld info
   cdc_printf("ADX-ddsPIO Composite: CDC+MSC+Audio with FatFs-on-Flash\n"); 
   tud_pump();
 
@@ -179,11 +201,13 @@ int main(void) {
      cdc_printf("JSON content:\n%s\n", buf); 
   }
   tud_pump();
+
   cdc_printf("Values by key\nread=%d n=%u\nregion_ok=%d region=[%s]\nvco_ok=%d vco=[%s]\nvco_hz=%lu\nnote_ok=%d note=[%s]\n",
            ok_read, (unsigned)n, ok_region, region, ok_vco, vco_str, (unsigned long)vco_hz,ok_note,note);
-
   tud_pump();
 
+
+  //*--- Once everything has been printed just enter an infinite loop blinking slow
 
   while (true) {
     tud_task();
@@ -192,6 +216,5 @@ int main(void) {
         blink=!blink;
         gpio_put(PICO_DEFAULT_LED_PIN,blink);
       }
-
 }
 }

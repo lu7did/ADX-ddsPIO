@@ -36,9 +36,6 @@
 #define CFG_TUD_AUDIO_EP_OUT_SZ_MAX          CFG_TUD_AUDIO_EP_SZ_OUT
 #endif
 
-// Control buffer: ojo, si el macro es uint8_t, 256 se convierte a 0.
-// Usá 255 o menos.
 #define CFG_TUD_AUDIO_FUNC_1_CTRL_BUF_SZ     255
 #define CFG_TUD_AUDIO_FUNC_1_DESC_LEN   TUD_AUDIO_MIC_ONE_CH_DESC_LEN
-// Requerido por tu TinyUSB: largo del descriptor de Audio func (incluye IAD)
 

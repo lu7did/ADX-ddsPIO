@@ -35,13 +35,7 @@ uint8_t const* tud_descriptor_device_cb(void) {
   return (uint8_t const*) &desc_device;
 }
 
-// --------------------------------------------------------------------
-// Configuration descriptor
-// --------------------------------------------------------------------
-// IMPORTANTE:
-// - Eliminamos TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR porque no existe en tu TinyUSB.
-// - Dejamos un descriptor que SI existe: TUD_AUDIO_MIC_ONE_CH_DESCRIPTOR.
-// - CONFIG_TOTAL_LEN debe sumar el largo REAL del descriptor usado.
+//*--- Configuration descriptor
 
 #ifndef TUD_AUDIO_MIC_ONE_CH_DESC_LEN
 // Si tu TinyUSB no define el _DESC_LEN, definí un fallback.
@@ -50,42 +44,21 @@ uint8_t const* tud_descriptor_device_cb(void) {
 #define TUD_AUDIO_MIC_ONE_CH_DESC_LEN  (0)  // fallback seguro para compilar; ajustar si tu versión lo define distinto
 #endif
 
-// Si tu TinyUSB define CFG_TUD_AUDIO_FUNC_1_DESC_LEN, podés usarlo.
-// Si no, usaremos TUD_AUDIO_MIC_ONE_CH_DESC_LEN (cuando exista).
 #ifndef CFG_TUD_AUDIO_FUNC_1_DESC_LEN
 #define CFG_TUD_AUDIO_FUNC_1_DESC_LEN TUD_AUDIO_MIC_ONE_CH_DESC_LEN
 #endif
 
-//#define CONFIG_TOTAL_LEN  (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_MSC_DESC_LEN + CFG_TUD_AUDIO_FUNC_1_DESC_LEN)
 #define CONFIG_TOTAL_LEN  (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_MSC_DESC_LEN + TUD_AUDIO_MIC_ONE_CH_DESC_LEN)
-
-// Endpoints Audio (definilos en usb_descriptors.h)
 #define EPNUM_AUDIO_CTRL  0x00
-
 uint8_t const desc_configuration[] = {
-  // Config
   TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
-
-  // CDC
-  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4,
+  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4,                         //* CDC
                      EPNUM_CDC_NOTIF, 8,
                      EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
-
-  // MSC
-  TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 5,
+  TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 5,                         //* MSC
                      EPNUM_MSC_OUT, EPNUM_MSC_IN, 64),
 
-  // AUDIO (MIC 1 canal)
-  // NOTA: La firma exacta del macro depende de tu versión de TinyUSB.
-  // Esta forma coincide con el estilo que estabas usando:
-  //TUD_AUDIO_MIC_ONE_CH_DESCRIPTOR(
-  //    0x06,                     // string index
-  //    ITF_NUM_AUDIO_CONTROL,
-  //    EPNUM_AUDIO_IN,
-  //    CFG_TUD_AUDIO_EP_SZ_IN
-  //),
-
-  TUD_AUDIO_MIC_ONE_CH_DESCRIPTOR(
+  TUD_AUDIO_MIC_ONE_CH_DESCRIPTOR(                           //* AUDIO
   ITF_NUM_AUDIO_CONTROL, // _itfnum
   0x06,                  // _stridx
   2,                     // _nBytesPerSample (ej: 2 bytes = 16-bit)
@@ -101,9 +74,8 @@ uint8_t const* tud_descriptor_configuration_cb(uint8_t index) {
   return desc_configuration;
 }
 
-// --------------------------------------------------------------------
-// String descriptors
-// --------------------------------------------------------------------
+//*--- Descriptors
+
 static const char* string_desc_arr[] = {
   (const char[]){ 0x09, 0x04 }, // 0: English (US)
   "LU7DZ",                      // 1: Manufacturer
@@ -115,6 +87,8 @@ static const char* string_desc_arr[] = {
 };
 
 static uint16_t _desc_str[32];
+
+//*--- Callback de inicialización
 
 uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
   (void) langid;

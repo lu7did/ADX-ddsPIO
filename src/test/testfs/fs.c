@@ -1,34 +1,54 @@
-#include "fs.h"
+/*
+ * =======================================================================================
+ * fs
+ * (c) Dr. Pedro E. Colla (LU7DZ) <pedro.colla@gmail.com>
+ * 
+ * Implementation of a rp2040 based USB MSC controller 
+ * =======================================================================================
+ * This is mainly an integration effort, the code in this library has been developed 
+ * from scratch for this project.
+ *----------------------------------------------------------------------------
+ * Version 1.0
+ * - Initial release
+ *----------------------------------------------------------------------------*/
+ 
+//*--- includes
 
+#include "fs.h"
 #include <stdio.h>
 #include <string.h>
-
 #include "ff.h"
 #include "flash_bd.h"
 #include "jsmn.h"
+#include <ctype.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+//*--- Global areas
 
 static FATFS g_fs;
 static bool  g_mounted = false;
-
-// ---- debug FRESULT ----
 static FRESULT g_fr_mount = FR_OK;
 static FRESULT g_fr_mkfs  = FR_OK;
 static FRESULT g_fr_open  = FR_OK;
 static FRESULT g_fr_read  = FR_OK;
 
+//*--- Prototypes
+
 int fs_last_fr_mount(void){ return (int)g_fr_mount; }
 int fs_last_fr_mkfs(void) { return (int)g_fr_mkfs; }
 int fs_last_fr_open(void) { return (int)g_fr_open; }
 int fs_last_fr_read(void) { return (int)g_fr_read; }
-
-
 static const char* skip_ws(const char* p);
 static bool copy_json_string(const char* p, char* out, size_t out_max, size_t* adv);
 static bool copy_json_primitive(const char* p, char* out, size_t out_max);
 bool fs_get_kv(const char* json, const char* key, char* out, size_t out_max);
 
+//*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+//*                         Utility functions
+//*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 
-#include <ctype.h>
+//*--- Trim a string from right
 
 static void rtrim(char* s) {
   size_t n = strlen(s);
@@ -37,17 +57,16 @@ static void rtrim(char* s) {
   }
 }
 
+//*--- Trim a string from left
+
 static char* ltrim(char* s) {
   while (*s && isspace((unsigned char)*s)) s++;
   return s;
 }
 
-#include <ctype.h>
-#include <string.h>
-#include <stdbool.h>
-#include <stddef.h>
 
-// --- helpers ---
+//*--- Helpers to parse and process a JSON file
+
 static const char* skip_ws(const char* p) {
   while (*p && isspace((unsigned char)*p)) p++;
   return p;
@@ -106,16 +125,15 @@ static bool copy_json_primitive(const char* p, char* out, size_t out_max) {
   return w > 0;
 }
 
-/**
- * Busca en un JSON el valor de una clave.
- * - key: sin comillas, ej "region"
- * - out: buffer destino
- * Devuelve true si encontró la clave y pudo extraer el valor.
- */
+//*--- Search for a key within the JSON file and returns the associated value
+//*--- BEWARE: this is not a full implementation of the JSON structure and
+//*--- it does not support nesting
+
 bool fs_get_kv(const char* json, const char* key, char* out, size_t out_max) {
   if (!json || !key || !out || out_max < 2) return false;
 
-  // patrón: "key"
+  //*--- get the key
+
   char pat[96];
   size_t klen = strlen(key);
   if (klen + 2 >= sizeof(pat)) return false;
@@ -128,17 +146,17 @@ bool fs_get_kv(const char* json, const char* key, char* out, size_t out_max) {
   const char* p = json;
 
   while ((p = strstr(p, pat)) != NULL) {
-    p += (2 + klen);        // queda después de "key"
+    p += (2 + klen);        //* After key
     p = skip_ws(p);
     if (*p != ':') continue;
-    p++;                    // salta ':'
+    p++;                    //* Skip : separator
     p = skip_ws(p);
 
     if (*p == '"') {
       // string
-      // copiamos string sin comillas
+      //*--- Copy string without quotes
       size_t w = 0;
-      p++; // dentro del string
+      p++;  //*--- iterate within the string
       while (*p) {
         if (*p == '"') {
           out[w] = '\0';
@@ -167,18 +185,15 @@ bool fs_get_kv(const char* json, const char* key, char* out, size_t out_max) {
       }
       return false;
     } else {
-      // número / true / false / null (primitivo)
       return copy_json_primitive(p, out, out_max);
     }
   }
-
   return false;
 }
 
+//*--- When the filesystem is empty this create a file with the default values
+//*--- Random data on this exercise
 
-// ------------------------------------------------------------
-// Crea el archivo JSON si no existe
-// ------------------------------------------------------------
 bool fs_ensure_cfg_exists(void) {
   if (!g_mounted) return false;
 
@@ -205,20 +220,16 @@ bool fs_ensure_cfg_exists(void) {
   return (fr == FR_OK) && (bw == (UINT)strlen(default_txt));
 }
 
+//*--- Initial mount
 
-// ------------------------------------------------------------
-// Init + mount + (si hace falta) format
-// ------------------------------------------------------------
 bool fs_init_and_mount(void) {
   if (!flash_bd_init()) return false;
 
-  // IMPORTANTE: usá "0:" explícito para evitar ambigüedad
   g_fr_mount = f_mount(&g_fs, "0:", 1);
 
   if (g_fr_mount != FR_OK) {
 
-    // Muy importante: NO formatear por cualquier error,
-    // solo si realmente no hay filesystem
+    //*--- Only format if there is no available filesystem
     if (g_fr_mount != FR_NO_FILESYSTEM) {
       return false;
     }
@@ -247,14 +258,14 @@ bool fs_init_and_mount(void) {
   return true;
 }
 
+//*--- Unmount when finished, from this point on the FS won't be accessible
+
 void fs_unmount(void) {
   f_mount(NULL, "", 1);
   g_mounted = false;
 }
 
-// ------------------------------------------------------------
-// Lectura / escritura del JSON completo
-// ------------------------------------------------------------
+//*--- Read and write
 bool fs_read_text(char* out, size_t out_max, size_t* out_len) {
   if (!g_mounted || !out || out_max < 2) return false;
 
@@ -291,9 +302,8 @@ bool fs_write_text(const char* text, size_t len) {
   return (fr == FR_OK) && (bw == (UINT)len);
 }
 
-// ------------------------------------------------------------
-// JSON get/set (usando jsmn como ya tenías)
-// ------------------------------------------------------------
+//*--- JSON advanced parsing
+
 static bool token_streq(const char* js, const jsmntok_t* t, const char* s) {
   int slen = (int)strlen(s);
   int tlen = t->end - t->start;
