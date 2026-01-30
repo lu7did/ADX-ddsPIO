@@ -151,9 +151,9 @@
  |  (just a programmer's joke)                                                                    |
  *------------------------------------------------------------------------------------------------*/
 #define PROGNAME "ADX-ddsPIO"
-#define AUTHOR "Dr. Pedro E. Colla (LU7DZ)"
+#define AUTHOR   "Dr. Pedro E. Colla (LU7DZ)"
 #define VERSION  "2.0"
-#define BUILD     "00"
+#define BUILD    "00"
 
 #define BOOL2CHAR(x)  (x==true ? "True" : "False")
 //*==============================================================================================*
@@ -172,6 +172,7 @@
 #define  QUAD       1
 #define  SI4732     1
 #define  WAITSERIAL 1
+#define  RDX        1
 //#define  RTC        1
 //#define  CAT        1    
 //*==============================================================================================*
@@ -293,8 +294,12 @@
 #define PICO_DEFAULT_LED_PIN 25
 #endif //PICO || RP2040Z
 
+#ifdef RDX
+#define pin_ADC              26U          //pin for ADC (A0)
+#else
+#define pin_ADC              28U          //pin for ADC (A2)
+#endif //RDX
 
-#define pin_A0               28U          //pin for ADC (A2)
 #define pin_SW                3U          //pin for freq change switch (D10,input)
 
 #define  CLK0                13           //RF output (transmitter)
@@ -1025,7 +1030,7 @@ void core1_entry()
     PioDCOSetFreq(&DCO, f, 0U);
 
     setTX(false);
-    
+
     //*--- Run the main DCO algorithm. It spins forever. */
 
     PioDCOWorker2(&DCO);
@@ -1183,7 +1188,7 @@ int main(void)
   }
   #endif //WAITSERIAL
 
-  cdc_printf("%s version(%s) build(%s)\n",PROGNAME,VERSION,BUILD);
+  cdc_printf("%s (c) %s version(%s) build(%s)\n",PROGNAME,AUTHOR,VERSION,BUILD);
 
   #ifdef WAITSERIAL
   cdc_printf("Support for Serial Monitor started\n");
@@ -1263,8 +1268,8 @@ int main(void)
   #endif //PICO || RP2040Z
 
   //*--- GPIO setting for the ADC control (receiver) 
-  gpio_init(pin_A0);
-  gpio_set_dir(pin_A0, GPIO_IN); //ADC input pin
+  gpio_init(pin_ADC);
+  gpio_set_dir(pin_ADC, GPIO_IN); //ADC input pin
 
   //*--- Force TX to be off
   gpio_put(TXA,1);
