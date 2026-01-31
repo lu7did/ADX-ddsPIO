@@ -95,6 +95,11 @@ if (TARGET pico_lwip_nosys)
 endif()
 
 
+target_compile_options(${PROJECT} PRIVATE
+  $<$<COMPILE_LANGUAGE:C>:-include ${CMAKE_CURRENT_LIST_DIR}/src/project_config.h>
+  $<$<COMPILE_LANGUAGE:CXX>:-include ${CMAKE_CURRENT_LIST_DIR}/src/project_config.h>
+)
+
 
 # Example source
 target_sources(${PROJECT} PUBLIC
@@ -103,21 +108,28 @@ target_sources(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/src/piodco.c
         ${CMAKE_CURRENT_LIST_DIR}/src/si4732.c
         ${CMAKE_CURRENT_LIST_DIR}/src/usb_audio.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/lib/assert.c
+        ${CMAKE_CURRENT_LIST_DIR}/src/lib/adx_assert.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_audio.c 
         ${CMAKE_CURRENT_SOURCE_DIR}/src/EEPROM.c 
         ${CMAKE_CURRENT_SOURCE_DIR}/src/quad.c 
         ${CMAKE_CURRENT_SOURCE_DIR}/src/si4732_patch_ssb.c
-
-
-        )
-
+        ${CMAKE_CURRENT_SOURCE_DIR}/src//usb_descriptors.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_msc.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src//flash_bd.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src//fs.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src//fatfs/ff.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src//fatfs/diskio.c
+)
 
 
 target_include_directories(ADX-ddsPIO PUBLIC
         ${PICO_SDK_PATH}/lib/tinyusb/hw
         ${PICO_SDK_PATH}/lib/tinyusb/src
+        ${CMAKE_CURRENT_LIST_DIR}/src/lib/jsmn
+        ${CMAKE_CURRENT_LIST_DIR}/src/lib/thirdparty
         ${CMAKE_CURRENT_LIST_DIR}/src
+        ${CMAKE_CURRENT_LIST_DIR}/src/fatfs
+        ${CMAKE_CURRENT_LIST_DIR}/src/lib
 )
 
 if (NOT EXISTS "${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/rp2040/board.h")
@@ -162,6 +174,8 @@ target_link_libraries(${PROJECT} PUBLIC
         hardware_clocks
         hardware_pll
         hardware_watchdog
+        tinyusb_device
+  
 
         )
 endif()  #!PICOW

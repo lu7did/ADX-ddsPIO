@@ -1,0 +1,48 @@
+#ifndef _ADX_UAC2_LEN_H_
+#define _ADX_UAC2_LEN_H_
+
+// Este include trae los TUD_AUDIO_DESC_*_LEN usados en la suma.
+// En el SDK de Pico está en: pico-sdk/lib/tinyusb/src/class/audio/audio.h
+#include "class/audio/audio.h"
+
+// Longitud TOTAL del descriptor de la función UAC2 (incluye IAD, AC y AS alternates)
+// OJO: nombre propio para NO chocar con TinyUSB
+#define ADX_UAC2_FUNC_DESC_LEN (TUD_AUDIO_DESC_IAD_LEN\
+    + TUD_AUDIO_DESC_STD_AC_LEN\
+    + TUD_AUDIO_DESC_CS_AC_LEN\
+    + TUD_AUDIO_DESC_CLK_SRC_LEN\
+    + TUD_AUDIO_DESC_INPUT_TERM_LEN\
+    + TUD_AUDIO_DESC_FEATURE_UNIT_TWO_CHANNEL_LEN\
+    + TUD_AUDIO_DESC_OUTPUT_TERM_LEN\
+    + TUD_AUDIO_DESC_INPUT_TERM_LEN\
+    + TUD_AUDIO_DESC_OUTPUT_TERM_LEN\
+    /* SPK AS alt 0 */\
+    + TUD_AUDIO_DESC_STD_AS_INT_LEN\
+    /* SPK AS alt 1 */\
+    + TUD_AUDIO_DESC_STD_AS_INT_LEN\
+    + TUD_AUDIO_DESC_CS_AS_INT_LEN\
+    + TUD_AUDIO_DESC_TYPE_I_FORMAT_LEN\
+    + TUD_AUDIO_DESC_STD_AS_ISO_EP_LEN\
+    + TUD_AUDIO_DESC_CS_AS_ISO_EP_LEN\
+    /* SPK AS alt 2 */\
+    + TUD_AUDIO_DESC_STD_AS_INT_LEN\
+    + TUD_AUDIO_DESC_CS_AS_INT_LEN\
+    + TUD_AUDIO_DESC_TYPE_I_FORMAT_LEN\
+    + TUD_AUDIO_DESC_STD_AS_ISO_EP_LEN\
+    + TUD_AUDIO_DESC_CS_AS_ISO_EP_LEN\
+    /* MIC AS alt 0 */\
+    + TUD_AUDIO_DESC_STD_AS_INT_LEN\
+    /* MIC AS alt 1 */\
+    + TUD_AUDIO_DESC_STD_AS_INT_LEN\
+    + TUD_AUDIO_DESC_CS_AS_INT_LEN\
+    + TUD_AUDIO_DESC_TYPE_I_FORMAT_LEN\
+    + TUD_AUDIO_DESC_STD_AS_ISO_EP_LEN\
+    + TUD_AUDIO_DESC_CS_AS_ISO_EP_LEN\
+    /* MIC AS alt 2 */\
+    + TUD_AUDIO_DESC_STD_AS_INT_LEN\
+    + TUD_AUDIO_DESC_CS_AS_INT_LEN\
+    + TUD_AUDIO_DESC_TYPE_I_FORMAT_LEN\
+    + TUD_AUDIO_DESC_STD_AS_ISO_EP_LEN\
+    + TUD_AUDIO_DESC_CS_AS_ISO_EP_LEN)
+
+#endif

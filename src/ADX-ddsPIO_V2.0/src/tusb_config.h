@@ -33,18 +33,28 @@
 extern "C" {
 #endif
 
-#include "usb_descriptors.h"
+// Nota: no es estrictamente necesario incluir usb_descriptors.h acá.
+// Si en tu árbol usb_descriptors.h incluye tusb.h, puede generar includes cruzados.
+// Pero si ya te funciona así, lo dejamos como estaba.
+//#include "usb_descriptors.h"
+
+
+
+#include "adx_uac2_len.h"
+
+#ifndef CFG_TUD_AUDIO_FUNC_1_DESC_LEN
+#define CFG_TUD_AUDIO_FUNC_1_DESC_LEN   ADX_UAC2_FUNC_DESC_LEN
+#endif
+
 
 //--------------------------------------------------------------------+
 // Board Specific Configuration
 //--------------------------------------------------------------------+
 
-// RHPort number used for device can be defined by board.mk, default to port 0
 #ifndef BOARD_TUD_RHPORT
 #define BOARD_TUD_RHPORT      0
 #endif
 
-// RHPort max operational speed can defined by board.mk
 #ifndef BOARD_TUD_MAX_SPEED
 #define BOARD_TUD_MAX_SPEED   OPT_MODE_DEFAULT_SPEED
 #endif
@@ -53,38 +63,36 @@ extern "C" {
 // Common Configuration
 //--------------------------------------------------------------------
 
-// defined by compiler flags for flexibility
 #ifndef CFG_TUSB_MCU
-#define CFG_TUSB_MCU         OPT_MCU_RP2040 
+#define CFG_TUSB_MCU           OPT_MCU_RP2040
 #endif
 
+// IMPORTANTE en Pico SDK: usar OPT_OS_PICO (aunque no uses RTOS)
 #ifndef CFG_TUSB_OS
-#define CFG_TUSB_OS           OPT_OS_NONE
+#define CFG_TUSB_OS            OPT_OS_PICO
 #endif
 
 #ifndef CFG_TUSB_DEBUG
-#define CFG_TUSB_DEBUG        0
+#define CFG_TUSB_DEBUG         0
 #endif
 
 // Enable Device stack
-#define CFG_TUD_ENABLED       1
+#define CFG_TUD_ENABLED        1
 
-// Default is max speed that hardware controller could support with on-chip PHY
-#define CFG_TUD_MAX_SPEED     BOARD_TUD_MAX_SPEED
+// Max speed (FS en RP2040, pero dejamos el define estándar)
+#define CFG_TUD_MAX_SPEED      BOARD_TUD_MAX_SPEED
 
-/* USB DMA on some MCUs can only access a specific SRAM region with restriction on alignment.
- * Tinyusb use follows macros to declare transferring memory so that they can be put
- * into those specific section.
- * e.g
- * - CFG_TUSB_MEM SECTION : __attribute__ (( section(".usb_ram") ))
- * - CFG_TUSB_MEM_ALIGN   : __attribute__ ((aligned(4)))
- */
+// RHPort mode: device + speed
+#ifndef CFG_TUSB_RHPORT0_MODE
+#define CFG_TUSB_RHPORT0_MODE  (OPT_MODE_DEVICE | BOARD_TUD_MAX_SPEED)
+#endif
+
 #ifndef CFG_TUSB_MEM_SECTION
 #define CFG_TUSB_MEM_SECTION
 #endif
 
 #ifndef CFG_TUSB_MEM_ALIGN
-#define CFG_TUSB_MEM_ALIGN        __attribute__ ((aligned(4)))
+#define CFG_TUSB_MEM_ALIGN     __attribute__ ((aligned(4)))
 #endif
 
 //--------------------------------------------------------------------
@@ -92,44 +100,56 @@ extern "C" {
 //--------------------------------------------------------------------
 
 #ifndef CFG_TUD_ENDPOINT0_SIZE
-#define CFG_TUD_ENDPOINT0_SIZE    64
+#define CFG_TUD_ENDPOINT0_SIZE  64
 #endif
 
 //------------- CLASS -------------//
-#define CFG_TUD_CDC               1
-#define CFG_TUD_MSC               0
-#define CFG_TUD_HID               0
-#define CFG_TUD_MIDI              0
-#define CFG_TUD_AUDIO             1
-#define CFG_TUD_VENDOR            0
+// Debe coincidir con tu usb_descriptors.c (CDC + MSC + AUDIO)
+#define CFG_TUD_CDC             1
+#define CFG_TUD_MSC             1     // <--- ACTIVADO (si querés desactivar, poné 0)
+#define CFG_TUD_HID             0
+#define CFG_TUD_MIDI            0
+#define CFG_TUD_AUDIO           1
+#define CFG_TUD_VENDOR          0
+
+#define CFG_TUD_MSC_EP_BUFSIZE  64   // o 512 si querés más
 
 
 //--------------------------------------------------------------------
 // CDC CLASS CONFIGURATION
 //--------------------------------------------------------------------
 
-// CDC FIFO size of TX and RX
+// FIFO size of TX and RX
 #define CFG_TUD_CDC_RX_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 1024 : 512)
 #define CFG_TUD_CDC_TX_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 1024 : 512)
 
-// CDC Endpoint transfer buffer size, more is faster
+// Endpoint transfer buffer size
 #define CFG_TUD_CDC_EP_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 1024 : 512)
+
+//--------------------------------------------------------------------
+// MSC CLASS CONFIGURATION
+//--------------------------------------------------------------------
+
+// OBLIGATORIO si CFG_TUD_MSC = 1 (si no, TinyUSB tira #error)
+#ifndef CFG_TUD_MSC_EP_BUFSIZE
+#define CFG_TUD_MSC_EP_BUFSIZE   512   // 512 = tamaño de bloque típico
+
+#endif
 
 //--------------------------------------------------------------------
 // AUDIO CLASS DRIVER CONFIGURATION
 //--------------------------------------------------------------------
-
-#define CFG_TUD_AUDIO_FUNC_1_DESC_LEN                                TUD_AUDIO_HEADSET_STEREO_DESC_LEN
 
 // How many formats are used, need to adjust USB descriptor if changed
 #define CFG_TUD_AUDIO_FUNC_1_N_FORMATS                               2
 
 // Audio format type I specifications
 #if defined(__RX__)
-#define CFG_TUD_AUDIO_FUNC_1_MAX_SAMPLE_RATE                         48000     // 16bit/48kHz is the best quality for Renesas RX
+#define CFG_TUD_AUDIO_FUNC_1_MAX_SAMPLE_RATE                         48000
 #else
-#define CFG_TUD_AUDIO_FUNC_1_MAX_SAMPLE_RATE                         96000     // 24bit/96kHz is the best quality for full-speed, high-speed is needed beyond this
+#define CFG_TUD_AUDIO_FUNC_1_MAX_SAMPLE_RATE                         96000
 #endif
+
 #define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX                           1
 #define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX                           2
 
@@ -153,29 +173,29 @@ extern "C" {
 #define CFG_TUD_AUDIO_FUNC_1_FORMAT_2_RESOLUTION_RX                  24
 #endif
 
-// EP and buffer size - for isochronous EP´s, the buffer and EP size are equal (different sizes would not make sense)
+// EP IN
 #define CFG_TUD_AUDIO_ENABLE_EP_IN                1
 
 #define CFG_TUD_AUDIO_FUNC_1_FORMAT_1_EP_SZ_IN    TUD_AUDIO_EP_SIZE(CFG_TUD_AUDIO_FUNC_1_MAX_SAMPLE_RATE, CFG_TUD_AUDIO_FUNC_1_FORMAT_1_N_BYTES_PER_SAMPLE_TX, CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX)
 #define CFG_TUD_AUDIO_FUNC_1_FORMAT_2_EP_SZ_IN    TUD_AUDIO_EP_SIZE(CFG_TUD_AUDIO_FUNC_1_MAX_SAMPLE_RATE, CFG_TUD_AUDIO_FUNC_1_FORMAT_2_N_BYTES_PER_SAMPLE_TX, CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX)
 
 #define CFG_TUD_AUDIO_FUNC_1_EP_IN_SW_BUF_SZ      TU_MAX(CFG_TUD_AUDIO_FUNC_1_FORMAT_1_EP_SZ_IN, CFG_TUD_AUDIO_FUNC_1_FORMAT_2_EP_SZ_IN)*2
-#define CFG_TUD_AUDIO_FUNC_1_EP_IN_SZ_MAX         TU_MAX(CFG_TUD_AUDIO_FUNC_1_FORMAT_1_EP_SZ_IN, CFG_TUD_AUDIO_FUNC_1_FORMAT_2_EP_SZ_IN) // Maximum EP IN size for all AS alternate settings used
+#define CFG_TUD_AUDIO_FUNC_1_EP_IN_SZ_MAX         TU_MAX(CFG_TUD_AUDIO_FUNC_1_FORMAT_1_EP_SZ_IN, CFG_TUD_AUDIO_FUNC_1_FORMAT_2_EP_SZ_IN)
 
-// EP and buffer size - for isochronous EP´s, the buffer and EP size are equal (different sizes would not make sense)
+// EP OUT
 #define CFG_TUD_AUDIO_ENABLE_EP_OUT               1
 
 #define CFG_TUD_AUDIO_UNC_1_FORMAT_1_EP_SZ_OUT    TUD_AUDIO_EP_SIZE(CFG_TUD_AUDIO_FUNC_1_MAX_SAMPLE_RATE, CFG_TUD_AUDIO_FUNC_1_FORMAT_1_N_BYTES_PER_SAMPLE_RX, CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX)
 #define CFG_TUD_AUDIO_UNC_1_FORMAT_2_EP_SZ_OUT    TUD_AUDIO_EP_SIZE(CFG_TUD_AUDIO_FUNC_1_MAX_SAMPLE_RATE, CFG_TUD_AUDIO_FUNC_1_FORMAT_2_N_BYTES_PER_SAMPLE_RX, CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX)
 
 #define CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ     TU_MAX(CFG_TUD_AUDIO_UNC_1_FORMAT_1_EP_SZ_OUT, CFG_TUD_AUDIO_UNC_1_FORMAT_2_EP_SZ_OUT)*2
-#define CFG_TUD_AUDIO_FUNC_1_EP_OUT_SZ_MAX        TU_MAX(CFG_TUD_AUDIO_UNC_1_FORMAT_1_EP_SZ_OUT, CFG_TUD_AUDIO_UNC_1_FORMAT_2_EP_SZ_OUT) // Maximum EP IN size for all AS alternate settings used
+#define CFG_TUD_AUDIO_FUNC_1_EP_OUT_SZ_MAX        TU_MAX(CFG_TUD_AUDIO_UNC_1_FORMAT_1_EP_SZ_OUT, CFG_TUD_AUDIO_UNC_1_FORMAT_2_EP_SZ_OUT)
 
-// Number of Standard AS Interface Descriptors (4.9.1) defined per audio function - this is required to be able to remember the current alternate settings of these interfaces - We restrict us here to have a constant number for all audio functions (which means this has to be the maximum number of AS interfaces an audio function has and a second audio function with less AS interfaces just wastes a few bytes)
-#define CFG_TUD_AUDIO_FUNC_1_N_AS_INT 	          2
+// Número de AS interfaces en la función (OUT + IN) = 2
+#define CFG_TUD_AUDIO_FUNC_1_N_AS_INT             2
 
-// Size of control request buffer
-#define CFG_TUD_AUDIO_FUNC_1_CTRL_BUF_SZ	64
+// Control request buffer
+#define CFG_TUD_AUDIO_FUNC_1_CTRL_BUF_SZ          64
 
 #ifdef __cplusplus
 }
