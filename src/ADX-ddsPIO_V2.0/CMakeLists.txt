@@ -119,7 +119,8 @@ target_sources(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src//fs.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src//fatfs/ff.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src//fatfs/diskio.c
-)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src//fatfs/fattime.c
+        )
 
 
 target_include_directories(ADX-ddsPIO PUBLIC

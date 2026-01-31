@@ -17,6 +17,15 @@
 #define EPNUM_AUDIO_OUT   0x04
 #define EPNUM_AUDIO_IN    0x84
 
+// Dummy array SOLO para medir tamaño real del descriptor UAC2
+static uint8_t const _audio_desc_len_probe[] =
+{
+  TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(0x06, EPNUM_AUDIO_OUT, EPNUM_AUDIO_IN)
+};
+
+#define AUDIO_DESC_LEN  (sizeof(_audio_desc_len_probe))
+
+
 // Device descriptor
 const tusb_desc_device_t desc_device =
 {
@@ -47,18 +56,25 @@ uint8_t const * tud_descriptor_device_cb(void)
 }
 
 // Total length: config + CDC + MSC + AUDIO
-//#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_MSC_DESC_LEN + CFG_TUD_AUDIO_FUNC_1_DESC_LEN)
-//#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_MSC_DESC_LEN + TUD_AUDIO_HEADSET_STEREO_DESC_LEN)
 
 #include "adx_uac2_len.h"
 
-#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_MSC_DESC_LEN + ADX_UAC2_FUNC_DESC_LEN)
+//#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_MSC_DESC_LEN + ADX_UAC2_FUNC_DESC_LEN)
+
+#define CONFIG_TOTAL_LEN \
+  (TUD_CONFIG_DESC_LEN + \
+   TUD_CDC_DESC_LEN + \
+   TUD_MSC_DESC_LEN + \
+   AUDIO_DESC_LEN)
+
 
 
 uint8_t const desc_configuration[] =
 {
   // Config: 1, interface count, string index, total length, attributes, power mA/2
-  TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
+  //TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
+  TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x80, 100),
+
 
   // CDC: itfnum, string index, notif ep, notif size, out ep, in ep, ep size
   TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 0x04,
@@ -72,6 +88,8 @@ uint8_t const desc_configuration[] =
   TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(0x06, EPNUM_AUDIO_OUT, EPNUM_AUDIO_IN)
 
 };
+
+_Static_assert(sizeof(desc_configuration) == CONFIG_TOTAL_LEN,"CONFIG_TOTAL_LEN mismatch with desc_configuration[]");
 
 uint8_t const * tud_descriptor_configuration_cb(uint8_t index)
 {

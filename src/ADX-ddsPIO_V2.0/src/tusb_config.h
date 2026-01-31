@@ -112,7 +112,7 @@ extern "C" {
 #define CFG_TUD_AUDIO           1
 #define CFG_TUD_VENDOR          0
 
-#define CFG_TUD_MSC_EP_BUFSIZE  64   // o 512 si querés más
+#define CFG_TUD_MSC_EP_BUFSIZE  512   // o 512 si querés más
 
 
 //--------------------------------------------------------------------

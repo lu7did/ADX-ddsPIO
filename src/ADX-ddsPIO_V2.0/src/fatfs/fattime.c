@@ -29,12 +29,12 @@
 DWORD get_fattime(void) {
   datetime_t t;
   if (rtc_get_datetime(&t)) {
-    uint32_t year = (t.year >= 1980) ? (t.year - 1980) : 0;
-    uint32_t mon  = (t.month >= 1 && t.month <= 12) ? t.month : 1;
-    uint32_t day  = (t.day >= 1 && t.day <= 31) ? t.day : 1;
-    uint32_t hour = (t.hour <= 23) ? t.hour : 0;
-    uint32_t min  = (t.min <= 59) ? t.min : 0;
-    uint32_t sec2 = (t.sec <= 59) ? (t.sec / 2) : 0;
+    uint32_t year = (uint32_t) ((t.year >= 1980) ? (t.year - 1980) : 0);
+    uint32_t mon  = (uint32_t) ((t.month >= 1 && t.month <= 12) ? t.month : 1);
+    uint32_t day  = (uint32_t) ((t.day >= 1 && t.day <= 31) ? t.day : 1);
+    uint32_t hour = (uint32_t) ((t.hour <= 23) ? t.hour : 0);
+    uint32_t min  = (uint32_t) ((t.min <= 59) ? t.min : 0);
+    uint32_t sec2 = (uint32_t) ((t.sec <= 59) ? (t.sec / 2) : 0);
 
     return (DWORD)((year << 25) | (mon << 21) | (day << 16) |
                    (hour << 11) | (min << 5) | (sec2));

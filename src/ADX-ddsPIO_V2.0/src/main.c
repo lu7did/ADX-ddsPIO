@@ -173,6 +173,7 @@
 #define  SI4732     1
 #define  WAITSERIAL 1
 #define  RDX        1
+#define  FS         1
 //#define  RTC        1
 //#define  CAT        1    
 //*==============================================================================================*
@@ -248,6 +249,9 @@
 #include "pico/cyw43_arch.h"
 #endif //PICOW
 
+#ifdef FS
+#include "fs.h"
+#endif //FS
 //*==============================================================================================*
 //*                             Macros and Structures                                            *
 //*==============================================================================================*
@@ -476,9 +480,20 @@ bool    si4732_mute=false;
 #endif //SI4732
 
 
+#ifdef FS
+char region[16] = {0};
+char vco_str[32] = {0};
+char bfo_str[32] = {0};
+char note[32] = {0};
+char json[512];
+size_t n = 0;
+char buf[256];
+#endif //FS
+
 //*==============================================================================================*
 //*                            Debug tools for Quadrature oscillator if defined                  *
 //*==============================================================================================*
+
 
 #if defined(DEBUG) && defined(QUAD)
 
@@ -646,7 +661,7 @@ void updateEEPROM() {
 
 }
 #endif //EEPROM
-void pump_tud_task() {
+void tud_pump_task() {
   for (int i=0; i<100; i++) {
      tud_task();
      sleep_ms(1);
@@ -945,7 +960,7 @@ void checkButtons() {
        while(!testButton(UP) && !testButton(DOWN));
        Band_Select();
        cdc_printf("Band selection action started|n");
-       pump_tud_task();
+       tud_pump_task();
      }
   }
 #endif //!CAT  
@@ -955,7 +970,7 @@ void checkButtons() {
   */
   #ifndef CAT
   if (!gpio_get(UP) && gpio_get(DOWN) && Tx_Status == 0) {
-    pump_tud_task();
+    tud_pump_task();
     if (!testButton(UP) && testButton(DOWN)){
         mode=mode-1;
         if (mode<1) mode=4;
@@ -1153,6 +1168,38 @@ int main(void)
 
   #endif //!PICOW
 
+  #ifdef FS
+  //*--- Init the MSC device  
+
+  bool FSinit = fs_init_and_mount();
+  
+  //*--- Read a buffer and perform different operations to check availability
+
+  bool FSread = fs_read_text(buf, sizeof(buf), &n);
+  int fr_mount = fs_last_fr_mount();
+  int fr_mkfs  = fs_last_fr_mkfs();
+  int fr_open  = fs_last_fr_open();
+  int fr_read  = fs_last_fr_read();
+  sleep_ms(1000);
+
+  //*--- Read the entire CONFIG.TXT configuration file, can not send over serial yet
+  n = 0;
+  bool ok_read = fs_read_text(json, sizeof(json), &n);
+
+  //*--- Extract different keys from the JSON file
+
+  bool ok_region = ok_read && fs_get_kv(json, "region", region, sizeof(region));
+  bool ok_vco = ok_read && fs_get_kv(json, "vco_hz", vco_str, sizeof(vco_str));
+  bool ok_bfo = ok_read && fs_get_kv(json, "bfo_hz", bfo_str, sizeof(bfo_str));
+  bool ok_note = ok_read && fs_get_kv(json, "note", note, sizeof(note));
+  uint32_t vco_hz = ok_vco ? (uint32_t)strtoul(vco_str, NULL, 10) : 120000000u;
+  uint32_t bfo_hz = ok_bfo ? (uint32_t)strtoul(bfo_str, NULL, 10) : 455000u;
+
+  //*--- Unmount USB MSC, from now on the FileSysten won't be available 2) Desmontar FatFs antes de exponer MSC (bien)
+  fs_unmount();
+
+  #endif //FS
+
   //*--- Start the USB service loop
   tud_init(BOARD_TUD_RHPORT);
   //tusb_init();
@@ -1173,7 +1220,7 @@ int main(void)
     tud_task();                 // mantiene USB vivo
     if (tud_cdc_connected() && cdc_dtr) break;  // host abrió el puerto
     sleep_ms(1);
-    if (to_ms_since_boot(get_absolute_time())-t > 200) {
+    if (to_ms_since_boot(get_absolute_time())-t > 100) {
         t=to_ms_since_boot(get_absolute_time());
         blink=!blink;
         gpio_put(PICO_DEFAULT_LED_PIN,blink); 
@@ -1182,10 +1229,8 @@ int main(void)
 
   gpio_put(PICO_DEFAULT_LED_PIN,0);
 
-  for (int i=0; i<100; i++) {
-     tud_task();
-     sleep_ms(1);
-  }
+  tud_pump_task();
+
   #endif //WAITSERIAL
 
   cdc_printf("%s (c) %s version(%s) build(%s)\n",PROGNAME,AUTHOR,VERSION,BUILD);
@@ -1193,6 +1238,42 @@ int main(void)
   #ifdef WAITSERIAL
   cdc_printf("Support for Serial Monitor started\n");
   #endif //WAITSERIAL
+
+  #ifdef FS
+
+  cdc_printf("Access Statistics\n");
+  cdc_printf("FS init=%d read=%d n=%u\n",FSinit, FSread, (unsigned)n);
+  tud_pump_task();
+
+  cdc_printf("fr_mount=%d\n", fr_mount);
+  cdc_printf("fr_mkfs=%d\n", fr_mkfs);
+  tud_pump_task();
+
+  cdc_printf("fr_open=%d\n", fr_open);
+  cdc_printf("fr_read=%d\n", fr_read); 
+  tud_pump_task();
+
+  if (FSread) {
+     cdc_printf("JSON content:\n%s\n", buf); 
+  }
+  tud_pump_task();
+
+  cdc_printf("Values by key\n");
+  cdc_printf("read=%d n=%u\n",ok_read, (unsigned)n);
+  tud_pump_task();
+
+  cdc_printf("region_ok=%d region=[%s]\n",ok_region, region);
+  cdc_printf("vco_ok=%d vco=[%s]\n",ok_vco, vco_str);
+  tud_pump_task();
+
+  cdc_printf("vco_hz=%lu\n",(unsigned long)vco_hz);
+  cdc_printf("note_ok=%d note=[%s]\n",ok_note,note);
+  tud_pump_task();
+
+  cdc_printf("Bfo_hz=[%ld]\n",bfo_hz);
+  tud_pump_task();
+
+  #endif //FS
 
   #if defined(PICO) || defined(RP2040Z)
   ADXsetup();
