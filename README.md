@@ -249,6 +249,25 @@ A FatFS filesystem is implemented using a USB (MSC) interface, although the spac
 limited it can be used to store any file on it. The firmware uses just one of them called
 CONFIG.SYS which stores a master configuration for the board.
 
+This is a sample of a CONFIG.SYS file managed by the system
+
+```
+{
+"mode": "1",
+"band": "1",
+"audiosampling": "48000",
+"pll_sys_mhz": "270",
+"frqFT8": "14074000",
+"frqbfo": "446400",
+"si4732region": "ar",
+"si4732mode": "ssb",
+"si4732band": "20m",
+"si4732vol": "50",
+"si4732mute": "0"
+
+}
+```
+
 The filesystem has been implemented using a simple FAT-16 format (old DOS format) which 
 only supports 8.3 files (which MUST BE uppercase).
 
