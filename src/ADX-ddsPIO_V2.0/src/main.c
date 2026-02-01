@@ -504,10 +504,28 @@ static volatile bool cdc_dtr = false;
 si4732_t radio;
 #endif //SI4732
 
-#ifdef EEPROM
+#if defined(EEPROM) 
 EEPROMdata_t eeprom;
 #endif //EEPROM
 
+#ifdef FS
+typedef struct {
+    uint8_t  ID;                 //* EEPROM signature (0x00 initialized/!0x00 filled)
+    uint8_t  mode;               //* Mode defined
+    uint8_t  Band_slot;          //* Slot defining band as index into the Bands[] array
+    uint32_t audiosampling;      //* USB Audio sampling frequency (fixed)
+    uint32_t pll_sys_mhz;        //* RP2040 System Clock (MHz)
+    uint32_t frqFT8;        //* RF (CLK0/CLK1) base frequency (in Hz)
+    uint32_t frqbfo;           //* BFO (CLK2) Frequency
+    char     si4732region[8];   //* SI4732 Region
+    char     si4732mode[8];      //* Receiver mode (AM,SSB,FM)       
+    char     si4732band[8];      //* Band
+    uint8_t  si4732vol;          //* Volume level {0..63}
+    uint8_t  si4732mute;         //* Mute status {0..1}
+    uint8_t reserved[71];
+} FSData_t;
+
+#endif //FS
 
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
@@ -1112,7 +1130,11 @@ void core1_entry()
   
     return ADX_OK;  
 }
-#ifdef FS
+
+#ifdef EEPROM
+/*----------------------------------------------------------------------------*/
+/* build configuration file CONFIG.SYS                                        */
+/*----------------------------------------------------------------------------*/
 FS_status_t buildCONFIG(char *out, EEPROMdata_t* data) {
 
   //*-- Receive structure with contents and generate JSON string with it
@@ -1137,6 +1159,157 @@ FS_status_t buildCONFIG(char *out, EEPROMdata_t* data) {
   return FS_OK;
 }
 #endif //FS
+
+#if defined(FS) && !defined(EEPROM)
+/*-------------------------------------------------------------------------------------------------------*/
+/* saveGlobals update system variables (need to refactor, highly redundant with EEPROMupdate/EEPROMsave) */
+/*-------------------------------------------------------------------------------------------------------*/
+ADX_status_t saveGlobal(char* FS_json){
+
+  char buffer[16];
+  char buff[8];
+  bool ok_data;
+  FSData_t FSarea;
+
+  ok_data = fs_get_kv(FS_json, "mode", buffer, sizeof(buffer));     
+  FSarea.mode = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)mode;
+
+  ok_data = fs_get_kv(FS_json, "Band_slot", buffer, sizeof(buffer));     
+  FSarea.Band_slot = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)Band_slot;
+
+  ok_data = fs_get_kv(FS_json, "audiosampling", buffer, sizeof(buffer));     
+  FSarea.audiosampling = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)audiosampling;
+
+  ok_data = fs_get_kv(FS_json, "pll_sys_mhz", buffer, sizeof(buffer));     
+  FSarea.pll_sys_mhz = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)pll_sys_mhz;
+
+  ok_data = fs_get_kv(FS_json, "frqFT8", buffer, sizeof(buffer));     
+  FSarea.frqFT8 = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqFT8;
+
+  ok_data = fs_get_kv(FS_json, "frqbfo", buffer, sizeof(buffer));     
+  FSarea.frqbfo = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqbfo;
+
+  ok_data = fs_get_kv(FS_json, "si4732vol", buffer, sizeof(buffer));     
+  FSarea.si4732vol = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732vol;
+
+  ok_data = fs_get_kv(FS_json, "si4732mute", buffer, sizeof(buffer));     
+  FSarea.si4732mute = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732mute;
+
+  ok_data = fs_get_kv(FS_json, "si4732region", buff, sizeof(buff));     
+  ok_data ? sprintf(FSarea.si4732region,"%s",buff) : sprintf(FSarea.si4732region,"%s",si4732region);
+
+  ok_data = fs_get_kv(FS_json, "si4732mode", buff, sizeof(buff));     
+  ok_data ? sprintf(FSarea.si4732mode,"%s",buff) : sprintf(FSarea.si4732mode,"%s",si4732mode);
+
+  ok_data = fs_get_kv(FS_json, "si4732band", buff, sizeof(buff));     
+  ok_data ? sprintf(FSarea.si4732band,"%s",buff) : sprintf(FSarea.si4732band,"%s",si4732band);
+
+  cdc_printf("Now system values are updated\n");
+      
+  mode=FSarea.mode;
+  Band_slot=FSarea.Band_slot;
+  audiosampling=FSarea.audiosampling;               //* USB Audio sampling frequency (fixed)
+  pll_sys_mhz=FSarea.pll_sys_mhz;                   //* RP2040 System Clock (MHz)
+  frqFT8=FSarea.frqFT8;                             //* RF (CLK0/CLK1) base frequency (in Hz)
+  frqbfo=FSarea.frqbfo;                             //* BFO (CLK2) Frequency
+  sprintf(si4732region,"%s",FSarea.si4732region);   //* SI4732 Region
+  sprintf(si4732mode,"%s",FSarea.si4732mode);       //* Receiver mode (AM,SSB,FM)       
+  sprintf(si4732band,"%s",FSarea.si4732band);       //* Band
+  si4732vol=FSarea.si4732vol;                       //* Volume level {0..63}
+  si4732mute=FSarea.si4732mute;                     //* Mute status {0..1}
+
+  return ADX_OK;
+
+
+}
+#endif //FS without EEPROM
+
+#if defined(EEPROM) && defined(FS)
+/*----------------------------------------------------------------------------*/
+/* saveEEPROM and update system variables                                     */
+/*----------------------------------------------------------------------------*/
+ADX_status_t saveEEPROM(char* FS_json) {
+     
+  char buffer[16];
+  char buff[8];
+  bool ok_data;
+  EEPROMdata_t FSarea;
+
+  cdc_printf("Entering saveEEPROM, current EEPROM is\n");
+  dumpEEPROM(&eeprom);
+
+  ok_data = fs_get_kv(FS_json, "mode", buffer, sizeof(buffer));     
+  FSarea.mode = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)mode;
+
+  ok_data = fs_get_kv(FS_json, "Band_slot", buffer, sizeof(buffer));     
+  FSarea.Band_slot = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)Band_slot;
+
+  ok_data = fs_get_kv(FS_json, "audiosampling", buffer, sizeof(buffer));     
+  FSarea.audiosampling = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)audiosampling;
+
+  ok_data = fs_get_kv(FS_json, "pll_sys_mhz", buffer, sizeof(buffer));     
+  FSarea.pll_sys_mhz = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)pll_sys_mhz;
+
+  ok_data = fs_get_kv(FS_json, "frqFT8", buffer, sizeof(buffer));     
+  FSarea.frqFT8 = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqFT8;
+
+  ok_data = fs_get_kv(FS_json, "frqbfo", buffer, sizeof(buffer));     
+  FSarea.frqbfo = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqbfo;
+
+  ok_data = fs_get_kv(FS_json, "si4732vol", buffer, sizeof(buffer));     
+  FSarea.si4732vol = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732vol;
+
+  ok_data = fs_get_kv(FS_json, "si4732mute", buffer, sizeof(buffer));     
+  FSarea.si4732mute = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732mute;
+
+  ok_data = fs_get_kv(FS_json, "si4732region", buff, sizeof(buff));     
+  ok_data ? sprintf(FSarea.si4732region,"%s",buff) : sprintf(FSarea.si4732region,"%s",si4732region);
+
+  ok_data = fs_get_kv(FS_json, "si4732mode", buff, sizeof(buff));     
+  ok_data ? sprintf(FSarea.si4732mode,"%s",buff) : sprintf(FSarea.si4732mode,"%s",si4732mode);
+
+  ok_data = fs_get_kv(FS_json, "si4732band", buff, sizeof(buff));     
+  ok_data ? sprintf(FSarea.si4732band,"%s",buff) : sprintf(FSarea.si4732band,"%s",si4732band);
+
+  cdc_printf("Data recovered from JSON file system\n");
+  dumpEEPROM(&FSarea);
+
+  eeprom.mode = FSarea.mode;
+  eeprom.Band_slot=FSarea.Band_slot;
+  eeprom.audiosampling=FSarea.audiosampling;
+  eeprom.frqFT8=FSarea.frqFT8;
+  eeprom.frqbfo=FSarea.frqbfo;
+  eeprom.pll_sys_mhz=FSarea.pll_sys_mhz;
+
+  sprintf(eeprom.si4732mode,"%s",FSarea.si4732mode);
+  sprintf(eeprom.si4732region,"%s",FSarea.si4732region);
+  sprintf(eeprom.si4732band,"%s",FSarea.si4732band);
+  eeprom.si4732vol=FSarea.si4732vol;
+  eeprom.si4732mute=FSarea.si4732mute;
+  
+  EEPROM_write(&eeprom);
+  sleep_ms(10);
+
+  cdc_printf("EEPROM saved\n");
+  dumpEEPROM(&eeprom);
+
+  cdc_printf("Now system values are updated\n");
+      
+  mode=eeprom.mode;
+  Band_slot=eeprom.Band_slot;
+  audiosampling=eeprom.audiosampling;               //* USB Audio sampling frequency (fixed)
+  pll_sys_mhz=eeprom.pll_sys_mhz;                   //* RP2040 System Clock (MHz)
+  frqFT8=eeprom.frqFT8;                             //* RF (CLK0/CLK1) base frequency (in Hz)
+  frqbfo=eeprom.frqbfo;                             //* BFO (CLK2) Frequency
+  sprintf(si4732region,"%s",eeprom.si4732region);   //* SI4732 Region
+  sprintf(si4732mode,"%s",eeprom.si4732mode);       //* Receiver mode (AM,SSB,FM)       
+  sprintf(si4732band,"%s",eeprom.si4732band);       //* Band
+  si4732vol=eeprom.si4732vol;                       //* Volume level {0..63}
+  si4732mute=eeprom.si4732mute;                     //* Mute status {0..1}
+
+  return ADX_OK;
+}
+#endif //EEPROM && FS
 
 #ifdef EEPROM
 /*----------------------------------------------------------------------------*/
@@ -1305,116 +1478,38 @@ int main(void)
   set_sys_clock_khz(clkhz / 1000L, true);
  
 
+  //*--- If enabled check for file system to be present
+
   #ifdef FS
 
   FS_status_t rcFSinit = fs_init_and_mount();
   sleep_ms(1000);
 
+  //*---- If the EEPROM has been reset create the CONFIG.SYS file accordingly
+  #if defined(EEPROM) && defined(FS)
+
   FS_status_t  rcFSdata  = FS_OK;
-  FS_status_t  rcFSread  = FS_OK;
+  
   FS_status_t  rcFSwrite = FS_OK;
-  ADX_status_t rcEEPROMupdate = ADX_OK;
-  EEPROMdata_t FSarea;
 
   if (rcEEPROM!=ADX_OK) {
-    
+
      rcFSdata=buildCONFIG(FS_data,&eeprom);
      rcFSwrite=adx_write_config_txt(FS_data);
 
-    } else {
+  } else {
 
-     n = 0;
-     rcFSread = fs_read_text(FS_json, sizeof(FS_json), &n);
-     char buffer[8];
-     bool ok_data;
+  //*--- Else the existing CONFIG.SYS file rules over EEPROM  
 
-     ok_data = fs_get_kv(FS_json, "mode", buffer, sizeof(buffer));     
-     FSarea.mode = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)mode;
-
-     ok_data = fs_get_kv(FS_json, "Band_slot", buffer, sizeof(buffer));     
-     FSarea.Band_slot = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)Band_slot;
-
-     ok_data = fs_get_kv(FS_json, "audiosampling", buffer, sizeof(buffer));     
-     FSarea.audiosampling = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)audiosampling;
-
-     ok_data = fs_get_kv(FS_json, "pll_sys_mhz", buffer, sizeof(buffer));     
-     FSarea.pll_sys_mhz = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)pll_sys_mhz;
-
-     ok_data = fs_get_kv(FS_json, "frqFT8", buffer, sizeof(buffer));     
-     FSarea.frqFT8 = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqFT8;
-
-     ok_data = fs_get_kv(FS_json, "frqbfo", buffer, sizeof(buffer));     
-     FSarea.frqbfo = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqbfo;
-
-     ok_data = fs_get_kv(FS_json, "si4732vol", buffer, sizeof(buffer));     
-     FSarea.si4732vol = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732vol;
-
-     ok_data = fs_get_kv(FS_json, "si4732mute", buffer, sizeof(buffer));     
-     FSarea.si4732mute = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732mute;
-
-     ok_data = fs_get_kv(FS_json, "si4732region", buffer, sizeof(buffer));     
-     ok_data ? sprintf(FSarea.si4732region,"%s",buffer) : sprintf(FSarea.si4732region,"%s",si4732region);
-
-     ok_data = fs_get_kv(FS_json, "si4732mode", buffer, sizeof(buffer));     
-     ok_data ? sprintf(FSarea.si4732mode,"%s",buffer) : sprintf(FSarea.si4732mode,"%s",si4732mode);
-
-     ok_data = fs_get_kv(FS_json, "si4732band", buffer, sizeof(buffer));     
-     ok_data ? sprintf(FSarea.si4732band,"%s",buffer) : sprintf(FSarea.si4732band,"%s",si4732band);
-
-     eeprom.mode = FSarea.mode;
-     eeprom.Band_slot=FSarea.Band_slot;
-     eeprom.audiosampling=FSarea.audiosampling;
-     eeprom.frqFT8=FSarea.frqFT8;
-     eeprom.frqbfo=FSarea.frqbfo;
-     eeprom.pll_sys_mhz=FSarea.pll_sys_mhz;
-
-     sprintf(eeprom.si4732mode,"%s",FSarea.si4732mode);
-     sprintf(eeprom.si4732region,"%s",FSarea.si4732region);
-     sprintf(eeprom.si4732band,"%s",FSarea.si4732band);
-     eeprom.si4732vol=FSarea.si4732vol;
-     eeprom.si4732mute=FSarea.si4732mute;
-     rcEEPROMupdate=updateEEPROM();    
-
-     mode=eeprom.mode;
-     Band_slot=eeprom.Band_slot;
-     audiosampling=eeprom.audiosampling;               //* USB Audio sampling frequency (fixed)
-     pll_sys_mhz=eeprom.pll_sys_mhz;                   //* RP2040 System Clock (MHz)
-     frqFT8=eeprom.frqFT8;                             //* RF (CLK0/CLK1) base frequency (in Hz)
-     frqbfo=eeprom.frqbfo;                             //* BFO (CLK2) Frequency
-     sprintf(si4732region,"%s",eeprom.si4732region);   //* SI4732 Region
-     sprintf(si4732mode,"%s",eeprom.si4732mode);       //* Receiver mode (AM,SSB,FM)       
-     sprintf(si4732band,"%s",eeprom.si4732band);       //* Band
-     si4732vol=eeprom.si4732vol;                       //* Volume level {0..63}
-     si4732mute=eeprom.si4732mute;                     //* Mute status {0..1}
-
-
+    n = 0;
+    FS_status_t rcFSread = fs_read_text(FS_json, sizeof(FS_json), &n);
   }
-
+  #else  //EEPROM and FS
+    n = 0;
+    FS_status_t rcFSread = fs_read_text(FS_json, sizeof(FS_json), &n);
+  #endif //FS Only
   
-  #ifdef FSDEBUG
-  bool FSread __attribute__((unused))= fs_read_text(buf, sizeof(buf), &n);
-  int fr_mount __attribute__((unused))= fs_last_fr_mount();
-  int fr_mkfs  __attribute__((unused))= fs_last_fr_mkfs();
-  int fr_open  __attribute__((unused))= fs_last_fr_open();
-  int fr_read  __attribute__((unused))= fs_last_fr_read();
-  sleep_ms(1000);
-
-  //*--- Read the entire CONFIG.TXT configuration file, can not send over serial yet
-  n = 0;
-  bool ok_read __attribute__((unused)) = fs_read_text(json, sizeof(json), &n);
-
-  //*--- Extract different keys from the JSON file
-
-  bool ok_region __attribute__((unused))= ok_read && fs_get_kv(json, "region", region, sizeof(region));
-  bool ok_vco __attribute__((unused))= ok_read && fs_get_kv(json, "vco_hz", vco_str, sizeof(vco_str));
-  bool ok_bfo __attribute__((unused))= ok_read && fs_get_kv(json, "bfo_hz", bfo_str, sizeof(bfo_str));
-  bool ok_note __attribute__((unused))= ok_read && fs_get_kv(json, "note", note, sizeof(note));
-  uint32_t vco_hz __attribute__((unused)) = ok_vco ? (uint32_t)strtoul(vco_str, NULL, 10) : 120000000u;
-  uint32_t bfo_hz __attribute__((unused))= ok_bfo ? (uint32_t)strtoul(bfo_str, NULL, 10) : 455000u;
-
-  //*--- Unmount USB MSC, from now on the FileSysten won't be available 2) Desmontar FatFs antes de exponer MSC (bien)
-  
-  #endif //FSDEBUG
+  //*--- unmount FS to complete the interaction, from this moment on the FS can be updated from the remote PC
 
   fs_unmount();
   #endif //FS
@@ -1461,7 +1556,6 @@ int main(void)
      cdc_printf("Reset to factory default values done\n");
   }
   
-  cdc_printf("Support for Serial Monitor started\n");
   cdc_printf("ADX board status(%d) TUD status(%d)\n",ADXrc,TUDrc);
   
   #ifdef EEPROM
@@ -1473,59 +1567,27 @@ int main(void)
   dumpEEPROM(&eeprom);
   #endif //EEPROM
 
-  #ifdef FS
-  cdc_printf("File System activity\n");
-  cdc_printf("Mount(%d) Data(%d) Read(%d) Write(%d) Size(%d)\n",rcFSinit,rcFSdata,rcFSread,rcFSwrite,n);
-  if (n!=0) {
-    cdc_printf("Read JSON structure\n%s\n",FS_json);
-    cdc_printf("EEPROM updated rc(%d)\n",rcEEPROMupdate);
-    dumpEEPROM(&eeprom);
-  } else {
-    cdc_printf("Wrote config data\n%s\n",FS_data);
+//*--- Check if there is a CONFIG.SYS file in the file system and if so update the EEPROM with it
+
+  #if defined(FS) && defined(EEPROM)
+
+  cdc_printf("File System init(%d) data(%d) read(%d) n(%d) write(%d)\n",rcFSinit,rcFSdata,rcFSread,n,rcFSwrite);
+  if (rcFSread == FS_OK && n != 0) {
+     cdc_printf("Detected CONFIG.SYS file in the file system, update EEPROM\n");
+     (void)saveEEPROM(FS_json);
+     tud_pump_task();
   }
-  #endif //FS
-  
-  #ifdef FSDEBUG
-  if (n != 0) {
-    cdc_printf("CONFIG.TXT file found size(%d) bytes\n",n);
-    cdc_printf("JSON content:\n%s\n", buf); 
-  } else {
-    cdc_printf("CONFIG.TXT file not found, initialize\n");
+  #endif 
+
+  #if defined(FS) && !defined(EEPROM)
+  cdc_printf("File system mounted rc(%d) read(%d)\n",rcFSinit,rcFSread);
+  if (rcFSread == FS_OK && n != 0) {
+     cdc_printf("Detected CONFIG.SYS file in the file system, update Global\n");
+     (void)saveGlobal(FS_json);
+     tud_pump_task();
   }
 
-  cdc_printf("Access Statistics\n");
-  cdc_printf("FS init=%d read=%d n=%u\n",FSinit, FSread, (unsigned)n);
-  tud_pump_task();
-
-  cdc_printf("fr_mount=%d\n", fr_mount);
-  cdc_printf("fr_mkfs=%d\n", fr_mkfs);
-  tud_pump_task();
-
-  cdc_printf("fr_open=%d\n", fr_open);
-  cdc_printf("fr_read=%d\n", fr_read); 
-  tud_pump_task();
-
-  if (FSread) {
-     cdc_printf("JSON content:\n%s\n", buf); 
-  }
-  tud_pump_task();
-
-  cdc_printf("Values by key\n");
-  cdc_printf("read=%d n=%u\n",ok_read, (unsigned)n);
-  tud_pump_task();
-
-  cdc_printf("region_ok=%d region=[%s]\n",ok_region, region);
-  cdc_printf("vco_ok=%d vco=[%s]\n",ok_vco, vco_str);
-  tud_pump_task();
-
-  cdc_printf("vco_hz=%lu\n",(unsigned long)vco_hz);
-  cdc_printf("note_ok=%d note=[%s]\n",ok_note,note);
-  tud_pump_task();
-
-  cdc_printf("Bfo_hz=[%ld]\n",bfo_hz);
-  tud_pump_task();
-
-  #endif //FSDEBUG
+  #endif //FS and not EEPROM
 
   #ifdef RTC
   //*----------- Setup RTC, this is only used to sync seconds   ---------------*
