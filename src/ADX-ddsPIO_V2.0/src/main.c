@@ -167,7 +167,7 @@
 //*                                Configuration definitions                                     *
 //*==============================================================================================*
 #define  DEBUG      1
-#define  EEPROM     1   
+//#define  EEPROM     1   
 #define  SUPERHET   1
 #define  QUAD       1
 #define  SI4732     1
@@ -241,9 +241,9 @@
 #include "quad.h"
 #endif //SUPERHET
 
-#ifdef EEPROM
+#if defined(EEPROM) || defined(FS)
 #include "EEPROM.h"
-#endif //EEPROM
+#endif //EEPROM or FS
 
 #ifdef PICOW
 #include "pico/cyw43_arch.h"
@@ -283,6 +283,7 @@
 #define FREQ_BFO        446400L           // BFO Frequency 
 
 //#define SLOT                  3
+
 #define NBANDS                7
 #define NMODES                4
 
@@ -388,7 +389,7 @@
 
 
 #ifdef FS
-#define FSDATASIZE        sizeof(EEPROMdata_t)
+#define FSDATASIZE        sizeof(Systemdata_t)
 #endif //FS
 //*==============================================================================================*
 //*                               BOARD "FACTORY DEFAULTS"                                       *
@@ -505,7 +506,7 @@ si4732_t radio;
 #endif //SI4732
 
 #if defined(EEPROM) 
-EEPROMdata_t eeprom;
+Systemdata_t eeprom;
 #endif //EEPROM
 
 #ifdef FS
@@ -578,7 +579,7 @@ char FS_json[1024];
 #ifdef EEPROM
 ADX_status_t updateEEPROM();
 ADX_status_t readEEPROM();
-void dumpEEPROM(EEPROMdata_t* e);
+void dumpEEPROM(Systemdata_t* e);
 #endif //EEPROM
 
 //*==============================================================================================*
@@ -708,7 +709,7 @@ int slot2Band(int s) {
     s = 4;
   }
   int b=slot[s-1];
-  cdc_printf("Slot(%d) --> Band(%d)\n", s, b);
+  cdc_printf("Assigning Slot(%d) as Band(%d)\n", s, b);
   return b;
 }
 /*----------------------------------------------------------------------------*/
@@ -730,7 +731,7 @@ switch(b) {
   default:
     i=6; break;
 }
-cdc_printf("band(%d) idx(%d)\n", b, i);
+cdc_printf("Band(%d) is index(%d) on frequency table\n", b, i);
 return i;
 
 }
@@ -1135,7 +1136,7 @@ void core1_entry()
 /*----------------------------------------------------------------------------*/
 /* build configuration file CONFIG.SYS                                        */
 /*----------------------------------------------------------------------------*/
-FS_status_t buildCONFIG(char *out, EEPROMdata_t* data) {
+FS_status_t buildCONFIG(char *out, Systemdata_t* data) {
 
   //*-- Receive structure with contents and generate JSON string with it
   //uint8_t eol=0x0;
@@ -1160,52 +1161,62 @@ FS_status_t buildCONFIG(char *out, EEPROMdata_t* data) {
 }
 #endif //FS
 
-#if defined(FS) && !defined(EEPROM)
+#if defined(FS) || !defined(EEPROM)
 /*-------------------------------------------------------------------------------------------------------*/
-/* saveGlobals update system variables (need to refactor, highly redundant with EEPROMupdate/EEPROMsave) */
+/* parse a system JSON and recover variables from id                                                     */
 /*-------------------------------------------------------------------------------------------------------*/
-ADX_status_t saveGlobal(char* FS_json){
-
+void parseJSON(char* FS_json, FSData_t* FSarea) {
+  
   char buffer[16];
   char buff[8];
   bool ok_data;
-  FSData_t FSarea;
 
   ok_data = fs_get_kv(FS_json, "mode", buffer, sizeof(buffer));     
-  FSarea.mode = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)mode;
+  FSarea->mode = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)mode;
 
   ok_data = fs_get_kv(FS_json, "Band_slot", buffer, sizeof(buffer));     
-  FSarea.Band_slot = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)Band_slot;
+  FSarea->Band_slot = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)Band_slot;
 
   ok_data = fs_get_kv(FS_json, "audiosampling", buffer, sizeof(buffer));     
-  FSarea.audiosampling = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)audiosampling;
+  FSarea->audiosampling = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)audiosampling;
 
   ok_data = fs_get_kv(FS_json, "pll_sys_mhz", buffer, sizeof(buffer));     
-  FSarea.pll_sys_mhz = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)pll_sys_mhz;
+  FSarea->pll_sys_mhz = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)pll_sys_mhz;
 
   ok_data = fs_get_kv(FS_json, "frqFT8", buffer, sizeof(buffer));     
-  FSarea.frqFT8 = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqFT8;
+  FSarea->frqFT8 = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqFT8;
 
   ok_data = fs_get_kv(FS_json, "frqbfo", buffer, sizeof(buffer));     
-  FSarea.frqbfo = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqbfo;
+  FSarea->frqbfo = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqbfo;
 
   ok_data = fs_get_kv(FS_json, "si4732vol", buffer, sizeof(buffer));     
-  FSarea.si4732vol = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732vol;
+  FSarea->si4732vol = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732vol;
 
   ok_data = fs_get_kv(FS_json, "si4732mute", buffer, sizeof(buffer));     
-  FSarea.si4732mute = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732mute;
+  FSarea->si4732mute = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732mute;
 
   ok_data = fs_get_kv(FS_json, "si4732region", buff, sizeof(buff));     
-  ok_data ? sprintf(FSarea.si4732region,"%s",buff) : sprintf(FSarea.si4732region,"%s",si4732region);
+  ok_data ? sprintf(FSarea->si4732region,"%s",buff) : sprintf(FSarea->si4732region,"%s",si4732region);
 
   ok_data = fs_get_kv(FS_json, "si4732mode", buff, sizeof(buff));     
-  ok_data ? sprintf(FSarea.si4732mode,"%s",buff) : sprintf(FSarea.si4732mode,"%s",si4732mode);
+  ok_data ? sprintf(FSarea->si4732mode,"%s",buff) : sprintf(FSarea->si4732mode,"%s",si4732mode);
 
   ok_data = fs_get_kv(FS_json, "si4732band", buff, sizeof(buff));     
-  ok_data ? sprintf(FSarea.si4732band,"%s",buff) : sprintf(FSarea.si4732band,"%s",si4732band);
+  ok_data ? sprintf(FSarea->si4732band,"%s",buff) : sprintf(FSarea->si4732band,"%s",si4732band);
 
-  cdc_printf("Now system values are updated\n");
-      
+
+}
+#endif //FS or EEPROM
+
+#ifdef FS
+/*-------------------------------------------------------------------------------------------------------*/
+/* saveGlobals update system variables (need to refactor, highly redundant with EEPROMupdate/EEPROMsave) */
+/*-------------------------------------------------------------------------------------------------------*/
+ADX_status_t JSON2Global(char* FS_json){
+
+  FSData_t FSarea;
+  parseJSON(FS_json,&FSarea);
+
   mode=FSarea.mode;
   Band_slot=FSarea.Band_slot;
   audiosampling=FSarea.audiosampling;               //* USB Audio sampling frequency (fixed)
@@ -1219,60 +1230,17 @@ ADX_status_t saveGlobal(char* FS_json){
   si4732mute=FSarea.si4732mute;                     //* Mute status {0..1}
 
   return ADX_OK;
-
-
 }
-#endif //FS without EEPROM
+#endif //FS
 
-#if defined(EEPROM) && defined(FS)
+#if defined(EEPROM)
 /*----------------------------------------------------------------------------*/
 /* saveEEPROM and update system variables                                     */
 /*----------------------------------------------------------------------------*/
-ADX_status_t saveEEPROM(char* FS_json) {
-     
-  char buffer[16];
-  char buff[8];
-  bool ok_data;
-  EEPROMdata_t FSarea;
+ADX_status_t JSON2EEPROM(char* FS_json) {
 
-  cdc_printf("Entering saveEEPROM, current EEPROM is\n");
-  dumpEEPROM(&eeprom);
-
-  ok_data = fs_get_kv(FS_json, "mode", buffer, sizeof(buffer));     
-  FSarea.mode = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)mode;
-
-  ok_data = fs_get_kv(FS_json, "Band_slot", buffer, sizeof(buffer));     
-  FSarea.Band_slot = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)Band_slot;
-
-  ok_data = fs_get_kv(FS_json, "audiosampling", buffer, sizeof(buffer));     
-  FSarea.audiosampling = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)audiosampling;
-
-  ok_data = fs_get_kv(FS_json, "pll_sys_mhz", buffer, sizeof(buffer));     
-  FSarea.pll_sys_mhz = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)pll_sys_mhz;
-
-  ok_data = fs_get_kv(FS_json, "frqFT8", buffer, sizeof(buffer));     
-  FSarea.frqFT8 = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqFT8;
-
-  ok_data = fs_get_kv(FS_json, "frqbfo", buffer, sizeof(buffer));     
-  FSarea.frqbfo = ok_data ? ((uint32_t)strtoul(buffer, NULL, 10)) : (uint32_t)frqbfo;
-
-  ok_data = fs_get_kv(FS_json, "si4732vol", buffer, sizeof(buffer));     
-  FSarea.si4732vol = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732vol;
-
-  ok_data = fs_get_kv(FS_json, "si4732mute", buffer, sizeof(buffer));     
-  FSarea.si4732mute = ok_data ? ((uint8_t)strtoul(buffer, NULL, 10)) : (uint8_t)si4732mute;
-
-  ok_data = fs_get_kv(FS_json, "si4732region", buff, sizeof(buff));     
-  ok_data ? sprintf(FSarea.si4732region,"%s",buff) : sprintf(FSarea.si4732region,"%s",si4732region);
-
-  ok_data = fs_get_kv(FS_json, "si4732mode", buff, sizeof(buff));     
-  ok_data ? sprintf(FSarea.si4732mode,"%s",buff) : sprintf(FSarea.si4732mode,"%s",si4732mode);
-
-  ok_data = fs_get_kv(FS_json, "si4732band", buff, sizeof(buff));     
-  ok_data ? sprintf(FSarea.si4732band,"%s",buff) : sprintf(FSarea.si4732band,"%s",si4732band);
-
-  cdc_printf("Data recovered from JSON file system\n");
-  dumpEEPROM(&FSarea);
+  FSData_t FSarea;
+  parseJSON(FS_json,&FSarea);
 
   eeprom.mode = FSarea.mode;
   eeprom.Band_slot=FSarea.Band_slot;
@@ -1289,23 +1257,6 @@ ADX_status_t saveEEPROM(char* FS_json) {
   
   EEPROM_write(&eeprom);
   sleep_ms(10);
-
-  cdc_printf("EEPROM saved\n");
-  dumpEEPROM(&eeprom);
-
-  cdc_printf("Now system values are updated\n");
-      
-  mode=eeprom.mode;
-  Band_slot=eeprom.Band_slot;
-  audiosampling=eeprom.audiosampling;               //* USB Audio sampling frequency (fixed)
-  pll_sys_mhz=eeprom.pll_sys_mhz;                   //* RP2040 System Clock (MHz)
-  frqFT8=eeprom.frqFT8;                             //* RF (CLK0/CLK1) base frequency (in Hz)
-  frqbfo=eeprom.frqbfo;                             //* BFO (CLK2) Frequency
-  sprintf(si4732region,"%s",eeprom.si4732region);   //* SI4732 Region
-  sprintf(si4732mode,"%s",eeprom.si4732mode);       //* Receiver mode (AM,SSB,FM)       
-  sprintf(si4732band,"%s",eeprom.si4732band);       //* Band
-  si4732vol=eeprom.si4732vol;                       //* Volume level {0..63}
-  si4732mute=eeprom.si4732mute;                     //* Mute status {0..1}
 
   return ADX_OK;
 }
@@ -1341,7 +1292,7 @@ ADX_status_t updateEEPROM() {
 /*----------------------------------------------------------------------------*/
 /* dumpEEPROM                                                                 */
 /*----------------------------------------------------------------------------*/
-void dumpEEPROM(EEPROMdata_t* e) {
+void dumpEEPROM(Systemdata_t* e) {
   cdc_printf("Dump data\n");
   cdc_printf("  mode(%d) slot(%d) audio sampling(%ld) Hz\n",e->mode,e->Band_slot,e->audiosampling);
   cdc_printf("  pll_sys(%ld) MHz FT8(%ld) Hz BFO(%ld) Hz\n",e->pll_sys_mhz,e->frqFT8,e->frqbfo);
@@ -1574,7 +1525,8 @@ int main(void)
   cdc_printf("File System init(%d) data(%d) read(%d) n(%d) write(%d)\n",rcFSinit,rcFSdata,rcFSread,n,rcFSwrite);
   if (rcFSread == FS_OK && n != 0) {
      cdc_printf("Detected CONFIG.SYS file in the file system, update EEPROM\n");
-     (void)saveEEPROM(FS_json);
+     (void)JSON2EEPROM(FS_json);
+     (void)JSON2Global(FS_json);
      tud_pump_task();
   }
   #endif 
@@ -1583,7 +1535,7 @@ int main(void)
   cdc_printf("File system mounted rc(%d) read(%d)\n",rcFSinit,rcFSread);
   if (rcFSread == FS_OK && n != 0) {
      cdc_printf("Detected CONFIG.SYS file in the file system, update Global\n");
-     (void)saveGlobal(FS_json);
+     (void)JSON2Global(FS_json);
      tud_pump_task();
   }
 

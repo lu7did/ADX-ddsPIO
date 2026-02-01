@@ -40,12 +40,12 @@ typedef struct {
     uint8_t  si4732vol;          //* Volume level {0..63}
     uint8_t  si4732mute;         //* Mute status {0..1}
     uint8_t reserved[71];
-} EEPROMdata_t;
+} Systemdata_t;
 //*---------------------------------------------------------------------------------------*
 //*                              Prototypes 
 //*---------------------------------------------------------------------------------------*
-void EEPROM_read(EEPROMdata_t *dest);
-void EEPROM_write(const EEPROMdata_t *src);
+void EEPROM_read(Systemdata_t *dest);
+void EEPROM_write(const Systemdata_t *src);
 void EEPROM_reset();
 
 #endif
