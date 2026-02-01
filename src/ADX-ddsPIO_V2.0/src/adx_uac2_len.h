@@ -1,12 +1,14 @@
+
 #ifndef _ADX_UAC2_LEN_H_
 #define _ADX_UAC2_LEN_H_
 
-// Este include trae los TUD_AUDIO_DESC_*_LEN usados en la suma.
-// En el SDK de Pico está en: pico-sdk/lib/tinyusb/src/class/audio/audio.h
+//*--- Create TUD_AUDIO_DESC_*_LEN to avoid conflict with SDK definitions
+//*--- SDK Pico at  pico-sdk/lib/tinyusb/src/class/audio/audio.h
 #include "class/audio/audio.h"
 
-// Longitud TOTAL del descriptor de la función UAC2 (incluye IAD, AC y AS alternates)
-// OJO: nombre propio para NO chocar con TinyUSB
+//*--- Total length of the UAC2 descriptor
+//*--- Changing name in order not to conflict with TinyUSB
+
 #define ADX_UAC2_FUNC_DESC_LEN (TUD_AUDIO_DESC_IAD_LEN\
     + TUD_AUDIO_DESC_STD_AC_LEN\
     + TUD_AUDIO_DESC_CS_AC_LEN\

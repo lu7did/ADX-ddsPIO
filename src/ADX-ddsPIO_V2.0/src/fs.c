@@ -204,7 +204,7 @@ bool fs_ensure_cfg_exists(void) {
 
   /*
   
-  ---- Temporary fix --> Do not generate a phony CONFIG.TXT file, allow the firmware to manage that
+  ---- Temporary fix --> Do not generate a phony CONFIG.SYS file, allow the firmware to manage that
 
   static const char default_txt[] =
     "region=ar\n"
@@ -223,7 +223,7 @@ bool fs_ensure_cfg_exists(void) {
 
   return (fr == FR_OK) && (bw == (UINT)strlen(default_txt));
   */
-  return false;   //* Temporary fix
+  return false;   //* Temporary fix, no file then just inform it.
 }
 
 //*--- Initial mount
@@ -242,9 +242,14 @@ bool fs_init_and_mount(void) {
 
     flash_bd_erase_all();
 
+    //*--- This define the geometry definition for the USB drive (MSC)
+    //*--- This is the oldest and most restrictive geometry possible
+    //*--- still it's the simpler and the one that requires least empty space
+    //*--- to implement, it just contains a single text file (CONFIG.SYS)
+
     BYTE work[4096];
     MKFS_PARM opt = {
-      .fmt    = FM_FAT,   // FAT12/16 (evita FAT32)
+      .fmt    = FM_FAT,            //*--- FAT12/16 (just avoid FAT32)
       .n_fat  = 1,
       .align  = 0,
       .n_root = 512,
@@ -431,6 +436,6 @@ bool fs_json_set(const char* key, const char* value) {
 }
 
 bool fs_json_save(void) {
-  // ya persistimos con fs_write_text() en fs_json_set_*
+  //*--- this is a placeholder
   return true;
 }

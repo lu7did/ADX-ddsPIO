@@ -45,6 +45,8 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 ///////////////////////////////////////////////////////////////////////////////
+/*  (fix) change name in order not to conflict with assert.c/h at SDK        */
+///////////////////////////////////////////////////////////////////////////////
 #include "adx_assert.h"
 
 void assert_(bool val)
@@ -54,18 +56,6 @@ void assert_(bool val)
         return;
     }
 
-    #ifdef REFACTOR
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-
-    for(;;)
-    {
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        sleep_ms(50);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
-        sleep_ms(500);
-    }
-    #endif //REFACTOR
 
 }
 
@@ -79,22 +69,5 @@ void assert_checkpoint(bool val, int n_blink)
     {
         return;
     }
-#ifdef REFACTOR
-
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-
-    for(;;)
-    {
-        for(int i = 0; i < n_blink; ++i)
-        {
-            gpio_put(PICO_DEFAULT_LED_PIN, 1);
-            sleep_ms(50);
-            gpio_put(PICO_DEFAULT_LED_PIN, 0);
-            sleep_ms(50);
-        }
-        sleep_ms(1000);
-     }
-#endif //REFACTOR
 
 }

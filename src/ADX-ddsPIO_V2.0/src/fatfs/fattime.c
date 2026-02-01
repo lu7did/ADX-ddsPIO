@@ -1,6 +1,6 @@
 /*
  * =======================================================================================
- * diskio
+ * fattime
  * (c) Dr. Pedro E. Colla (LU7DZ) <pedro.colla@gmail.com>
  * 
  * Implementation of a rp2040 based controller  of a physical file system (date)

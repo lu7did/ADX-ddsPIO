@@ -147,7 +147,7 @@ Features
 ## ADX-ddsPIO Firmware (Version 2.0)
 
 * Si4732 based receiver chipset support
-
+* USB (MSC) drive filesystem implementation to store external configuration (CONFIG.SYS)
 
 ```
 Work in progress
@@ -242,6 +242,27 @@ The main differences with the original ADX circuit are:
 The pinout assignment for this version is shown in the following table:
 
 ![Alt Text](doc/ADX-ddsPIO_pinout.png?raw=true "Raspberry Pi Pico pinout assignment")
+
+## File System (FS) architecture
+
+A FatFS filesystem is implemented using a USB (MSC) interface, although the space is very
+limited it can be used to store any file on it. The firmware uses just one of them called
+CONFIG.SYS which stores a master configuration for the board.
+
+The filesystem has been implemented using a simple FAT-16 format (old DOS format) which 
+only supports 8.3 files (which MUST BE uppercase).
+
+The logic is as follows:
+
+* The main default configuration (sort of a factory default) is stored as constants defined at build time.
+* If EEPROM is enabled the factory defaults are stored in EEPROM to make them persistent.
+* When te board boots up the EEPROM (if enabled) is read.
+* If the filesystem is enabled a attempt to read a file called CONFIG.SYS is made.
+* CONFIG.SYS override the content of the EEPROM.
+* The contents is then saved on EEPROM.
+* Then the CONFIG.SYS file is regenerated, unless changed externally the contents will become the configuration.
+* If the CONFIG.SYS file is erased then the EEPROM configuration will prevail.
+* If the hard reset is made then the factory defaults will be loaded again.
 
 ## Clock Architecture
 

@@ -1242,7 +1242,7 @@ int main(void)
   #ifdef FS
 
   if (n != 0) {
-    cdc_printf("CONFIG.TXT file found records(%d)\n",n);
+    cdc_printf("CONFIG.TXT file found size(%d) bytes\n",n);
     cdc_printf("JSON content:\n%s\n", buf); 
   } else {
     cdc_printf("CONFIG.TXT file not found, initialize\n");

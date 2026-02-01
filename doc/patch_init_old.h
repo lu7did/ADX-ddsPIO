@@ -1,10 +1,50 @@
 /*
- * Firstly, the SSB patch content is not part of this library.
+ * =======================================================================================
+ * patch_init.h
+ * (c) Dr. Pedro E. Colla (LU7DZ) <pedro.colla@gmail.com>
+ * 
+ * Implementation of a rp2040 based controller  of a si4732 digital receiver 
+ * patch to enable SSB with the Si4732 chip
+ * =======================================================================================
+ * This is mainly an integration effort, the code in this library has been developed 
+ * from scratch for this project.
+ * However the work received an huge benefit from previous work from many parties,
+ * including myself as follows:
+ *----------------------------------------------------------------------------
+ * Version 1.0
+ * - Initial release
+ */
+
+ /*
+ *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+ *                       Libraries and Packages used                        *
+ *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+ * The library has been written from the ground up, but it's strongly 
+ * inspired, and for some features reverse engineered from the titanic work
+ * made by Ricardo Caratti (PU2CLR) and specially from his world recognized
+ * library for the Arduino SI4735 (https://github.com/pu2clr/SI4735)
+ * This library has been written in C++ and it's not compatible with the
+ * C/C++ rp2040 SDK and many features of the Arduino platform aren't 
+ * really that portable to the rp2040 environment and Visual Studio Code.
+ * But I found myself searching on that code countless times to grasp the
+ * understanding of many aspects, probably this work can not be possible
+ * without that library. 
+ *---------------------------------------------------------------------------------------*
+ * This library receives the considerable learning made when developing the
+ * ADX-rp2040 package and specially the RDX package which provides support 
+ * for the rp2040 processor albeit using a cross platform compatibility layer
+ * allowing the usage of the Arduino libraries and IDE to develop for other boards
+ * in general and the rp2040 in particular, repositories for these projects are
+ * 
+ *     ADX-rp2040    https://github.com/lu7did/ADX-rp2040
+ *     RDX           https://github.com/lu7did/RDX-rp2040
+ *---------------------------------------------------------------------------------------*
+ * Firstly, the SSB patch content has been extracted from sources in the Internet.
  * These patches were published by Mr. [Vadim Afonkin](https://youtu.be/fgjPGnTAVgM) on his
  * [Dropbox repository](https://www.dropbox.com/sh/xzofrl8rfaaqh59/AAA5au2_CVdi50NBtt0IivyIa?dl=0).
  * The author of this Si4735 Arduino Library does not encourage anyone to use the SSB patches content for 
  * commercial purposes. In other words, while this library supports SSB patches, the patches themselves 
- * should not be considered a part of this library.
+ * should not be considered a part of this application.
  *
  * This file was adapted to C/C++ from the original file (amrx_6_0_1_ssbrx_patch_init_0xA902.csg) which was published by
  * Mr Vadim Afonkin on his Dropbox repository (https://www.dropbox.com/sh/xzofrl8rfaaqh59/AAA5au2_CVdi50NBtt0IivyIa?dl=0).
@@ -18,8 +58,6 @@
  * the supplied hexadecimal constants into their numerical equivalents. For example: 0x15 = 21 (00010101);
  * 0x16 = 22 (00010110); 0x01 = 1 (00000001); 0xFF = 255 (11111111);
  */
-// SSB patch for whole SSBRX initialization string
-// You can remove PROGMEM if you have enough RAM memory 
 const uint8_t PROGMEM ssb_patch_content[] =
 		{0x15, 0x00, 0x03, 0x74, 0x0B, 0xD4, 0x84, 0x60,
 		 0x16, 0x6F, 0xAE, 0x6C, 0xF9, 0xBB, 0x84, 0xA2,

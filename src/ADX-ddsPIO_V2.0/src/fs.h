@@ -20,7 +20,9 @@
 extern "C" {
 #endif
 
-#define ADX_CFG_FILENAME  "CONFIG.TXT"
+//*--- This is an old fart's joke
+
+#define ADX_CFG_FILENAME  "CONFIG.SYS"
 
 //*--- API
 
