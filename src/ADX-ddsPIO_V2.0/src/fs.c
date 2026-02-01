@@ -32,6 +32,9 @@ static FRESULT g_fr_mount = FR_OK;
 static FRESULT g_fr_mkfs  = FR_OK;
 static FRESULT g_fr_open  = FR_OK;
 static FRESULT g_fr_read  = FR_OK;
+static volatile bool g_cfg_dirty = false;
+
+
 
 //*--- Prototypes
 
@@ -228,8 +231,8 @@ bool fs_ensure_cfg_exists(void) {
 
 //*--- Initial mount
 
-bool fs_init_and_mount(void) {
-  if (!flash_bd_init()) return false;
+FS_status_t fs_init_and_mount(void) {
+  if (!flash_bd_init()) return FS_ERROR_MOUNT;
 
   g_fr_mount = f_mount(&g_fs, "0:", 1);
 
@@ -237,7 +240,7 @@ bool fs_init_and_mount(void) {
 
     //*--- Only format if there is no available filesystem
     if (g_fr_mount != FR_NO_FILESYSTEM) {
-      return false;
+      return FS_ERROR_NOFILESYSTEM;
     }
 
     flash_bd_erase_all();
@@ -257,16 +260,16 @@ bool fs_init_and_mount(void) {
     };
 
     g_fr_mkfs = f_mkfs("0:", &opt, work, sizeof(work));
-    if (g_fr_mkfs != FR_OK) return false;
+    if (g_fr_mkfs != FR_OK) return FS_ERROR_NOMKFS;
 
     g_fr_mount = f_mount(&g_fs, "0:", 1);
-    if (g_fr_mount != FR_OK) return false;
+    if (g_fr_mount != FR_OK) return FS_ERROR_MOUNT;
   }
 
   g_mounted = true;
 
-  if (!fs_ensure_cfg_exists()) return false;
-  return true;
+  if (!fs_ensure_cfg_exists()) return FS_OK;
+  return FS_OK;
 }
 
 //*--- Unmount when finished, from this point on the FS won't be accessible
@@ -277,23 +280,24 @@ void fs_unmount(void) {
 }
 
 //*--- Read and write
-bool fs_read_text(char* out, size_t out_max, size_t* out_len) {
-  if (!g_mounted || !out || out_max < 2) return false;
+FS_status_t fs_read_text(char* out, size_t out_max, size_t* out_len) {
+  
+  if (!g_mounted || !out || out_max < 2) return FS_ERROR_MOUNT;
 
   FIL fp;
   FRESULT fr = f_open(&fp, ADX_CFG_FILENAME, FA_READ);
   g_fr_open = fr;
-  if (fr != FR_OK) return false;
+  if (fr != FR_OK) return FS_ERROR_OPEN;
 
   UINT br = 0;
   fr = f_read(&fp, out, (UINT)(out_max - 1), &br);
   g_fr_read = fr;
   f_close(&fp);
 
-  if (fr != FR_OK) return false;
+  if (fr != FR_OK) return FS_ERROR_READ;
   out[br] = '\0';
   if (out_len) *out_len = (size_t)br;
-  return true;
+  return FS_OK;
 }
 
 bool fs_write_text(const char* text, size_t len) {
@@ -427,7 +431,7 @@ bool fs_json_set_raw(const char* key, const char* value_raw, bool quoted) {
   return (key && value_raw) ? json_set_impl(key, value_raw, quoted) : false;
 }
 
-bool fs_init(void) {
+FS_status_t fs_init(void) {
   return fs_init_and_mount();
 }
 
@@ -438,4 +442,40 @@ bool fs_json_set(const char* key, const char* value) {
 bool fs_json_save(void) {
   //*--- this is a placeholder
   return true;
+}
+
+#include "ff.h"
+#include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
+
+
+
+//*--- write CONFIG.SYS in the FatFs volume
+FS_status_t adx_write_config_txt(char* FSData)
+{
+  FATFS *fs;
+  DWORD fre_clust;
+  FRESULT fr;
+
+  //*--- Check the FS is mounted and has space
+  fr = f_getfree("", &fre_clust, &fs);
+  if (fr != FR_OK) return FS_ERROR_FREE;
+
+  FIL fil;
+  fr = f_open(&fil,"CONFIG.SYS", FA_WRITE | FA_CREATE_ALWAYS);
+  if (fr != FR_OK) return FS_ERROR_OPEN;
+
+  UINT bw = 0;
+  fr = f_write(&fil, FSData, (UINT)strlen(FSData), &bw);
+  if (fr != FR_OK || bw != strlen(FSData)) {
+    f_close(&fil);
+    return FS_ERROR_WRITE;
+  }
+
+  //*--- force update and sync
+  fr = f_sync(&fil);
+  f_close(&fil);
+
+  return (fr == FR_OK);
 }

@@ -1,0 +1,7 @@
+{
+  "region": "ar",
+  "vco_hz": 1172000000,
+  "bfo_hz": 465000,
+  "note": "fatfs usb msc",
+  "author" : "Dr. Pedro E. Colla"
+}

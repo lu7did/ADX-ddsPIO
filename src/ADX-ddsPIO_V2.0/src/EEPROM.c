@@ -19,23 +19,23 @@ const uint8_t *flash_target_contents = (const uint8_t *) (XIP_BASE + FLASH_TARGE
  //*---------------------------------------------------------------------------------------*
  //* read from memory                                                                      *
  //*---------------------------------------------------------------------------------------*
-void EEPROM_read(EEPROMData *dest) {
+void EEPROM_read(EEPROMdata_t *dest) {
 
     //*--- read can be made just mapping to the memory address
 
-    memcpy(dest, flash_target_contents, sizeof(EEPROMData));
+    memcpy(dest, flash_target_contents, sizeof(EEPROMdata_t));
 }
 
  //*---------------------------------------------------------------------------------------*
  //* Write to memory                                                                       *
  //*---------------------------------------------------------------------------------------*
-void EEPROM_write(const EEPROMData *src) {
+void EEPROM_write(const EEPROMdata_t *src) {
 
     //*--- SDK requires an aligned buffer 
 
     uint8_t buffer[FLASH_SECTOR_SIZE];
     memset(buffer, 0xFF, FLASH_SECTOR_SIZE); // Fill with 0xff by default
-    memcpy(buffer, src, sizeof(EEPROMData));
+    memcpy(buffer, src, sizeof(EEPROMdata_t));
 
     //*--- Suspend interrupts
     uint32_t ints = save_and_disable_interrupts();
