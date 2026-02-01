@@ -202,6 +202,10 @@ bool fs_ensure_cfg_exists(void) {
   if (fr == FR_OK) { f_close(&fp); return true; }
   if (fr != FR_NO_FILE) return false;
 
+  /*
+  
+  ---- Temporary fix --> Do not generate a phony CONFIG.TXT file, allow the firmware to manage that
+
   static const char default_txt[] =
     "region=ar\n"
     "vco_hz=1172000000\n"
@@ -218,6 +222,8 @@ bool fs_ensure_cfg_exists(void) {
   f_close(&fp);
 
   return (fr == FR_OK) && (bw == (UINT)strlen(default_txt));
+  */
+  return false;   //* Temporary fix
 }
 
 //*--- Initial mount

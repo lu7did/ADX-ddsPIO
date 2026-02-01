@@ -1171,29 +1171,29 @@ int main(void)
   #ifdef FS
   //*--- Init the MSC device  
 
-  bool FSinit = fs_init_and_mount();
+  bool FSinit __attribute__((unused))= fs_init_and_mount();
   
   //*--- Read a buffer and perform different operations to check availability
 
-  bool FSread = fs_read_text(buf, sizeof(buf), &n);
-  int fr_mount = fs_last_fr_mount();
-  int fr_mkfs  = fs_last_fr_mkfs();
-  int fr_open  = fs_last_fr_open();
-  int fr_read  = fs_last_fr_read();
+  bool FSread __attribute__((unused))= fs_read_text(buf, sizeof(buf), &n);
+  int fr_mount __attribute__((unused))= fs_last_fr_mount();
+  int fr_mkfs  __attribute__((unused))= fs_last_fr_mkfs();
+  int fr_open  __attribute__((unused))= fs_last_fr_open();
+  int fr_read  __attribute__((unused))= fs_last_fr_read();
   sleep_ms(1000);
 
   //*--- Read the entire CONFIG.TXT configuration file, can not send over serial yet
   n = 0;
-  bool ok_read = fs_read_text(json, sizeof(json), &n);
+  bool ok_read __attribute__((unused)) = fs_read_text(json, sizeof(json), &n);
 
   //*--- Extract different keys from the JSON file
 
-  bool ok_region = ok_read && fs_get_kv(json, "region", region, sizeof(region));
-  bool ok_vco = ok_read && fs_get_kv(json, "vco_hz", vco_str, sizeof(vco_str));
-  bool ok_bfo = ok_read && fs_get_kv(json, "bfo_hz", bfo_str, sizeof(bfo_str));
-  bool ok_note = ok_read && fs_get_kv(json, "note", note, sizeof(note));
-  uint32_t vco_hz = ok_vco ? (uint32_t)strtoul(vco_str, NULL, 10) : 120000000u;
-  uint32_t bfo_hz = ok_bfo ? (uint32_t)strtoul(bfo_str, NULL, 10) : 455000u;
+  bool ok_region __attribute__((unused))= ok_read && fs_get_kv(json, "region", region, sizeof(region));
+  bool ok_vco __attribute__((unused))= ok_read && fs_get_kv(json, "vco_hz", vco_str, sizeof(vco_str));
+  bool ok_bfo __attribute__((unused))= ok_read && fs_get_kv(json, "bfo_hz", bfo_str, sizeof(bfo_str));
+  bool ok_note __attribute__((unused))= ok_read && fs_get_kv(json, "note", note, sizeof(note));
+  uint32_t vco_hz __attribute__((unused)) = ok_vco ? (uint32_t)strtoul(vco_str, NULL, 10) : 120000000u;
+  uint32_t bfo_hz __attribute__((unused))= ok_bfo ? (uint32_t)strtoul(bfo_str, NULL, 10) : 455000u;
 
   //*--- Unmount USB MSC, from now on the FileSysten won't be available 2) Desmontar FatFs antes de exponer MSC (bien)
   fs_unmount();
@@ -1241,6 +1241,14 @@ int main(void)
 
   #ifdef FS
 
+  if (n != 0) {
+    cdc_printf("CONFIG.TXT file found records(%d)\n",n);
+    cdc_printf("JSON content:\n%s\n", buf); 
+  } else {
+    cdc_printf("CONFIG.TXT file not found, initialize\n");
+  }
+
+  #ifdef FSDEBUG
   cdc_printf("Access Statistics\n");
   cdc_printf("FS init=%d read=%d n=%u\n",FSinit, FSread, (unsigned)n);
   tud_pump_task();
@@ -1272,6 +1280,8 @@ int main(void)
 
   cdc_printf("Bfo_hz=[%ld]\n",bfo_hz);
   tud_pump_task();
+
+  #endif //FSDEBUG
 
   #endif //FS
 
