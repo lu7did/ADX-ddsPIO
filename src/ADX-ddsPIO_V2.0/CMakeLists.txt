@@ -1,22 +1,8 @@
-# == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
-if(WIN32)
-    set(USERHOME $ENV{USERPROFILE})
-else()
-    set(USERHOME $ENV{HOME})
-endif()
-set(sdkVersion 2.2.0)
-set(toolchainVersion 14_2_Rel1)
-set(picotoolVersion 2.2.0-a4)
-set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
-if (EXISTS ${picoVscode})
-    include(${picoVscode})
-endif()
-# ====================================================================================
-# Default FAMILY si no se pasó por -D
-if(NOT DEFINED FAMILY)
-  set(FAMILY "rp2040" CACHE STRING "TinyUSB family" FORCE)
-endif()
+cmake_minimum_required(VERSION 3.13)
 
+# ------------------------------------------------------------------------------------
+# Pico SDK import
+# ------------------------------------------------------------------------------------
 # Default PICO_SDK_PATH si no se pasó por -D ni por env
 if(NOT DEFINED PICO_SDK_PATH)
   if(DEFINED ENV{PICO_SDK_PATH})
@@ -26,187 +12,89 @@ if(NOT DEFINED PICO_SDK_PATH)
   endif()
 endif()
 
-# ============================================================================
-# Si no viene definido desde afuera, usar el SDK "de la empresa" (tu ruta)
-if (NOT DEFINED PICO_SDK_PATH)
-  set(PICO_SDK_PATH "/Users/PCOLLA/Documents/GitHub/pico/pico-sdk" CACHE PATH "Pico SDK Path")
-endif()
-# ============================================================================
+include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
-set(CMAKE_C_COMPILER "/opt/homebrew/bin/arm-none-eabi-gcc")
-set(CMAKE_CXX_COMPILER "/opt/homebrew/bin/arm-none-eabi-gcc")
-option(PICOW "Support Raspberry Pi Pico Wireless" OFF)
+project(ADX-ddsPIO C CXX ASM)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
-set(PICO_BOARD pico CACHE STRING "Board type")
+pico_sdk_init()
 
-cmake_minimum_required(VERSION 3.5)
-include(/Users/PCOLLA/Documents/GitHub/pico/pico-sdk/lib/tinyusb/hw/bsp/family_support.cmake)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-set(PROJECT ADX-ddsPIO)
 set(TARGET ADX-ddsPIO)
 
-cmake_minimum_required(VERSION 3.12)
-#pico_sdk_init()
-
-#*---- Habilitado como recomendación para compilar picoW
-#include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
-#pico_sdk_init()
-#*---- Habilitado para recomendación para compilar picoW
-
-# Pull in PICO SDK (must be before project)
-
-include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
-# NO LLAMAR pico_sdk_init() en este proyecto porque family_initialize_project() maneja la init
-
-
-
-
-include(${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/family_support.cmake)
-
-project(${PROJECT} C CXX ASM)
-#pico_sdk_init()
-add_executable(${PROJECT} src/main.c)
-
-
-
-
-# gets PROJECT name for the example (e.g. <BOARD>-<DIR_NAME>)
-family_get_project_name(${PROJECT} ${CMAKE_CURRENT_LIST_DIR})
-
-project(${PROJECT})
-
-# Checks this example is valid for the family and initializes the project
-family_initialize_project(${PROJECT} ${CMAKE_CURRENT_LIST_DIR})
-
-target_compile_options(${PROJECT} PRIVATE
-    -Wall -Wextra
-    -Werror
-    -Wsign-conversion
-    -Wconversion
+add_executable(${TARGET}
+  src/main.c
+  src/usb_descriptors.c
+  src/usb_audio.c
+  src/usb_msc.c
+  src/flash_bd.c
+  src/fs.c
+  src/fatfs/ff.c
+  src/fatfs/diskio.c
+  src/fatfs/fattime.c
+  src/piodco.c
+  src/si4732.c
+  src/EEPROM.c
+  src/quad.c
+  src/si4732_patch_ssb.c
+  src/lib/adx_assert.c
 )
 
-# No tratar warnings de lwIP como errores (terceros)
+# IMPORTANTE:
+# - Esto garantiza que TinyUSB encuentre tu tusb_config.h (en src/)
+target_include_directories(${TARGET} PUBLIC
+  ${CMAKE_CURRENT_LIST_DIR}/src
+  ${CMAKE_CURRENT_LIST_DIR}/src/lib
+  ${CMAKE_CURRENT_LIST_DIR}/src/fatfs
+  ${CMAKE_CURRENT_LIST_DIR}/src/lib/jsmn
+  ${CMAKE_CURRENT_LIST_DIR}/src/lib/thirdparty
+)
+
+# Flags: evitá romper terceros
+target_compile_options(${TARGET} PRIVATE
+  -Wall -Wextra
+  -Werror
+  -Wsign-conversion
+  -Wconversion
+)
+
+# No tratar warnings de lwIP como errores (si está presente)
 if (TARGET pico_lwip)
-    target_compile_options(pico_lwip INTERFACE -Wno-error -Wno-sign-conversion -Wno-conversion)
+  target_compile_options(pico_lwip INTERFACE -Wno-error -Wno-sign-conversion -Wno-conversion)
 endif()
 if (TARGET pico_lwip_nosys)
-    target_compile_options(pico_lwip_nosys INTERFACE -Wno-error -Wno-sign-conversion -Wno-conversion)
+  target_compile_options(pico_lwip_nosys INTERFACE -Wno-error -Wno-sign-conversion -Wno-conversion)
 endif()
 
-
-target_compile_options(${PROJECT} PRIVATE
+# Si querés meter project_config.h forzado
+target_compile_options(${TARGET} PRIVATE
   $<$<COMPILE_LANGUAGE:C>:-include ${CMAKE_CURRENT_LIST_DIR}/src/project_config.h>
   $<$<COMPILE_LANGUAGE:CXX>:-include ${CMAKE_CURRENT_LIST_DIR}/src/project_config.h>
 )
 
+# Evitar que stdio use USB (para no interferir con la device stack / CDC)
+pico_enable_stdio_usb(${TARGET} 0)
+pico_enable_stdio_uart(${TARGET} 1)
 
-# Example source
-target_sources(${PROJECT} PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_descriptors.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/piodco.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/si4732.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/usb_audio.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/lib/adx_assert.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_audio.c 
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/EEPROM.c 
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/quad.c 
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/si4732_patch_ssb.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src//usb_descriptors.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_msc.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src//flash_bd.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src//fs.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src//fatfs/ff.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src//fatfs/diskio.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src//fatfs/fattime.c
-        )
-
-
-target_include_directories(ADX-ddsPIO PUBLIC
-        ${PICO_SDK_PATH}/lib/tinyusb/hw
-        ${PICO_SDK_PATH}/lib/tinyusb/src
-        ${CMAKE_CURRENT_LIST_DIR}/src/lib/jsmn
-        ${CMAKE_CURRENT_LIST_DIR}/src/lib/thirdparty
-        ${CMAKE_CURRENT_LIST_DIR}/src
-        ${CMAKE_CURRENT_LIST_DIR}/src/fatfs
-        ${CMAKE_CURRENT_LIST_DIR}/src/lib
+target_link_libraries(${TARGET}
+  pico_stdlib
+  tinyusb_device
+  tinyusb_board
+  pico_multicore
+  hardware_pio
+  hardware_adc
+  hardware_rtc
+  hardware_flash
+  hardware_sync
+  hardware_i2c
+  hardware_gpio
+  hardware_watchdog
+  hardware_clocks
+  hardware_pll
 )
 
-if (NOT EXISTS "${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/rp2040/board.h")
-  message(FATAL_ERROR "No se encuentra ${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/rp2040/board.h")
-endif()
+pico_add_extra_outputs(${TARGET})
 
-
-
-if (PICOW)
-target_link_libraries(${PROJECT} PUBLIC
-        pico_stdlib
-        tinyusb_device
-        tinyusb_board
-        pico_multicore
-        hardware_pio
-        hardware_adc
-        hardware_i2c
-        hardware_gpio
-        hardware_rtc
-        hardware_watchdog
-        hardware_flash 
-        hardware_sync
-        #pico_cyw43_arch_lwip_threadsafe_background
-        pico_cyw43_arch_lwip_poll
-        )
-endif() #PICOW
-
-if (NOT PICOW)
-target_link_libraries(${PROJECT} PUBLIC
-        pico_stdlib
-        tinyusb_device
-        tinyusb_board
-        pico_multicore
-        hardware_pio
-        hardware_adc
-        hardware_rtc
-        hardware_flash 
-        hardware_sync
-        hardware_i2c
-        hardware_gpio
-        hardware_watchdog
-        hardware_clocks
-        hardware_pll
-        hardware_watchdog
-        tinyusb_device
-  
-
-        )
-endif()  #!PICOW
-
-#==============================[Específico para PicoW]=================================================
-# Para que lwIP encuentre lwipopts.h cuando compila lwIP (no solo tu app)
-if (PICOW)
-
-if (TARGET pico_lwip)
-    target_include_directories(pico_lwip INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-endif()
-
-if (TARGET pico_lwip_nosys)
-    target_include_directories(pico_lwip_nosys INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-endif()
-
-if (TARGET pico_lwip_freertos)
-    target_include_directories(pico_lwip_freertos INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-endif()
-endif() #PICOW
-#==============================[Específico para PicoW]=================================================
-
-
-pico_add_extra_outputs(${PROJECT})
-
-# Configure compilation flags and libraries for the example... see the corresponding function
-# in hw/bsp/FAMILY/family.cmake for details.
-family_configure_device_example(${PROJECT} noos)
-
-pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/BFO.pio)
-pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/dco2.pio)
-pico_generate_pio_header(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/src/quad.pio)
-
+pico_generate_pio_header(${TARGET} ${CMAKE_CURRENT_LIST_DIR}/src/BFO.pio)
+pico_generate_pio_header(${TARGET} ${CMAKE_CURRENT_LIST_DIR}/src/dco2.pio)
+pico_generate_pio_header(${TARGET} ${CMAKE_CURRENT_LIST_DIR}/src/quad.pio)

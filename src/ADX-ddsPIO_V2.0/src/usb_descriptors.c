@@ -1,32 +1,28 @@
-#include "tud_audio_headset_stereo_desc.h"
-#include "usb_descriptors.h"
+#include <string.h>
+
 #include "tusb.h"
+#include "usb_descriptors.h"
+#include "tud_audio_headset_stereo_desc.h"
 
 #define USB_VID   0xCafe
 #define USB_PID   0x4011
 #define USB_BCD   0x0100
 
-// Endpoints
-#define EPNUM_CDC_NOTIF   0x81
+// -------------------- Endpoints --------------------
+// AUDIO (iso)
+#define EPNUM_AUDIO_OUT   0x01
+#define EPNUM_AUDIO_IN    0x81
+
+// CDC (notif interrupt + bulk data)
 #define EPNUM_CDC_OUT     0x02
 #define EPNUM_CDC_IN      0x82
+#define EPNUM_CDC_NOTIF   0x83
 
-#define EPNUM_MSC_OUT     0x03
-#define EPNUM_MSC_IN      0x83
+// MSC (bulk)
+#define EPNUM_MSC_OUT     0x04
+#define EPNUM_MSC_IN      0x84
 
-#define EPNUM_AUDIO_OUT   0x04
-#define EPNUM_AUDIO_IN    0x84
-
-// Dummy array SOLO para medir tamaño real del descriptor UAC2
-static uint8_t const _audio_desc_len_probe[] =
-{
-  TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(0x06, EPNUM_AUDIO_OUT, EPNUM_AUDIO_IN)
-};
-
-#define AUDIO_DESC_LEN  (sizeof(_audio_desc_len_probe))
-
-
-// Device descriptor
+// -------------------- Device descriptor --------------------
 const tusb_desc_device_t desc_device =
 {
   .bLength            = sizeof(tusb_desc_device_t),
@@ -55,11 +51,12 @@ uint8_t const * tud_descriptor_device_cb(void)
   return (uint8_t const*) &desc_device;
 }
 
-// Total length: config + CDC + MSC + AUDIO
+// -------------------- Configuration descriptor --------------------
 
-#include "adx_uac2_len.h"
-
-//#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_MSC_DESC_LEN + ADX_UAC2_FUNC_DESC_LEN)
+// Calculamos el largo real del bloque AUDIO sin macros *_LEN
+#define AUDIO_DESC_LEN ( sizeof((uint8_t const[]){ \
+  TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(0x06, EPNUM_AUDIO_OUT, EPNUM_AUDIO_IN) \
+}) )
 
 #define CONFIG_TOTAL_LEN \
   (TUD_CONFIG_DESC_LEN + \
@@ -67,14 +64,10 @@ uint8_t const * tud_descriptor_device_cb(void)
    TUD_MSC_DESC_LEN + \
    AUDIO_DESC_LEN)
 
-
-
 uint8_t const desc_configuration[] =
 {
   // Config: 1, interface count, string index, total length, attributes, power mA/2
-  //TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
   TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x80, 100),
-
 
   // CDC: itfnum, string index, notif ep, notif size, out ep, in ep, ep size
   TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 0x04,
@@ -84,12 +77,12 @@ uint8_t const desc_configuration[] =
   // MSC: itfnum, string index, out ep, in ep, ep size
   TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 0x05, EPNUM_MSC_OUT, EPNUM_MSC_IN, 64),
 
-  // AUDIO (tu macro UAC2)
+  // AUDIO (UAC2)
   TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(0x06, EPNUM_AUDIO_OUT, EPNUM_AUDIO_IN)
-
 };
 
-_Static_assert(sizeof(desc_configuration) == CONFIG_TOTAL_LEN,"CONFIG_TOTAL_LEN mismatch with desc_configuration[]");
+_Static_assert(sizeof(desc_configuration) == CONFIG_TOTAL_LEN,
+               "CONFIG_TOTAL_LEN mismatch with desc_configuration[]");
 
 uint8_t const * tud_descriptor_configuration_cb(uint8_t index)
 {
@@ -97,7 +90,7 @@ uint8_t const * tud_descriptor_configuration_cb(uint8_t index)
   return desc_configuration;
 }
 
-// Strings
+// -------------------- String descriptors --------------------
 static const char* string_desc_arr[] =
 {
   (const char[]){ 0x09, 0x04 },  // 0: English (US)

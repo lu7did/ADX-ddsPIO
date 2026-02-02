@@ -1,8 +1,6 @@
 #ifndef _USB_DESCRIPTORS_H_
 #define _USB_DESCRIPTORS_H_
 
-//#include "tusb.h"
-
 // Unit numbers are arbitrary selected
 #define UAC2_ENTITY_CLOCK               0x04
 // Speaker path
@@ -18,7 +16,7 @@ enum
   ITF_NUM_CDC = 0,
   ITF_NUM_CDC_DATA,
 
-  ITF_NUM_MSC,                 // <-- NUEVO
+  ITF_NUM_MSC,
 
   ITF_NUM_AUDIO_CONTROL,
   ITF_NUM_AUDIO_STREAMING_SPK,
@@ -27,11 +25,6 @@ enum
   ITF_NUM_TOTAL
 };
 
-// ------------------------------------------------------------
-// Audio descriptor length (tu macro original)
-// ------------------------------------------------------------
-
-#include "adx_uac2_len.h"
-
 #endif
+
 

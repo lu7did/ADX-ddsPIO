@@ -155,6 +155,8 @@ Work in progress
 ```
 
 
+* Quadrature clock support.
+
 
 ## Build environment
 
@@ -430,9 +432,8 @@ Again, trying to obtain such signal using the VCO technology it's quite difficul
 resources available, an approach to create them using again a PIO processor with that purpose
 is made.
 
-The result is a *digital quadrature frequency synth (I/Q) whose output can be seen in the
-following figure:
-![Alt Text](doc/ADX-ddsPIO_quad.png?raw=true "ADX-ddsPIO quadrature oscillator (I/Q)")  
+The result is a *digital quadrature frequency synth (I/Q)* and it's architecture and logic
+follows.
 
 ```
 This option is activated with the compilation directive #define QUAD 1

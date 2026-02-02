@@ -1356,7 +1356,36 @@ void tud_pump_task() {
 //*                                                 CORE 0 PROCESSOR                              */
 //* This is the code dedicated to manage USB, board LED, switches and the transceiver FSM         */                                                           */
 //*===============================================================================================*/
+//void tud_mount_cb(void) {
+//  // host hizo SET_CONFIGURATION -> ya hay config activa
+//  gpio_put(PICO_DEFAULT_LED_PIN, 1);
+//}
 
+//void tud_umount_cb(void) {
+//  gpio_put(PICO_DEFAULT_LED_PIN, 0);
+//}
+
+//void tud_suspend_cb(bool remote_wakeup_en) {
+//  (void)remote_wakeup_en;
+//  gpio_put(PICO_DEFAULT_LED_PIN, 0);
+//}
+
+
+//void tud_resume_cb(void) {
+//  gpio_put(PICO_DEFAULT_LED_PIN, 1);
+//}
+
+
+
+static void led_mark(uint8_t n) {
+  // Hace "n" pulsos cortos y deja el LED prendido al final
+  for (uint8_t i = 0; i < n; i++) {
+    gpio_put(PICO_DEFAULT_LED_PIN, 0); sleep_ms(80);
+    gpio_put(PICO_DEFAULT_LED_PIN, 1); sleep_ms(80);
+  }
+  gpio_put(PICO_DEFAULT_LED_PIN, 1);
+  sleep_ms(250);
+}
 
 //*----------------------------------------------------------------------------*/
 //*                         This is the main                                   */
@@ -1367,14 +1396,43 @@ void tud_pump_task() {
 //*--- Program starts HERE
 
 int main(void)
-{
+
+  gpio_init(PICO_DEFAULT_LED_PIN);
+  gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+  
+  led_mark(1);            // llegué al inicio de main
+
+  // NO llames stdio_init_all() en esta prueba
+
+  led_mark(2);            // antes de tusb_init
+  tusb_init();
+  led_mark(3);            // si ves esto, tusb_init NO cuelga
+
+  uint32_t ctr = 0;
+  while (true) {
+    tud_task();
+
+    // Blink por contador (no depende de timekeeping)
+    ctr++;
+    if ((ctr & 0x3FFFF) == 0) {   // ajusta si querés más rápido/lento
+      gpio_xor_mask(1u << PICO_DEFAULT_LED_PIN);
+    }
+  }
 
   stdio_init_all();
+  sleep_ms(200);
 
-  //*--- Initialize stdio and other hardware elements
 
-  stdio_init_all();
-  sleep_ms(500);
+  tusb_init();
+  wait_cdc_dtr_or_timeout(1500);  // 1.5 s
+
+  while (true) {
+    tud_task();          // CRÍTICO: debe ejecutarse MUY seguido
+    heartbeat_tick();
+    tight_loop_contents();
+  }
+
+
  
   //*--- Initialize hardware board
  
@@ -1481,25 +1539,35 @@ int main(void)
     }
   }
 
+  
   #ifdef WAITSERIAL
-  gpio_put(PICO_DEFAULT_LED_PIN,blink); 
-  blink=false;
-  t=to_ms_since_boot(get_absolute_time());
-  while (true) {
-    tud_task();                 // mantiene USB vivo
-    if (tud_cdc_connected() && cdc_dtr) break;  // host abrió el puerto
-    sleep_ms(1);
-    if (to_ms_since_boot(get_absolute_time())-t > 100) {
-        t=to_ms_since_boot(get_absolute_time());
-        blink=!blink;
-        gpio_put(PICO_DEFAULT_LED_PIN,blink); 
+  if (tud_mounted()) {
+    gpio_put(PICO_DEFAULT_LED_PIN, blink);
+    blink = false;
+    t = to_ms_since_boot(get_absolute_time());
+
+    while (true) {
+      tud_task();
+      if (tud_cdc_connected() && cdc_dtr) break;
+
+      sleep_ms(1);
+      if (to_ms_since_boot(get_absolute_time()) - t > 100) {
+        t = to_ms_since_boot(get_absolute_time());
+        blink = !blink;
+        gpio_put(PICO_DEFAULT_LED_PIN, blink);
       }
+
+      // timeout para no quedar colgado aunque esté mounted pero sin abrir puerto
+      if (to_ms_since_boot(get_absolute_time()) - t > 10000) {
+        break; // 10s
+      }
+    }
+
+    gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    tud_pump_task();
   }
+#endif
 
-  gpio_put(PICO_DEFAULT_LED_PIN,0);
-  tud_pump_task();
-
-  #endif //WAITSERIAL
 
   cdc_printf("%s (c) %s version(%s) build(%s)\n",PROGNAME,AUTHOR,VERSION,BUILD);
   
