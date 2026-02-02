@@ -2252,27 +2252,35 @@ static void si4732_set_frequency(si4732_t *radio, uint32_t frqFT8) {
 
   //*--- Set default band
 
-  si4732_band_preset_t bp = parse_band(si4732band);
-  si4732_band_t b = si4732_band_preset(bp, radio->region_profile);
+  si4732_band_preset_t __attribute__((unused)) bp = parse_band(si4732band);
+  si4732_band_t __attribute__((unused)) b = si4732_band_preset(bp, radio->region_profile);
 
   sleep_ms(100);
   
-  //*--- Ensure correct power up for FM/AM
+  //*--- Ensure correct power up for AM
   
-  rc = (b.mode == SI4732_MODE_FM) ? si4732_power_up_fm(radio) : si4732_power_up_am(radio, false);
+  si4732_power_up_am(radio,false);
+
+  //rc = (b.mode == SI4732_MODE_FM) ? si4732_power_up_fm(radio) : si4732_power_up_am(radio, false);
   cdc_printf("si4732: (init) power up rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
 
   if (rc != SI4732_OK) { 
     cdc_printf("si4732: (init) setup power up failed\n");
-  } else {
-    rc = si4732_set_band(radio, &b);
-    cdc_printf("si4732: (init) band(%s) set rc=%d last_status=0x%02X\n",si4732band,(int)rc, radio->last_status);
-  }
+  }  
+  //} else {
+  //  rc = si4732_set_band(radio, &b);
+  //  cdc_printf("si4732: (init) band(%s) set rc=%d last_status=0x%02X\n",si4732band,(int)rc, radio->last_status);
+  //}
 
     //*--- Default should be "ssb" but the init cover them all
 
   sleep_ms(100);
-  
+  rc = si4732_power_up_am(radio, false);
+  cdc_printf("si4732: (init) power up AM/SSB rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+  rc = si4732_load_patch(radio, si4732_ssb_patch, si4732_ssb_patch_len);
+  cdc_printf("si4732: (init) load SSB patch rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
+
+  /*
   if (strcmp(si4732mode, "fm")) {
      rc = si4732_power_up_fm(radio);
      cdc_printf("si4732: (init) power up FM rc=%d last_status=0x%02X\n",(int)rc, radio->last_status);
@@ -2287,6 +2295,7 @@ static void si4732_set_frequency(si4732_t *radio, uint32_t frqFT8) {
         }
      }
   }
+  */
 
   return (si4732_status_t)SI4732_INIT_OK;
 }
