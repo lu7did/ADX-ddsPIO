@@ -194,6 +194,29 @@ si4732_status_t si4732_ssb_enter(si4732_t *dev);
 si4732_status_t si4732_ssb_set_bfo(si4732_t *dev, int16_t bfo_hz);
 si4732_status_t si4732_ssb_set_sideband(si4732_t *dev, bool usb); // true=USB false=LSB
 si4732_status_t si4732_ssb_set_filter(si4732_t *dev, uint8_t filter_idx);
+// --- Read back tuned frequency from the chip (FM: 10kHz units, AM: kHz)
+
+si4732_status_t si4732_get_tuned_freq(si4732_t *dev, uint32_t *out_freq);
+si4732_status_t si4732_dump_tune_status(si4732_t *dev, uint8_t out8[8]);
+
+si4732_status_t si4732_get_tune_status(si4732_t *dev,
+                                       bool clear_int,
+                                       uint32_t *out_freq,
+                                       uint8_t *out_rssi,
+                                       uint8_t *out_snr,
+                                       bool *out_stc);
+
+
+si4732_status_t cmd_write_read(si4732_t *dev,
+                                      const uint8_t *cmd, size_t cmd_len,
+                                      uint8_t *resp, size_t resp_len,
+                                      uint32_t timeout_ms);
+                                      
+si4732_status_t wait_stc(si4732_t *dev, uint32_t timeout_ms, bool clear_int);
+si4732_status_t i2c_read_bytes(si4732_t *dev, uint8_t *buf, size_t len);
+si4732_status_t i2c_write_bytes(si4732_t *dev, const uint8_t *buf, size_t len);
+
+
 
 //*--- Probe if the board has an active Si4732 device
 bool si4732_probe(si4732_t *dev);

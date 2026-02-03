@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.13)
 
-# ------------------------------------------------------------------------------------
-# Pico SDK import
-# ------------------------------------------------------------------------------------
-# Default PICO_SDK_PATH si no se pasó por -D ni por env
+# Exporta compile_commands.json (para IntelliSense)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# ---- SDK path (igual a lo tuyo, pero sin duplicados) ----
 if(NOT DEFINED PICO_SDK_PATH)
   if(DEFINED ENV{PICO_SDK_PATH})
     set(PICO_SDK_PATH "$ENV{PICO_SDK_PATH}" CACHE PATH "Path to Pico SDK")
@@ -12,89 +12,90 @@ if(NOT DEFINED PICO_SDK_PATH)
   endif()
 endif()
 
+# ---- Board ----
+set(PICO_BOARD pico CACHE STRING "Board type")  # pico_w si corresponde
+
+# ---- TinyUSB family (solo si realmente lo necesitás) ----
+if(NOT DEFINED FAMILY)
+  set(FAMILY "rp2040" CACHE STRING "TinyUSB family" FORCE)
+endif()
+
+# Pull in Pico SDK
 include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
+# TinyUSB family support (una sola vez)
+include(${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/family_support.cmake)
+
 project(ADX-ddsPIO C CXX ASM)
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
 
-pico_sdk_init()
+# Importante: NO llamás pico_sdk_init() porque family_initialize_project lo hace
+family_initialize_project(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR})
 
-set(TARGET ADX-ddsPIO)
+add_executable(${PROJECT_NAME})
 
-add_executable(${TARGET}
-  src/main.c
-  src/usb_descriptors.c
-  src/usb_audio.c
-  src/usb_msc.c
-  src/flash_bd.c
-  src/fs.c
-  src/fatfs/ff.c
-  src/fatfs/diskio.c
-  src/fatfs/fattime.c
-  src/piodco.c
-  src/si4732.c
-  src/EEPROM.c
-  src/quad.c
-  src/si4732_patch_ssb.c
-  src/lib/adx_assert.c
+target_sources(${PROJECT_NAME} PRIVATE
+  ${CMAKE_CURRENT_LIST_DIR}/src/main.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/usb_descriptors.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/piodco.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/si4732.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/usb_audio.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/lib/assert.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/EEPROM.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/quad.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/si4732_patch_ssb.c
 )
 
-# IMPORTANTE:
-# - Esto garantiza que TinyUSB encuentre tu tusb_config.h (en src/)
-target_include_directories(${TARGET} PUBLIC
+target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/src
-  ${CMAKE_CURRENT_LIST_DIR}/src/lib
-  ${CMAKE_CURRENT_LIST_DIR}/src/fatfs
-  ${CMAKE_CURRENT_LIST_DIR}/src/lib/jsmn
-  ${CMAKE_CURRENT_LIST_DIR}/src/lib/thirdparty
+  ${PICO_SDK_PATH}/lib/tinyusb/src
+  ${PICO_SDK_PATH}/lib/tinyusb/hw
 )
 
-# Flags: evitá romper terceros
-target_compile_options(${TARGET} PRIVATE
-  -Wall -Wextra
-  -Werror
-  -Wsign-conversion
-  -Wconversion
+target_compile_options(${PROJECT_NAME} PRIVATE
+  -Wall -Wextra -Werror -Wsign-conversion -Wconversion
 )
 
-# No tratar warnings de lwIP como errores (si está presente)
-if (TARGET pico_lwip)
-  target_compile_options(pico_lwip INTERFACE -Wno-error -Wno-sign-conversion -Wno-conversion)
+if (PICOW)
+  target_link_libraries(${PROJECT_NAME} PRIVATE
+    pico_stdlib
+    tinyusb_device
+    tinyusb_board
+    pico_multicore
+    hardware_pio
+    hardware_adc
+    hardware_i2c
+    hardware_gpio
+    hardware_rtc
+    hardware_watchdog
+    hardware_flash
+    hardware_sync
+    pico_cyw43_arch_lwip_poll
+  )
+else()
+  target_link_libraries(${PROJECT_NAME} PRIVATE
+    pico_stdlib
+    tinyusb_device
+    tinyusb_board
+    pico_multicore
+    hardware_pio
+    hardware_adc
+    hardware_i2c
+    hardware_gpio
+    hardware_rtc
+    hardware_watchdog
+    hardware_flash
+    hardware_sync
+    hardware_clocks
+    hardware_pll
+  )
 endif()
-if (TARGET pico_lwip_nosys)
-  target_compile_options(pico_lwip_nosys INTERFACE -Wno-error -Wno-sign-conversion -Wno-conversion)
-endif()
 
-# Si querés meter project_config.h forzado
-target_compile_options(${TARGET} PRIVATE
-  $<$<COMPILE_LANGUAGE:C>:-include ${CMAKE_CURRENT_LIST_DIR}/src/project_config.h>
-  $<$<COMPILE_LANGUAGE:CXX>:-include ${CMAKE_CURRENT_LIST_DIR}/src/project_config.h>
-)
+pico_add_extra_outputs(${PROJECT_NAME})
 
-# Evitar que stdio use USB (para no interferir con la device stack / CDC)
-pico_enable_stdio_usb(${TARGET} 0)
-pico_enable_stdio_uart(${TARGET} 1)
+# Configuración TinyUSB ejemplo
+family_configure_device_example(${PROJECT_NAME} noos)
 
-target_link_libraries(${TARGET}
-  pico_stdlib
-  tinyusb_device
-  tinyusb_board
-  pico_multicore
-  hardware_pio
-  hardware_adc
-  hardware_rtc
-  hardware_flash
-  hardware_sync
-  hardware_i2c
-  hardware_gpio
-  hardware_watchdog
-  hardware_clocks
-  hardware_pll
-)
-
-pico_add_extra_outputs(${TARGET})
-
-pico_generate_pio_header(${TARGET} ${CMAKE_CURRENT_LIST_DIR}/src/BFO.pio)
-pico_generate_pio_header(${TARGET} ${CMAKE_CURRENT_LIST_DIR}/src/dco2.pio)
-pico_generate_pio_header(${TARGET} ${CMAKE_CURRENT_LIST_DIR}/src/quad.pio)
+# PIO headers
+pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/BFO.pio)
+pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/dco2.pio)
+pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/quad.pio)

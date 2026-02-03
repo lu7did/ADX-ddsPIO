@@ -69,7 +69,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 #include "piodco.h"
 #include <string.h>
-#include "lib/adx_assert.h"
+#include "lib/assert.h"
 #include "../build/dco2.pio.h"
 
 volatile int32_t si32precise_cycles;
