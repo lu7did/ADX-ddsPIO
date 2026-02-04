@@ -14,6 +14,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "ADX-ddsPIO.h"
 
 //*---------------------------------------------------------------------------------------*
 //* Define a 256 bytes storage area for the run time configuration 
@@ -23,21 +24,13 @@
 #define FLASH_TARGET_OFFSET (1024 * 1024) 
 #define FLASH_SECTOR_SIZE    4096 
 
-//*---------------------------------------------------------------------------------------*
-//* Define a 256 bytes storage area for the run time configuration 
-//*---------------------------------------------------------------------------------------*
-typedef struct {
-    uint8_t ID;
-    uint8_t mode;
-    uint8_t Band_slot;
-    uint8_t reserved[125];
-} EEPROMData;
+
 
 //*---------------------------------------------------------------------------------------*
 //*                              Prototypes 
 //*---------------------------------------------------------------------------------------*
-void EEPROM_read(EEPROMData *dest);
-void EEPROM_write(const EEPROMData *src);
+void EEPROM_read(ADX_ddsPIO_t *dest);
+void EEPROM_write(const ADX_ddsPIO_t *src);
 void EEPROM_reset();
 
 

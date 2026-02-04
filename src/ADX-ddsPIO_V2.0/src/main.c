@@ -177,6 +177,7 @@
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
+/*
 #ifdef SI4732                    //If Si4732 chipset enabled it's the dominant receiver
 #undef SUPERHET
 #undef QUAD
@@ -197,7 +198,7 @@
 #undef WAITSERIAL
 #undef RTC
 #endif //!DEBUG
-
+*/
 
 //*==============================================================================================*
 //*                                  Includes and Source Libraries                               *
@@ -226,6 +227,7 @@
 #include "../build/dco2.pio.h"
 #include "hardware/rtc.h"
 #include "pico/util/datetime.h"
+#include "ADX-ddsPIO.h"
 
 #ifdef SI4732
 #include "si4732.h"
@@ -277,8 +279,11 @@
 #define GEN_FRQ_HZ    14074000L           // Generator Frequency (in Hz)
 #define FT8_BASE_HZ       1000L           // FT8 base frequency (in Hz) <Not used>
 #define FREQ_BFO        446400L           // BFO Frequency 
+#define DEFAULT_MODE         4
+#define DEFAULT_SLOT         3
+#define DEFAULT_VOLUME      60
 
-#define SLOT                  3
+
 #define NBANDS                7
 #define NMODES                4
 
@@ -370,8 +375,9 @@
 //*==============================================================================================*
 //*                                  Global Memory Areas                                         *
 //*==============================================================================================*
-uint32_t frqFT8  = GEN_FRQ_HZ;
-uint32_t frqbfo  = FREQ_BFO;
+
+ADX_ddsPIO_t ADX;                      //*--- System Variables
+
 char hi[80];
 uint8_t marker=0;
 uint32_t t;
@@ -435,6 +441,7 @@ si4732_t radio;
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
 //*==============================================================================================*
+int slot2Band(int s);
 void core1_entry(void);
 void cdc_write(char *, uint16_t);
 uint32_t cdc_read(void);
@@ -471,6 +478,10 @@ uint8_t si4732_vol=SI4732_DEFAULT_VOLUME;
 bool    si4732_mute=false;
 #endif //SI4732
 
+#ifdef EEPROM
+void __attribute__((unused)) readEEPROM();
+void __attribute__((unused)) updateEEPROM();
+#endif //EEPROM
 
 //*==============================================================================================*
 //*                            Debug tools for Quadrature oscillator if defined                  *
@@ -576,9 +587,9 @@ static void dump_solution(const char *tag,
 // Supported Bands are: 80m, 40m, 30m, 20m,17m, 15m, 10m
 //*----------------------------------------------------------------------------------------------*
 int slot[4]   = {40,30,20,10};
-int Band_slot = SLOT;                  //This is the default band Band1=1,Band2=2,Band3=3,Band4=4
-int Band      =   20;                  //This is the default band
-int mode      =    4;                  //Default mode is FT8
+//int Band_slot = SLOT;                  //This is the default band Band1=1,Band2=2,Band3=3,Band4=4
+//int mode      =    4;                  //Default mode is FT8
+int Band;                                //This is the default band=slot[ADX.slot-1]
 
 long unsigned int Bands[NBANDS][NMODES] = {
                                           { 3568600, 3578000, 3575000, 3573000},
@@ -620,28 +631,34 @@ static void pio_square_wave(PIO pio, uint sm, uint offset, uint pin, float targe
 }
 #endif //SUPERHET
 
+#ifdef NOCALL
 #ifdef EEPROM
 /*----------------------------------------------------------------------------*/
 /* updateEEPROM                                                               */
 /*----------------------------------------------------------------------------*/
 void updateEEPROM() {
 
-  EEPROMData eeprom;
+  ADX_ddsPIO_t eeprom;
   EEPROM_read(&eeprom);
 
-  cdc_printf("Configuration      mode(%d) band(%d)\n",mode,Band_slot);
-  cdc_printf("Read EEPROM ID(%d) mode(%d) band(%d)\n",eeprom.ID,eeprom.mode,eeprom.Band_slot);
+  cdc_printf("Configuration      mode(%d) band(%d)\n",ADX.mode,ADX.slot);
+  cdc_printf("Read EEPROM ID(%d) mode(%d) band(%d)\n",eeprom.ID,eeprom.mode,eeprom.slot);
 
   //*--- Update configuration datadata
   eeprom.ID = 0x01;
-  eeprom.mode = (uint8_t)mode;
-  eeprom.Band_slot = (uint8_t)Band_slot;
+  eeprom.mode = (uint8_t)ADX.mode;
+  eeprom.slot = (uint8_t)ADX.slot;
 
-  cdc_printf("Write EEPROM ID(%d) mode(%d) band(%d)\n",eeprom.ID,eeprom.mode,eeprom.Band_slot);
+  cdc_printf("Write EEPROM ID(%d) mode(%d) band(%d)\n",eeprom.ID,eeprom.mode,eeprom.slot);
   EEPROM_write(&eeprom);
 
 }
 #endif //EEPROM
+#endif //NOCALL
+
+/*----------------------------------------------------------------------------*/
+/* Forces the clean up of the TUD task queue                                  */
+/*----------------------------------------------------------------------------*/
 void pump_tud_task() {
   for (int i=0; i<100; i++) {
      tud_task();
@@ -687,20 +704,20 @@ return i;
 /*----------------------------------------------------------------------------*/
 void Mode_assign() {
 
-  cdc_printf("Assigning mode(%d) for Band(%d)\n", mode, Band);
+  cdc_printf("Assigning mode(%d) for Band(%d)\n", ADX.mode, Band);
   int b=band2idx(Band);
-  frqFT8=Bands[b][mode-1];
-  PioDCOSetFreq(&DCO, frqFT8, 0U);    //*--- Change frequency according to band and mode
+  ADX.frqFT8=Bands[b][ADX.mode-1];
+  PioDCOSetFreq(&DCO, ADX.frqFT8, 0U);    //*--- Change frequency according to band and mode
   
   #ifdef SI4732
-  si4732_set_frequency(&radio,frqFT8);
+  si4732_set_frequency(&radio,ADX.frqFT8);
   #endif //SI4732
 
   clearLED();
 
   //adc_drain();
   
-  switch(mode) {
+  switch(ADX.mode) {
      case 1: gpio_put(WSPR,true);break;
      case 2: gpio_put(JS8,true);break;
      case 3: gpio_put(FT4,true);break;
@@ -709,18 +726,11 @@ void Mode_assign() {
 
 #ifdef EEPROM
   
-  EEPROMData eeprom;
-  EEPROM_read(&eeprom);
-  if (eeprom.ID == 0x01) {
-     eeprom.mode = (uint8_t)mode;
-     eeprom.Band_slot = (uint8_t)Band_slot;
-     EEPROM_write(&eeprom);
-     cdc_printf("Updated EEPROM mode(%d) slot(%d)\n",mode,Band_slot);
-  } 
+  updateEEPROM();
 
 #endif //EEPROM
 
-  cdc_printf("transceiver mode mode(%d) Band(%d) index(%d) freq(%ld)\n", mode, Band, b, frqFT8);
+  cdc_printf("Mode changed mode(%d) Band(%d) index(%d) freq(%ld)\n", ADX.mode, Band, b, ADX.frqFT8);
 
 }
 
@@ -730,9 +740,9 @@ void Mode_assign() {
 void Band_assign() {
 
   clearLED();
-  Band=slot2Band(Band_slot);
+  Band=slot2Band(ADX.slot);
 
-  switch(Band_slot) {
+  switch(ADX.slot) {
      case 0: blinkLED(WSPR,3,100); break;
      case 1: blinkLED(JS8,3,100); break;
      case 2: blinkLED(FT4,3,100); break;
@@ -740,7 +750,7 @@ void Band_assign() {
   }
     
   Mode_assign();
-  cdc_printf("band_slot=%d mode=%d band=%d\n",Band_slot, mode, Band);
+  cdc_printf("band_slot=%d mode=%d band=%d\n",ADX.slot, ADX.mode, Band);
 }
 //*==============================================================================================*
 //*                          Services and board management functions                             *
@@ -810,7 +820,7 @@ void setTX(bool state) {
 
     if (state) {
 
-       uint32_t f = frqFT8;
+       uint32_t f = ADX.frqFT8;
 
        #ifdef QUAD
           quad_stop(&osc);
@@ -830,8 +840,7 @@ void setTX(bool state) {
 
       } else {
 
-        uint32_t f = frqFT8;
-
+        uint32_t f = ADX.frqFT8;
         PioDCOSetFreq(&DCO, f, 0U);
 
         #ifdef QUAD
@@ -885,7 +894,7 @@ void Band_Select() {
   while (true){  
  
      clearLED();
-     switch(Band_slot) {
+     switch(ADX.slot) {
        case 1: gpio_put(FT8,true); break;
        case 2: gpio_put(FT4,true); break;
        case 3: gpio_put(JS8,true); break;
@@ -893,27 +902,27 @@ void Band_Select() {
   }
   
   if ((!testButton(UP)) && (testButton(DOWN))) {    //UP Button pressed, decrease band slot
-     Band_slot--;
-     if (Band_slot<1) {
-        Band_slot=4;
+     ADX.slot--;
+     if (ADX.slot<1) {
+        ADX.slot=4;
      }
      while(testButton(UP)==false);
-     cdc_printf("<UP> Band_slot=%d\n", Band_slot);
+     cdc_printf("<UP> Band_slot=%d\n", ADX.slot);
   }
 
   if ((testButton(UP)) && (!testButton(DOWN))) {    //DOWN Button pressed, increase
-     Band_slot++;
-     if (Band_slot>4) {
-        Band_slot=1;
+     ADX.slot++;
+     if (ADX.slot>4) {
+        ADX.slot=1;
      }
      while(testButton(DOWN)==false);
-     cdc_printf("<DOWN> Band_slot=%d\n", Band_slot);
+     cdc_printf("<DOWN> Band_slot=%d\n", ADX.slot);
   }
 
   if (!testButton(TXSW)) {
      gpio_put(TX,false);
      Band_assign();
-     cdc_printf("completed set Band_slot=%d\n", Band_slot);
+     cdc_printf("completed set Band_slot=%d\n", ADX.slot);
      return;
   }
 }
@@ -953,18 +962,19 @@ void checkButtons() {
   if (!gpio_get(UP) && gpio_get(DOWN) && Tx_Status == 0) {
     pump_tud_task();
     if (!testButton(UP) && testButton(DOWN)){
-        mode=mode-1;
-        if (mode<1) mode=4;
+        ADX.mode=ADX.mode-1;
+        if (ADX.mode<1) ADX.mode=4;
         Mode_assign();
         while(!testButton(UP));
         cdc_printf("UP Mode down button released\n");
-        PioDCOSetFreq(&DCO,frqFT8,0U);
+        PioDCOSetFreq(&DCO,ADX.frqFT8,0U);
+
         #ifdef SI4732
-        si4732_set_frequency(&radio,frqFT8);
+        si4732_set_frequency(&radio,ADX.frqFT8);
         #endif //SI4732
     
         #ifdef QUAD
-        quad_set_frequency(&osc, frqFT8, false, &sol);  
+        quad_set_frequency(&osc, ADX.frqFT8, false, &sol);  
         dump_solution("Button", &sol, osc.pio , osc.sm);
         #endif //QUAD
 
@@ -979,19 +989,19 @@ void checkButtons() {
   if (gpio_get(UP) && !gpio_get(DOWN) && Tx_Status == 0) {
     if (testButton(UP) && !testButton(DOWN)){
         cdc_printf("DOWN mode pressed Band selection action started|n");
-         mode=mode+1;
-        if (mode>4) mode=1;
+         ADX.mode=ADX.mode+1;
+        if (ADX.mode>4) ADX.mode=1;
         Mode_assign();
         while(!testButton(DOWN));
 
-        PioDCOSetFreq(&DCO,frqFT8,0U);
+        PioDCOSetFreq(&DCO,ADX.frqFT8,0U);
 
         #ifdef SI4732
-        si4732_set_frequency(&radio,frqFT8);
+        si4732_set_frequency(&radio,ADX.frqFT8);
         #endif 
 
         #ifdef QUAD
-        quad_set_frequency(&osc, frqFT8, false, &sol);
+        quad_set_frequency(&osc, ADX.frqFT8, false, &sol);
         dump_solution("Button ", &sol, osc.pio , osc.sm);
         #endif //QUAD
         cdc_printf("Mode up mode pressed\n");
@@ -1021,7 +1031,7 @@ void core1_entry()
 
     //*--- Set the DCO initial (default) frequency
 
-    uint32_t f = frqFT8 + 0U;
+    uint32_t f = ADX.frqFT8 + 0U;
     PioDCOStart(&DCO);
     PioDCOSetFreq(&DCO, f, 0U);
 
@@ -1034,6 +1044,150 @@ void core1_entry()
 //*==============================================================================================*
 //*                                  Board management                                            *
 //*==============================================================================================*
+//*----------------------------------------------------------------------------*/
+//* Clean up the TUD queue                                                     */                             
+//*----------------------------------------------------------------------------*/
+void tud_pump_task() {
+   for (int i=0;i<10;i++) {
+      tud_task();
+      sleep_ms(1);
+   }
+}
+//*----------------------------------------------------------------------------*/
+//* Open the TinyUSB (TUD) interface and wait for it to be opened              */                             
+//*----------------------------------------------------------------------------*/
+void TUDstart(){
+  //*--- Start the USB service loop
+
+  tud_init(BOARD_TUD_RHPORT);
+  //tusb_init();
+  
+  absolute_time_t t0 = get_absolute_time();
+  while (!tud_mounted()) {
+    tud_task();
+    if (absolute_time_diff_us(t0, get_absolute_time()) > 3 * 1000 * 1000) {
+        break;           // timeout 3 secs, do not hang the system
+    }
+  }
+
+}
+
+//*----------------------------------------------------------------------------*/
+//* Update the EEPROM values with the current operating values                 */                             
+//*----------------------------------------------------------------------------*/
+void __attribute__((unused)) updateEEPROM() {
+
+  ADX_ddsPIO_t eeprom;
+  
+  eeprom.ID    = 0x01;
+  eeprom.mode  = (uint8_t)ADX.mode;
+  eeprom.slot  = (uint8_t)ADX.slot;
+  eeprom.volume=ADX.volume;
+  eeprom.frqFT8=ADX.frqFT8;
+  eeprom.frqbfo=ADX.frqbfo;
+
+  EEPROM_write(&eeprom);
+  cdc_printf("EEPROM configuration updated\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
+
+}
+//*----------------------------------------------------------------------------*/
+//* Read the EEPROM values and use them as the operating defintion             */
+//*----------------------------------------------------------------------------*/
+void __attribute__((unused)) readEEPROM() {
+    
+    //*--- update EEPROM if not initialized yet
+    ADX_ddsPIO_t eeprom;
+    EEPROM_read(&eeprom);
+
+    if (eeprom.ID != 0x01) {
+       updateEEPROM();
+       sleep_ms(10);
+       cdc_printf("EEPROM empty, reset to defaults\n");
+    } else {
+       ADX.mode=eeprom.mode;
+       ADX.slot=eeprom.slot;
+       ADX.frqFT8=eeprom.frqFT8;
+       ADX.frqbfo=eeprom.frqbfo;
+       ADX.volume=eeprom.volume;
+       cdc_printf("EEPROM configuration recovered\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
+      }     
+}
+
+//*----------------------------------------------------------------------------*/
+//* Wait for the serial monitor to open before continuing                      */                             
+//*----------------------------------------------------------------------------*/
+void waitserial() {
+
+  gpio_put(PICO_DEFAULT_LED_PIN,blink); 
+  blink=false;
+  t=to_ms_since_boot(get_absolute_time());
+  while (true) {
+    tud_task();                 // mantiene USB vivo
+    if (tud_cdc_connected() && cdc_dtr) break;  // host abrió el puerto
+    sleep_ms(1);
+    if (to_ms_since_boot(get_absolute_time())-t > 200) {
+        t=to_ms_since_boot(get_absolute_time());
+        blink=!blink;
+        gpio_put(PICO_DEFAULT_LED_PIN,blink); 
+      }
+  }
+
+  gpio_put(PICO_DEFAULT_LED_PIN,0);  //*--- Turn on left when Serial monitor has been opened
+  tud_pump_task();
+
+}
+//*----------------------------------------------------------------------------*/
+//* Check for TXSW pressed on start up and reset if detected                   */
+//*----------------------------------------------------------------------------*/
+void resetDefaults() {
+
+  if (gpio_get(TXSW)) {               //If TXSW is high then leave
+     return;
+  }
+
+  //*--- If pressed wait till release and the reset to factory defaults
+
+  gpio_put(PICO_DEFAULT_LED_PIN,1); 
+  blink=false;
+  t=to_ms_since_boot(get_absolute_time());
+  while (!gpio_get(TXSW)) {
+    tud_task();                 // mantiene USB vivo
+    if (to_ms_since_boot(get_absolute_time())-t > 2000) {
+        t=to_ms_since_boot(get_absolute_time());
+        blink=!blink;
+        gpio_put(PICO_DEFAULT_LED_PIN,blink); 
+      }
+  }
+
+  gpio_put(PICO_DEFAULT_LED_PIN,0);  //*--- Turn on left when Serial monitor has been opened
+  tud_pump_task();
+  updateEEPROM();
+
+}
+//*----------------------------------------------------------------------------*/
+//* Setup the default configuration of the board                               */                             
+//*----------------------------------------------------------------------------*/
+void ADXinit(){
+
+  ADX.mode   = DEFAULT_MODE;
+  ADX.slot   = DEFAULT_SLOT;
+  ADX.volume = DEFAULT_VOLUME;
+  ADX.frqFT8 = FT8_BASE_HZ;
+  ADX.frqbfo = FREQ_BFO;
+  Band       = slot2Band(ADX.slot);
+
+  //*--- define the DEFAULT (board) LED
+
+  #if defined(PICO) || defined(RP2040Z)
+  gpio_init(PICO_DEFAULT_LED_PIN);
+  gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+  defaultLED(true);
+  #else
+  cyw43_arch_init(); 
+  #endif //!PICOW
+
+
+}
 
 //*----------------------------------------------------------------------------*/
 //* Setup I/O for the ADX board controls (LED, switches and jumpers            */
@@ -1082,40 +1236,13 @@ void ADXsetup(){
     gpio_init(DOWN);
     gpio_set_dir(DOWN, GPIO_IN);    
     gpio_pull_up(DOWN);
-   
-  
-    #ifdef EEPROM
     
-    //*--- update EEPROM if not initialized yet
-    EEPROMData eeprom;
-    EEPROM_read(&eeprom);
-
-    if (eeprom.ID != 0x01) {
-       eeprom.ID = 0x01;
-       eeprom.mode = (uint8_t)mode;
-       eeprom.Band_slot = (uint8_t)Band_slot;
-       EEPROM_write(&eeprom);
-       marker=1;
-       sleep_ms(10);
-    } else {
-       mode=eeprom.mode;
-       Band_slot=eeprom.Band_slot;
-    }
-        
-    #endif //EEPROM
-
+  
     //*--- End of ADX control board initialization
     cdc_printf("ADX I/O control board initialized\n");
 
-
 }
 
-void tud_pump_task() {
-   for (int i=0;i<10;i++) {
-      tud_task();
-      sleep_ms(1);
-   }
-}
 //*===============================================================================================*/
 //*                                                 CORE 0 PROCESSOR                              */
 //* This is the code dedicated to manage USB, board LED, switches and the transceiver FSM         */                                                           */
@@ -1141,65 +1268,21 @@ int main(void)
 
   stdio_init_all();
   sleep_ms(500);
- 
-    //*--- define the DEFAULT (board) LED
+  ADXinit();
+  TUDstart();
 
-  #if defined(PICO) || defined(RP2040Z)
-
-  gpio_init(PICO_DEFAULT_LED_PIN);
-  gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-  defaultLED(true);
-
-  #else
-
-  cyw43_arch_init(); 
-
-  #endif //!PICOW
-
-  //*--- Start the USB service loop
-  tud_init(BOARD_TUD_RHPORT);
-  //tusb_init();
+  #ifdef WAITSERIAL
+  waitserial();
+  #endif //WAITSERIAL
   
-  absolute_time_t t0 = get_absolute_time();
-  while (!tud_mounted()) {
-    tud_task();
-    if (absolute_time_diff_us(t0, get_absolute_time()) > 3 * 1000 * 1000) {
-        break;           // timeout 3 secs, do not hang the system
-    }
-  }
-
-  #ifdef WAITSERIAL
-  gpio_put(PICO_DEFAULT_LED_PIN,blink); 
-  blink=false;
-  t=to_ms_since_boot(get_absolute_time());
-  while (true) {
-    tud_task();                 // mantiene USB vivo
-    if (tud_cdc_connected() && cdc_dtr) break;  // host abrió el puerto
-    sleep_ms(1);
-    if (to_ms_since_boot(get_absolute_time())-t > 200) {
-        t=to_ms_since_boot(get_absolute_time());
-        blink=!blink;
-        gpio_put(PICO_DEFAULT_LED_PIN,blink); 
-      }
-  }
-
-  gpio_put(PICO_DEFAULT_LED_PIN,0);
-
-  for (int i=0; i<100; i++) {
-     tud_task();
-     sleep_ms(1);
-  }
-  #endif //WAITSERIAL
-
   cdc_printf("%s version(%s) build(%s)\n",PROGNAME,VERSION,BUILD);
-
-  #ifdef WAITSERIAL
-  cdc_printf("Support for Serial Monitor started\n");
-  #endif //WAITSERIAL
-
-  #if defined(PICO) || defined(RP2040Z)
   ADXsetup();
-  #endif //PICO
+
+  #if EEPROM
+  //*--- Sense if the TXSW button is pressed on startup, if so reset EEPROM, then read EEPROM back
+  resetDefaults();
+  readEEPROM();
+  #endif //EEPROM
 
   #ifdef RTC
   //*----------- Setup RTC, this is only used to sync seconds   ---------------*
@@ -1214,7 +1297,7 @@ int main(void)
   PIO piobfo = pio1;
   uint sm = 0;
   uint offset = (uint) pio_add_program(piobfo, &BFO_program);
-  float fbfo=(float)frqbfo*1.0f;
+  float fbfo=(float)ADX.frqbfo*1.0f;
   pio_square_wave(piobfo, sm, offset, CLK2, fbfo);
   cdc_printf("Superhet support BFO initialized\n");
   #endif //SUPERHET 
@@ -1291,7 +1374,7 @@ int main(void)
   
   #ifdef QUAD
   //*--- Start the oscillator
-  quad_start(&osc, frqFT8, false, &sol);
+  quad_start(&osc, ADX.frqFT8, false, &sol);
   dump_solution("Start I/Q", &sol, osc.pio , osc.sm);
   cdc_printf("Quad oscillator started\n");
   #endif //QUAD
@@ -1429,7 +1512,7 @@ void transmitting(){
           audio_freq += cycle_frequency[i];
        }
        audio_freq = audio_freq / (uint64_t)cycle;
-       uint32_t f = frqFT8 + (uint32_t)audio_freq;
+       uint32_t f = ADX.frqFT8 + (uint32_t)audio_freq;
 
        //*--- as the FSK frequency has been detected change the DCO accordingly
 
@@ -1653,11 +1736,11 @@ void cat(void)
       long int freqset = strtol(parameter, NULL, 10);
       if (freqset >= 1000000 && freqset <= 54000000){
 
-        frqFT8 = (uint32_t)freqset;       
-        PioDCOSetFreq(&DCO,frqFT8,0U);
+        ADX.frqFT8 = (uint32_t)freqset;       
+        PioDCOSetFreq(&DCO,ADX.frqFT8,0U);
 
         #ifdef QUAD
-        quad_set_frequency(&osc, frqFT8, false, &sol)
+        quad_set_frequency(&osc, ADX.rqFT8, false, &sol)
         dump_solution("CAT", &sol, osc.pio , osc.sm);
 
         #endif //QUAD
@@ -1671,19 +1754,19 @@ void cat(void)
       }
     }
     strcpy(sent, "FA"); // Return 11 digit frequency in Hz.
-    snprintf(parameter, 12, "%011d", (int)frqFT8);
+    snprintf(parameter, 12, "%011d", (int)ADX.frqFT8);
     strcat(sent,parameter); 
     strcat(sent, ";");
   }
   else if (strcmp(command,"FB")==0) {                   
     strcpy(sent, "FB"); // Return 11 digit frequency in Hz.
-    snprintf(parameter, 12, "%011d", (int)frqFT8);
+    snprintf(parameter, 12, "%011d", (int)ADX.frqFT8);
     strcat(sent,parameter); 
     strcat(sent, ";");
   }
   else if (strcmp(command,"IF")==0) {          
     strcpy(sent, "IF"); // Return 11 digit frequency in Hz.  
-    snprintf(parameter, 12, "%011d", (int)frqFT8);
+    snprintf(parameter, 12, "%011d", (int)ADX.frqFT8);
     strcat(sent, parameter);
     strcat(sent, "0001+0000000000"); 
     snprintf(parameter, 2, "%d", Tx_Status);
@@ -1860,14 +1943,14 @@ static si4732_band_preset_t __attribute__((unused)) parse_band(char *s) {
 /*----------------------------------------------------------------------------------*/
 //* Set the frequency                                                               */
 //*---------------------------------------------------------------------------------*/
-static void si4732_set_frequency(si4732_t *radio, uint32_t frqFT8) {
+static void si4732_set_frequency(si4732_t *radio, uint32_t f) {
 
   //*--- setup the operating frequency
 
-  uint32_t f = frqFT8/1000;
-  si4732_status_t rc = si4732_tune(radio, f);
+  uint32_t fx = f/1000;
+  si4732_status_t rc = si4732_tune(radio, fx);
   cdc_printf("si4732: (tune AM) f=%lu kHz rc=%d last=0x%02X\n",
-             (unsigned long)f, (int)rc, radio->last_status);
+             (unsigned long)fx, (int)rc, radio->last_status);
   tud_pump_task();
   sleep_ms(200);
 
@@ -1976,7 +2059,7 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
 
   //*--- Tune on the default frequency
   
-  si4732_set_frequency(radio,frqFT8);
+  si4732_set_frequency(radio,ADX.frqFT8);
 
   //*--- Now start the process to reset to SSB, handshake and load the patch
 
@@ -2034,7 +2117,7 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
 
   //*--- Tune on the default frequency
   
-  si4732_set_frequency(radio,frqFT8);
+  si4732_set_frequency(radio,ADX.frqFT8);
 
   cdc_printf("si4732: Setup completed\n");
   return (si4732_status_t)SI4732_INIT_OK;
