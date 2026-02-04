@@ -1,3 +1,4 @@
 build
 !.vscode/*
 .DS_Store
+./src/ADX-ddsPIO_V2.0/fat12_64k.img
