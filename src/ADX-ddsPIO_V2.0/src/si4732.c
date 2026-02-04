@@ -898,20 +898,20 @@ si4732_status_t si4732_load_patch(si4732_t *dev, const uint8_t *patch, size_t pa
   if (!dev || !patch || patch_len == 0) return SI4732_ERR_ARG;
   if (!dev->present) return SI4732_ERR_DEVICE;
 
-  // El patch PU2CLR viene en frames de 8 bytes: [0x15/0x16 + 7 datos]
+  //*--- Mimic the algorithm used by Ricardo (PU2CLR) on his library
   if ((patch_len % 8) != 0) return SI4732_ERR_ARG;
 
-  // Asegurar CTS antes de arrancar
+  //*--- Ensure CTS status before start
   si4732_status_t rc = wait_cts(dev, 1000);
   if (rc != SI4732_OK) return rc;
 
   for (size_t off = 0; off < patch_len; off += 8) {
 
-    // Enviar EXACTAMENTE 8 bytes (cmd + 7 data). No agregues nada extra.
+    //*--- Send 1 cmd + 7 data 
     rc = i2c_write_bytes(dev, &patch[off], 8);
     if (rc != SI4732_OK) return rc;
 
-    // Esperar CTS posterior al frame; si aparece ERR, tu wait_cts ya lo traduce a -4
+    //*--- Wait for CTS or ERR 
     rc = wait_cts(dev, 1000);
     if (rc != SI4732_OK) return rc;
   }

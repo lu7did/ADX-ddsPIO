@@ -294,7 +294,6 @@
 #define PICO_DEFAULT_LED_PIN 25
 #endif //PICO || RP2040Z
 
-
 #define pin_A0               26U          //pin for ADC (A2)
 #define pin_SW                3U          //pin for freq change switch (D10,input)
 
@@ -1862,10 +1861,25 @@ static si4732_band_preset_t __attribute__((unused)) parse_band(char *s) {
 //* Set the frequency                                                               */
 //*---------------------------------------------------------------------------------*/
 static void si4732_set_frequency(si4732_t *radio, uint32_t frqFT8) {
-    uint16_t f=(uint16_t)(frqFT8/1000);
-    si4732_status_t rc = si4732_tune(radio, f);
-    cdc_printf("si4732: frequency (%d) rc=%d last_status=0x%02X\n",f, (int)rc,radio->last_status);
-    return;
+
+  //*--- setup the operating frequency
+
+  uint32_t f = frqFT8/1000;
+  si4732_status_t rc = si4732_tune(radio, f);
+  cdc_printf("si4732: (tune AM) f=%lu kHz rc=%d last=0x%02X\n",
+             (unsigned long)f, (int)rc, radio->last_status);
+  tud_pump_task();
+  sleep_ms(200);
+
+  //*--- validate how the setup of the chip really is
+
+  uint32_t rf = 0;
+  uint8_t rssi=0, snr=0;
+  bool stc=false;
+  rc = si4732_get_tune_status(radio, true, &rf, &rssi, &snr,&stc);
+  cdc_printf("si4732: (get tune status) rc=(%d) freq=%lu (mode=%d) rssi=%u snr=%u stc(%d) last=0x%02X\n",
+              (int)rc, (unsigned long)rf, (int)radio->mode, rssi, snr, stc, radio->last_status);
+
 }
 
 static void si4732_dump_am_seek_props(si4732_t *r) {
@@ -1876,7 +1890,7 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
 }
 
 /*----------------------------------------------------------------------------------*/
-//* Master setup procedure                                                          */
+//* Master setup procedure for the si4732 chip                                      */
 //*---------------------------------------------------------------------------------*/
  static si4732_status_t  si4732_setup(si4732_t *radio) {
 
@@ -1915,8 +1929,7 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
      return (si4732_status_t)SI4732_INIT_FAILURE;
   }
   
-  
-  //*--- Apply default volume, this is fixed since the transceiver has no volume control
+    //*--- Apply default volume, this is fixed since the transceiver has no volume control
 
   if (si4732_vol > 64) {
      cdc_printf("si4732: (volume) out of range\n");
@@ -1931,8 +1944,8 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   rc = si4732_set_mute(radio, false, false);
   cdc_printf("si4732: (set mute) rc=(%d) last_status=0x%02X\n",(int)rc, radio->last_status);
 
+  //*--- Now set Ham 20m band ---
 
-//*--- Now set Ham 20m band ---
   si4732_band_preset_t bp = SI4732_BAND_HAM_20M;
   si4732_band_t b = si4732_band_preset(bp, radio->region_profile);
   b.mode = SI4732_MODE_AM;                 // <-- importante: primero AM
@@ -1947,65 +1960,52 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   tud_pump_task();
   sleep_ms(200);
 
+  //*--- Trace how the setup has been reflected on the chip
 
   si4732_dump_am_seek_props(radio);
   tud_pump_task();
   sleep_ms(200);
 
 
-//*-- Si NO quedó 14000..14250 en el chip, NO intentes tunear 14074:
+//*-- The properties might not follow the set, however unless a seek is made aren't that useful
+
   uint16_t am_bot=0, am_top=0;
   si4732_get_property(radio, 0x3400, &am_bot);
   si4732_get_property(radio, 0x3401, &am_top);
   cdc_printf("si4732: ERROR band NOT applied (bot=%u top=%u), abort tune\n", am_bot, am_top);
 
+  //*--- Tune on the default frequency
+  
+  si4732_set_frequency(radio,frqFT8);
 
-  //if (am_bot != 14000 || am_top != 14250) {
-  //   cdc_printf("si4732: ERROR band NOT applied (bot=%u top=%u), abort tune\n", am_bot, am_top);
-  //   return SI4732_ERR_DEVICE;  
-  //}
-
-// --- Tune 14.074 MHz (AM) ---
-  uint32_t f = 14074;
-  rc = si4732_tune(radio, f);
-  cdc_printf("si4732: (tune AM) f=%lu kHz rc=%d last=0x%02X\n",
-             (unsigned long)f, (int)rc, radio->last_status);
-  tud_pump_task();
-  sleep_ms(200);
-
-  uint32_t rf = 0;
-  uint8_t rssi=0, snr=0;
-  bool stc=false;
-  rc = si4732_get_tune_status(radio, true, &rf, &rssi, &snr,&stc);
-  cdc_printf("si4732: (get tune status) rc=(%d) freq=%lu (mode=%d) rssi=%u snr=%u stc(%d) last=0x%02X\n",
-            (int)rc, (unsigned long)rf, (int)radio->mode, rssi, snr, stc, radio->last_status);
-
+  //*--- Now start the process to reset to SSB, handshake and load the patch
 
   cdc_printf("si4732: NOW it reset to SSB");
-
-  // --- Switch to SSB flow ---
+  
+  //*--- first power down
   rc = si4732_power_down(radio);
   cdc_printf("si4732: (power down) rc=%d\n", (int)rc);
   tud_pump_task();
   sleep_ms(200);
-
+  
+  //*--- then reset the chip
   (void)si4732_reset_pulse(radio, 10, 100);
   cdc_printf("si4732: (reset pulse) rc=%d\n", (int)rc);
-
   sleep_ms(200);
 
-
-  rc = si4732_power_up_am(radio, true);         // PATCH=1
+  //*--- Then power up for AM with patch flag activated
+  rc = si4732_power_up_am(radio, true);    
   cdc_printf("si4732: (power up patch) rc=%d\n", (int)rc);
   tud_pump_task();
   sleep_ms(200);
 
+  //*--- Load SSB patch
+
   cdc_printf("si4732: before patch: present=%d mode=%d last=0x%02X\n",
              radio->present, radio->mode, radio->last_status);
-
-
   rc = si4732_load_patch(radio, si4732_ssb_patch, si4732_ssb_patch_len);
   cdc_printf("si4732: (load patch) rc=%d\n", (int)rc);
+  
   if (rc != SI4732_OK) {
      (void)si4732_power_down(radio);
      (void)si4732_reset_pulse(radio, 10, 100);
@@ -2016,115 +2016,26 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   tud_pump_task();
   sleep_ms(400);
 
-  // IMPORTANT: ahora “decís” que estás en SSB a nivel driver
-  radio->mode = SI4732_MODE_SSB;
+  //*--- Now place the driver in SSB mode
+  //radio->mode = SI4732_MODE_SSB;
+  rc=si4732_ssb_enter(radio);
+  cdc_printf("si4732: (ssb mode) enter SSB mode rc(%d)\n",rc);
 
-// Reaplicar banda 20m (al menos límites/spacing)
+  //*--- Apply the band required
   si4732_band_t b2 = si4732_band_preset(SI4732_BAND_HAM_20M, radio->region_profile);
-  b2.mode = SI4732_MODE_AM; // límites AM; la sintonía SSB suele usar la misma base AM
+  b2.mode = SI4732_MODE_SSB; 
+
+  //*--- Set band
   rc = si4732_set_band(radio, &b2);
   cdc_printf("si4732: (set band post-patch) rc=%d\n", (int)rc);
   si4732_dump_am_seek_props(radio);
   tud_pump_task();
   sleep_ms(200);
 
-// Tune otra vez 14074
-  uint32_t f2 = 14074;
-  rc = si4732_tune(radio, f2);
-  cdc_printf("si4732: (tune post-patch) f=%lu rc=%d\n", (unsigned long)f2, (int)rc);
-  tud_pump_task();
-  sleep_ms(200);
-
-  rc = si4732_get_tune_status(radio, true, &rf, &rssi, &snr,&stc);
-  cdc_printf("si4732: (get tune status) rc=(%d) freq=%lu (mode=%d) rssi=%u snr=%u stc(%d) last=0x%02X\n",
-            (int)rc, (unsigned long)rf, (int)radio->mode, rssi, snr, stc, radio->last_status);
-
+  //*--- Tune on the default frequency
+  
+  si4732_set_frequency(radio,frqFT8);
 
   cdc_printf("si4732: Setup completed\n");
-
-
-
-  //*--- Set default band
-
-  /*
-  //si4732_band_preset_t __attribute__((unused)) bp = parse_band(si4732_band);
-  //si4732_band_preset_t __attribute__((unused)) bp = parse_band(si4732_band);
-  
-  si4732_band_preset_t bp = SI4732_BAND_HAM_20M;
-  si4732_band_t  b = si4732_band_preset(bp, radio->region_profile);
-  cdc_printf("si4732: (band preset) mode(%d) bottom(%ld) top(%ld)\n",b.mode,b.min,b.max);
-  sleep_ms(100);
-  tud_pump_task();
-  
-  rc = si4732_set_band(radio, &b);
-  cdc_printf("si4732: (set band) rc(%d) (AM) bottom(%d) top(%d)\n",rc,radio->region_profile.am_bottom_khz,radio->region_profile.am_top_khz);
-  cdc_printf("si4732: (set band) rc(%d) (FM) bottom(%d) top(%d)\n",rc,radio->region_profile.fm_bottom_10khz,radio->region_profile.fm_top_10khz);
-  sleep_ms(200);
-  tud_pump_task();
-
-  si4732_dump_am_seek_props(&radio);
-  sleep_ms(200);
-  tud_pump_task();
-
-  //rc = si4732_load_patch(radio, si4732_ssb_patch, si4732_ssb_patch_len);
-  //cdc_printf("si4732: (load SSB) patch rc=(%d) last_status=0x%02X\n",(int)rc, radio->last_status);
-  //tud_pump_task();
-  //sleep_ms(200);
-
-  bp = SI4732_BAND_HAM_20M;
-  b = si4732_band_preset(bp, radio->region_profile);
-  cdc_printf("si4732: (band preset) mode(%d) bottom(%ld) top(%ld)\n",b.mode,b.min,b.max);
-  sleep_ms(200);
-  tud_pump_task(); 
-
-  //b.mode=SI4732_MODE_SSB;
-  rc = si4732_set_band(radio, &b);
-  cdc_printf("si4732: (set band) radio rc(%d) bottom(%d) top(%d)\n",rc,radio->region_profile.am_bottom_khz,radio->region_profile.am_top_khz);
-  cdc_printf("si4732: (set band) band  rc(%d) mode(%d) bottom(%ld) top(%ld)\n",rc,b.mode,b.min,b.max);
-
-  sleep_ms(200);
-  tud_pump_task();
-
-  si4732_dump_am_seek_props(&radio);
-  sleep_ms(200);
-  tud_pump_task();
-
-
-  uint32_t f = 14074;
-  rc = si4732_tune(radio, f);
-  cdc_printf("si4732: (tune) f (%ld) KHz rc=(%d) last_status=0x%02X\n",f, (int)rc,radio->last_status);
-  tud_pump_task();
-  sleep_ms(200);
-
-  uint16_t v=0;
-  
-  si4732_get_property(radio, 0x3400, &v); cdc_printf("si4732: (get_property) AM_BOTTOM=%u\n", v);
-  si4732_get_property(radio, 0x3401, &v); cdc_printf("si4732: (get_property) AM_TOP=%u\n", v);
-  si4732_get_property(radio, 0x3402, &v); cdc_printf("si4732: (get_property) AM_SPACING=%u\n", v);
-
-  rc = si4732_get_tuned_freq(radio, &f);
-  cdc_printf("si4732: (get tuned freq)  rc=(%d) freq=%u (%s) last_status=0x%02X\n",
-             (int)rc,
-             (unsigned)f,
-             (radio->mode == SI4732_MODE_FM) ? "10kHz" : "kHz",
-             radio->last_status);
-  sleep_ms(100);
-
-  uint32_t rf = 0;
-  uint8_t rssi=0, snr=0;
-  bool stc=false;
-  si4732_status_t rrc = si4732_get_tune_status(radio, true, &rf, &rssi, &snr,&stc);
-  cdc_printf("si4732: (get tune status) rc=(%d) freq=%lu (mode=%d) rssi=%u snr=%u stc(%d) last=0x%02X\n",
-           (int)rrc, (unsigned long)rf, (int)radio->mode, rssi, snr, stc, radio->last_status);
-
-
-  uint8_t raw[8];
-  si4732_status_t drc = si4732_dump_tune_status(radio, raw);
-  cdc_printf("si4732: (dump tune status) rc=(%d) raw=%02X %02X %02X %02X %02X %02X %02X %02X\n",
-            (int)drc, raw[0],raw[1],raw[2],raw[3],raw[4],raw[5],raw[6],raw[7]);
-  tud_pump_task();
-  sleep_ms(100);
- */
-
   return (si4732_status_t)SI4732_INIT_OK;
 }

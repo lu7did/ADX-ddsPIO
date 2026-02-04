@@ -101,7 +101,7 @@ typedef enum {
   SI4732_BAND_HAM_12M,
   SI4732_BAND_HAM_10M,
 
-  // --- Shortwave broadcast (si querés mantenerlas)
+  // --- Shortwave broadcast (not used really)
   SI4732_BAND_SW_49M,
   SI4732_BAND_SW_31M
 
