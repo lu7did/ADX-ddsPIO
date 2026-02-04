@@ -42,6 +42,22 @@ static void __not_in_flash_func(msc_commit_dirty_to_flash)(void);
 static uint8_t  msc_disk[MSC_DISK_BYTES];
 static uint16_t dirty_mask = 0;
 
+
+// --- API de boot (firmware) ---
+// Prepara msc_disk[] desde flash o default. Seguro de llamar antes de tusb_init().
+void msc_boot_prepare(void)
+{
+  // reuse tu init actual
+  msc_init_once();
+}
+
+// Commit explícito (por si querés forzarlo desde firmware)
+void msc_boot_commit_now(void)
+{
+  msc_init_once();
+  msc_commit_dirty_to_flash();
+}
+
 // ---- Helpers
 static inline const uint8_t* msc_flash_ptr(void)
 {
@@ -218,4 +234,267 @@ bool tud_msc_prevent_allow_medium_removal_cb(uint8_t lun, uint8_t prohibit_remov
   (void) prohibit_removal;
   (void) control;
   return true;
+}
+
+// ---------------- FAT12 minimal writer for root file (8.3) ----------------
+
+static inline uint16_t rd16(const uint8_t* p, uint32_t off) {
+  return (uint16_t)(p[off] | (p[off + 1] << 8));
+}
+static inline uint32_t rd32(const uint8_t* p, uint32_t off) {
+  return (uint32_t)(p[off] | (p[off + 1] << 8) | (p[off + 2] << 16) | (p[off + 3] << 24));
+}
+static inline void wr16(uint8_t* p, uint32_t off, uint16_t v) {
+  p[off] = (uint8_t)(v & 0xFF);
+  p[off + 1] = (uint8_t)((v >> 8) & 0xFF);
+}
+static inline void wr32(uint8_t* p, uint32_t off, uint32_t v) {
+  p[off] = (uint8_t)(v & 0xFF);
+  p[off + 1] = (uint8_t)((v >> 8) & 0xFF);
+  p[off + 2] = (uint8_t)((v >> 16) & 0xFF);
+  p[off + 3] = (uint8_t)((v >> 24) & 0xFF);
+}
+
+// FAT12 entry get/set (cluster >= 0)
+static uint16_t fat12_get(const uint8_t* fat, uint16_t cluster)
+{
+  uint32_t i = (uint32_t)cluster + ((uint32_t)cluster / 2u);
+  uint16_t v = (uint16_t)(fat[i] | (fat[i + 1] << 8));
+  if (cluster & 1u) v >>= 4; else v &= 0x0FFFu;
+  return (uint16_t)(v & 0x0FFFu);
+}
+
+static void fat12_set(uint8_t* fat, uint16_t cluster, uint16_t value12)
+{
+  value12 &= 0x0FFFu;
+  uint32_t i = (uint32_t)cluster + ((uint32_t)cluster / 2u);
+
+  uint16_t v = (uint16_t)(fat[i] | (fat[i + 1] << 8));
+
+  if (cluster & 1u) {
+    // odd cluster -> high 12 bits
+    v &= 0x000Fu;
+    v |= (uint16_t)(value12 << 4);
+  } else {
+    // even cluster -> low 12 bits
+    v &= 0xF000u;
+    v |= value12;
+  }
+
+  fat[i] = (uint8_t)(v & 0xFF);
+  fat[i + 1] = (uint8_t)((v >> 8) & 0xFF);
+}
+
+// Finds root dir entry for name11 (11 bytes) or returns first free slot
+static bool fat_root_find_or_free(uint8_t* img, uint32_t root_off, uint32_t root_bytes,
+                                  const char name11[11], uint32_t* entry_off_out, bool* existed_out)
+{
+  uint32_t first_free = 0xFFFFFFFFu;
+
+  for (uint32_t off = 0; off < root_bytes; off += 32u) {
+    uint8_t* e = &img[root_off + off];
+
+    if (e[0] == 0x00) { // end of directory (also free)
+      if (first_free == 0xFFFFFFFFu) first_free = root_off + off;
+      break;
+    }
+    if (e[0] == 0xE5) { // deleted
+      if (first_free == 0xFFFFFFFFu) first_free = root_off + off;
+      continue;
+    }
+    if (e[11] == 0x0F) continue; // LFN
+
+    if (memcmp(e, name11, 11) == 0) {
+      *entry_off_out = root_off + off;
+      *existed_out = true;
+      return true;
+    }
+  }
+
+  if (first_free != 0xFFFFFFFFu) {
+    *entry_off_out = first_free;
+    *existed_out = false;
+    return true;
+  }
+  return false;
+}
+
+// Free an existing FAT chain starting at first_cluster (FAT12)
+static void fat12_free_chain(uint8_t* fat, uint16_t first_cluster)
+{
+  uint16_t c = first_cluster;
+  while (c >= 2u && c < 0x0FF8u) {
+    uint16_t next = fat12_get(fat, c);
+    fat12_set(fat, c, 0x000u);
+    c = next;
+  }
+}
+
+// Allocate N contiguous clusters, returns first cluster or 0 on failure
+static uint16_t fat12_alloc_contiguous(uint8_t* fat, uint16_t start_cluster, uint16_t max_cluster, uint16_t n)
+{
+  if (n == 0) return 0;
+
+  for (uint16_t c = start_cluster; (uint32_t)c + (uint32_t)n - 1u <= max_cluster; c++) {
+    bool ok = true;
+    for (uint16_t k = 0; k < n; k++) {
+      if (fat12_get(fat, (uint16_t)(c + k)) != 0x000u) { ok = false; break; }
+    }
+    if (!ok) continue;
+
+    // write chain
+    for (uint16_t k = 0; k < n; k++) {
+      uint16_t cur = (uint16_t)(c + k);
+      uint16_t val = (k == (uint16_t)(n - 1u)) ? 0x0FFFu : (uint16_t)(cur + 1u);
+      fat12_set(fat, cur, val);
+    }
+    return c;
+  }
+  return 0;
+}
+
+bool usb_msc_fw_write_config_sys(const uint8_t* data, uint32_t len, bool commit_now)
+{
+  if (!data) return false;
+
+  // Opción 1: esta función se usa en BOOT ANTES de tusb_init(),
+  // por lo tanto NO debe depender de tud_mounted() ni de estado USB.
+
+  // Asegura que msc_disk[] esté inicializado desde flash/default
+  msc_init_once();
+
+  // Parse BPB (FAT12/FAT16)
+  uint16_t bps      = rd16(msc_disk, 11);
+  uint8_t  spc      = msc_disk[13];
+  uint16_t rsvd     = rd16(msc_disk, 14);
+  uint8_t  nfats    = msc_disk[16];
+  uint16_t root_ent = rd16(msc_disk, 17);
+  uint16_t tot16    = rd16(msc_disk, 19);
+  uint16_t spf16    = rd16(msc_disk, 22);
+  uint32_t tot32    = rd32(msc_disk, 32);
+
+  uint32_t tot_sec = tot16 ? (uint32_t)tot16 : tot32;
+
+  // Sanity mínimo
+  if (bps == 0 || spc == 0 || rsvd == 0 || nfats == 0 || root_ent == 0 || spf16 == 0 || tot_sec == 0) {
+    return false;
+  }
+
+  uint32_t bytes_per_cluster = (uint32_t)bps * (uint32_t)spc;
+
+  uint32_t fat_off   = (uint32_t)rsvd * (uint32_t)bps;
+  uint32_t fat_bytes = (uint32_t)spf16 * (uint32_t)bps;
+
+  uint32_t root_off   = fat_off + (uint32_t)nfats * fat_bytes;
+  uint32_t root_bytes = (uint32_t)root_ent * 32u;
+
+  uint32_t data_off = root_off + root_bytes;
+
+  // Sanity dentro de nuestra imagen
+  if (fat_off + fat_bytes > MSC_DISK_BYTES) return false;
+  if (root_off + root_bytes > MSC_DISK_BYTES) return false;
+  if (data_off >= MSC_DISK_BYTES) return false;
+
+  // Área de datos / clusters máximos
+  uint32_t data_bytes = MSC_DISK_BYTES - data_off;
+
+  // Evita división por cero y discos degenerados
+  if (bytes_per_cluster == 0) return false;
+  uint16_t max_clusters = (uint16_t)(data_bytes / bytes_per_cluster);
+  if (max_clusters < 2) return false;
+
+  // FAT12 clusters numerados desde 2
+  uint16_t max_cluster_num = (uint16_t)(max_clusters + 1u);
+
+  // Cuántos clusters necesitamos para len bytes
+  uint16_t need_clusters = (uint16_t)((len + bytes_per_cluster - 1u) / bytes_per_cluster);
+  if (need_clusters == 0) need_clusters = 1;
+
+  // No aceptar tamaños imposibles
+  if ((uint32_t)need_clusters * bytes_per_cluster > data_bytes) return false;
+
+  // Trabajamos sobre FAT#1 y luego espejamos
+  uint8_t* fat1 = &msc_disk[fat_off];
+
+  // Buscar o crear entry en root para "CONFIG   SYS"
+  const char name11[11] = { 'C','O','N','F','I','G',' ',' ','S','Y','S' };
+
+  uint32_t ent_off = 0;
+  bool existed = false;
+  if (!fat_root_find_or_free(msc_disk, root_off, root_bytes, name11, &ent_off, &existed)) {
+    return false;
+  }
+
+  // Si existía, liberamos la cadena anterior
+  if (existed) {
+    uint16_t old_first = rd16(msc_disk, ent_off + 26);
+    if (old_first >= 2u) {
+      fat12_free_chain(fat1, old_first);
+    }
+  }
+
+  // Reservar clusters contiguos para el nuevo archivo
+  uint16_t first_cluster = fat12_alloc_contiguous(fat1, 2u, max_cluster_num, need_clusters);
+  if (first_cluster == 0) return false;
+
+  // Espejar FAT1 a las demás FATs
+  for (uint8_t fi = 1; fi < nfats; fi++) {
+    memcpy(&msc_disk[fat_off + (uint32_t)fi * fat_bytes], fat1, fat_bytes);
+  }
+
+  // Escribir contenido en clusters
+  uint32_t remaining = len;
+  const uint8_t* src = data;
+
+  for (uint16_t k = 0; k < need_clusters; k++) {
+    uint16_t c = (uint16_t)(first_cluster + k);
+    uint32_t cl_index = (uint32_t)(c - 2u);
+    uint32_t dst_off = data_off + cl_index * bytes_per_cluster;
+
+    if (dst_off + bytes_per_cluster > MSC_DISK_BYTES) return false;
+
+    uint32_t chunk = (remaining > bytes_per_cluster) ? bytes_per_cluster : remaining;
+
+    if (chunk) memcpy(&msc_disk[dst_off], src, chunk);
+    if (chunk < bytes_per_cluster) memset(&msc_disk[dst_off + chunk], 0, bytes_per_cluster - chunk);
+
+    src += chunk;
+    remaining -= chunk;
+  }
+
+  // Actualizar entry root dir (8.3)
+  uint8_t* e = &msc_disk[ent_off];
+  memset(e, 0, 32u);
+  memcpy(e, name11, 11);
+  e[11] = 0x20; // ATTR_ARCHIVE
+  wr16(msc_disk, ent_off + 26, first_cluster);
+  wr32(msc_disk, ent_off + 28, len);
+
+  // Para nuestro disco chico: marcamos todo sucio
+  dirty_mask = 0xFFFFu;
+
+  if (commit_now) {
+    msc_commit_dirty_to_flash();
+  }
+
+  return true;
+}
+
+
+static bool fw_wrote_config_once = false;
+
+void maybe_generate_config_sys(void)
+{
+  if (fw_wrote_config_once) return;
+  fw_wrote_config_once = true;
+
+  // tu decisión programática:
+  bool need_replace = true; // <-- tu lógica
+  if (!need_replace) return;
+
+  const char* txt =
+    "MODE=FT8\r\n"
+    "CALL=LU7DZ\r\n";
+
+  usb_msc_fw_write_config_sys((const uint8_t*)txt, (uint32_t)strlen(txt), true);
 }

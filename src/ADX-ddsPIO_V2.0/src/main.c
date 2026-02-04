@@ -485,6 +485,49 @@ void __attribute__((unused)) updateEEPROM();
 void __attribute__((unused)) resetEEPROM();
 #endif //EEPROM
 
+
+#ifdef FS
+
+// APIs expuestas por usb_msc_ramdisk.c
+void msc_boot_prepare(void);
+bool usb_msc_fw_write_config_sys(const uint8_t* data, uint32_t len, bool commit_now);
+
+// (opcional) si querés leer/parsear antes de decidir: te lo doy en el próximo paso
+// bool msc_read_config_sys(char *out, uint32_t out_sz, uint32_t *out_len);
+
+static bool need_replace_config(void)
+{
+  // TODO: tu lógica real:
+  // - leer contenido
+  // - verificar si existe
+  // - comparar con condición programática
+  // Por ahora, placeholder:
+  return true;
+}
+
+static void boot_config_phase(void)
+{
+  // 1) preparar disco RAM desde flash/default
+  msc_boot_prepare();
+
+  // 2) decidir si hay que generar/reemplazar CONFIG.SYS
+  if (!need_replace_config()) return;
+
+  // 3) generar contenido arbitrario
+  char cfg[512];
+  int n = snprintf(cfg, sizeof(cfg),
+                   "CALL=LU7DZ\r\n"
+                   "MODE=FT8\r\n"
+                   "FREQ=%lu\r\n",
+                   (unsigned long)14074000);
+
+  if (n <= 0) return;
+
+  // 4) escribir CONFIG.SYS en la imagen FAT12 (RAM) y comitear a flash
+  usb_msc_fw_write_config_sys((const uint8_t*)cfg, (uint32_t)n, true);
+}
+
+#endif //IF
 //*==============================================================================================*
 //*                            Debug tools for Quadrature oscillator if defined                  *
 //*==============================================================================================*
@@ -1048,7 +1091,7 @@ void TUDstart(){
 
   tud_init(BOARD_TUD_RHPORT);
   //tusb_init();
-  
+
   absolute_time_t t0 = get_absolute_time();
   while (!tud_mounted()) {
     tud_task();
@@ -1058,6 +1101,7 @@ void TUDstart(){
   }
 
 }
+
 //*----------------------------------------------------------------------------*/
 //* Update the EEPROM values with the current operating values                 */                             
 //*----------------------------------------------------------------------------*/
@@ -1275,6 +1319,11 @@ int main(void)
   stdio_init_all();
   sleep_ms(500);
   ADXinit();
+
+  // --- fase determinística de configuración (sin USB) ---
+  boot_config_phase();
+
+
 
   TUDstart();
 
