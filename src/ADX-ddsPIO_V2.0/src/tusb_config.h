@@ -97,7 +97,7 @@ extern "C" {
 
 //------------- CLASS -------------//
 #define CFG_TUD_CDC               1
-#define CFG_TUD_MSC               0
+#define CFG_TUD_MSC               1
 #define CFG_TUD_HID               0
 #define CFG_TUD_MIDI              0
 #define CFG_TUD_AUDIO             1
@@ -176,6 +176,13 @@ extern "C" {
 
 // Size of control request buffer
 #define CFG_TUD_AUDIO_FUNC_1_CTRL_BUF_SZ	64
+
+//--------------------------------------------------------------------
+// MSC CLASS CONFIGURATION
+//--------------------------------------------------------------------
+#define CFG_TUD_MSC_EP_BUFSIZE    512
+
+
 
 #ifdef __cplusplus
 }

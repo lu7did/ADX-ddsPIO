@@ -42,6 +42,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/src/lib/assert.c
   ${CMAKE_CURRENT_LIST_DIR}/src/EEPROM.c
   ${CMAKE_CURRENT_LIST_DIR}/src/quad.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/usb_msc_ramdisk.c
   ${CMAKE_CURRENT_LIST_DIR}/src/si4732_patch_ssb.c
 )
 
