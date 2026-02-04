@@ -77,8 +77,9 @@ uint8_t const * tud_descriptor_device_cb(void)
 //--------------------------------------------------------------------+
 // Configuration Descriptor
 //--------------------------------------------------------------------+
-//#define CONFIG_TOTAL_LEN    	(TUD_CONFIG_DESC_LEN + CFG_TUD_AUDIO * TUD_AUDIO_HEADSET_STEREO_DESC_LEN)
-#define CONFIG_TOTAL_LEN    (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + CFG_TUD_AUDIO * TUD_AUDIO_HEADSET_STEREO_DESC_LEN)  //cheanged
+//*#define CONFIG_TOTAL_LEN    (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + CFG_TUD_AUDIO * TUD_AUDIO_HEADSET_STEREO_DESC_LEN)  //cheanged
+
+#define CONFIG_TOTAL_LEN    (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + (CFG_TUD_MSC * TUD_MSC_DESC_LEN) + (CFG_TUD_AUDIO * TUD_AUDIO_HEADSET_STEREO_DESC_LEN))
 
 #if CFG_TUSB_MCU == OPT_MCU_LPC175X_6X || CFG_TUSB_MCU == OPT_MCU_LPC177X_8X || CFG_TUSB_MCU == OPT_MCU_LPC40XX
   // LPC 17xx and 40xx endpoint type (bulk/interrupt/iso) are fixed by its number
@@ -107,9 +108,13 @@ uint8_t const * tud_descriptor_device_cb(void)
   #define EPNUM_AUDIO_IN    0x01
   #define EPNUM_AUDIO_OUT   0x01
 
+
   #define EPNUM_CDC_NOTIF   0x83   //added
   #define EPNUM_CDC_OUT     0x04   //added
   #define EPNUM_CDC_IN      0x84   //added
+
+  #define EPNUM_MSC_OUT     0x02
+  #define EPNUM_MSC_IN      0x82
   
 #endif
 
@@ -120,6 +125,9 @@ uint8_t const desc_configuration[] =
 
     // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),                 //added
+
+    // MSC: itf num, string idx, epout, epin, ep size
+    TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 7, EPNUM_MSC_OUT, EPNUM_MSC_IN, 64),
 
     // Interface number, string index, EP Out & EP In address, EP size
     TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(2, EPNUM_AUDIO_OUT, EPNUM_AUDIO_IN | 0x80)
@@ -161,6 +169,7 @@ char const* string_desc_arr [] =
   "TinyUSB CDC",                  // 4: CDC Interface
   "TinyUSB Speakers",             // 5: Audio Interface
   "TinyUSB Microphone",           // 6: Audio Interface
+  "TinyUSB MSC"                   // 7: MSC Interface
 };
 
 static uint16_t _desc_str[32];
