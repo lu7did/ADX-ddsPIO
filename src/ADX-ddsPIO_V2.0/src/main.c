@@ -172,6 +172,7 @@
 #define  QUAD       1
 #define  SI4732     1
 #define  WAITSERIAL 1
+#define  FS         1
 //#define  RTC        1
 //#define  CAT        1    
 //*==============================================================================================*
@@ -1016,6 +1017,20 @@ void core1_entry()
 //*==============================================================================================*
 //*                                  Board management                                            *
 //*==============================================================================================*
+/*
+static bool inited = false;
+
+bool tud_msc_test_unit_ready_cb(uint8_t lun)
+{
+  (void) lun;
+
+  if (!inited) {
+    msc_disk_init();
+    inited = true;
+  }
+  return true;
+}
+*/
 //*----------------------------------------------------------------------------*/
 //* Clean up the TUD queue                                                     */                             
 //*----------------------------------------------------------------------------*/
@@ -1260,6 +1275,7 @@ int main(void)
   stdio_init_all();
   sleep_ms(500);
   ADXinit();
+
   TUDstart();
 
   #ifdef WAITSERIAL

@@ -1,6 +1,8 @@
 #include "tusb.h"
 #include <string.h>
 #include <stdbool.h>
+#include "fat12_64k.h"
+
 
 #ifndef MSC_BLOCK_SIZE
 #define MSC_BLOCK_SIZE   512u
@@ -8,9 +10,17 @@
 
 #ifndef MSC_BLOCK_COUNT
 #define MSC_BLOCK_COUNT  128u   // 64 KiB
+
 #endif
 
 static uint8_t msc_disk[MSC_BLOCK_SIZE * MSC_BLOCK_COUNT];
+
+static void msc_disk_init(void)
+{
+  // El header generado por xxd suele llamarlo: unsigned char fat12_64k_img[];
+  // y: unsigned int fat12_64k_img_len;
+  memcpy(msc_disk, fat12_64k_img, fat12_64k_img_len);
+}
 
 void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], uint8_t product_rev[4])
 {
@@ -26,9 +36,17 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
 
 bool tud_msc_test_unit_ready_cb(uint8_t lun)
 {
+  static bool inited = false;
   (void) lun;
+
+  if (!inited) {
+    msc_disk_init();
+    inited = true;
+  }
+
   return true;
 }
+
 
 void tud_msc_capacity_cb(uint8_t lun, uint32_t* block_count, uint16_t* block_size)
 {
