@@ -507,13 +507,13 @@ static bool need_replace_config(void)
 
 static void boot_config_phase(void)
 {
-  // 1) preparar disco RAM desde flash/default
+  //*--- Read RAMDisk from Flash memory
   msc_boot_prepare();
 
-  // 2) decidir si hay que generar/reemplazar CONFIG.SYS
+  //*--- Check if a change is needed
   if (!need_replace_config()) return;
 
-  // 3) generar contenido arbitrario
+  //*--- Recreate file 
   char cfg[512];
   int n = snprintf(cfg, sizeof(cfg),
                    "CALL=LU7DZ\r\n"
@@ -523,7 +523,7 @@ static void boot_config_phase(void)
 
   if (n <= 0) return;
 
-  // 4) escribir CONFIG.SYS en la imagen FAT12 (RAM) y comitear a flash
+  //*--- write CONFIG.SYS at the RAMDisk and commit to flash
   usb_msc_fw_write_config_sys((const uint8_t*)cfg, (uint32_t)n, true);
 }
 
