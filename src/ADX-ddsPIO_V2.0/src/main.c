@@ -177,7 +177,7 @@
 //*==============================================================================================*
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
-/*
+
 #ifdef SI4732                    //If Si4732 chipset enabled it's the dominant receiver
 #undef SUPERHET
 #undef QUAD
@@ -198,7 +198,6 @@
 #undef WAITSERIAL
 #undef RTC
 #endif //!DEBUG
-*/
 
 //*==============================================================================================*
 //*                                  Includes and Source Libraries                               *
@@ -254,11 +253,12 @@
 //*                             Macros and Structures                                            *
 //*==============================================================================================*
 #ifdef DEBUG
+
 #define cdc_printf(fmt, ...)                           \
     do {                                                \
         int _cdc_len = snprintf(hi,               \
                                 sizeof(hi),       \
-                                (fmt), ##__VA_ARGS__);  \
+                                "[%s]: " fmt, __func__, ##__VA_ARGS__);  \
         if (_cdc_len > 0) {                             \
             if (_cdc_len > (int)sizeof(hi))       \
                 _cdc_len = sizeof(hi);            \
@@ -378,7 +378,7 @@
 
 ADX_ddsPIO_t ADX;                      //*--- System Variables
 
-char hi[80];
+char hi[128];
 uint8_t marker=0;
 uint32_t t;
 bool blink=false;
@@ -481,6 +481,7 @@ bool    si4732_mute=false;
 #ifdef EEPROM
 void __attribute__((unused)) readEEPROM();
 void __attribute__((unused)) updateEEPROM();
+void __attribute__((unused)) resetEEPROM();
 #endif //EEPROM
 
 //*==============================================================================================*
@@ -537,35 +538,31 @@ static void dump_solution(const char *tag,
   //*--- properly by the USB CDC, menwhile the USB service task is called to 
   //*--- clean up the buffers and release space
 
-  int n = snprintf(b, sizeof(b),"\n[%s]\nREQ=%" PRIu32 " Hz\n",tag,s->f_req_hz);
-  cdc_write(b, (uint16_t)n);
-  tud_cdc_write_flush();
-  for(int n=0;n<10;n++) {tud_task();}
+  
+  cdc_printf("[%s]\nREQ=%" PRIu32 " Hz\n",tag,s->f_req_hz);
+  tud_pump_task();
 
-  n = snprintf(b, sizeof(b),"clk_sys(now)=%" PRIu32 " Hz\n",s->clk_sys_hz);
-  cdc_write(b, (uint16_t)n);
-  tud_cdc_write_flush();
-  for(int n=0;n<10;n++) {tud_task();}
 
-  n = snprintf(b, sizeof(b),"SOL: clk_sys=%" PRIu32 " Hz\n     VCO=%" PRIu32 " Hz\n",s->clk_sys_hz, s->vco_hz);
-  cdc_write(b, (uint16_t)n);
+  cdc_printf("clk_sys(now)=%" PRIu32 " Hz\n",s->clk_sys_hz);
   tud_cdc_write_flush();
-  for(int n=0;n<10;n++) {tud_task();}
+  tud_pump_task();
+  
+  cdc_printf("SOL: clk_sys=%" PRIu32 " Hz\n     VCO=%" PRIu32 " Hz\n",s->clk_sys_hz, s->vco_hz);
+  tud_cdc_write_flush();
+  tud_pump_task();
 
-  n = snprintf(b, sizeof(b),"Divisor post=%u/%u  fbdiv=%u refdiv=%u\n",(unsigned)s->postdiv1, (unsigned)s->postdiv2,    (unsigned)s->fbdiv, (unsigned)s->refdiv);
-  cdc_write(b, (uint16_t)n);
-  tud_cdc_write_flush();
-  for(int n=0;n<10;n++) {tud_task();}
 
-  n = snprintf(b, sizeof(b),"SOL: N=%" PRIu32 "  div=%u+%u/256  f_out=%" PRIu32 " Hz  err=%" PRId32 " Hz\n",s->N, (unsigned)s->pio_div_int, (unsigned)s->pio_div_frac, s->f_out_hz, s->err_hz);
-  cdc_write(b, (uint16_t)n);
+  cdc_printf("Divisor post=%u/%u  fbdiv=%u refdiv=%u\n",(unsigned)s->postdiv1, (unsigned)s->postdiv2,    (unsigned)s->fbdiv, (unsigned)s->refdiv);
   tud_cdc_write_flush();
-  for(int n=0;n<10;n++) {tud_task();}
-  cdc_printf("*HW Verification*\n");
-  n = snprintf(b, sizeof(b),"HW : N=%" PRIu32 "  div=%u+%u/256  f_out=%" PRIu32 " Hz (est)\n",N_hw, (unsigned)di_hw, (unsigned)df_hw, fout_hw_est); 
-  cdc_write(b, (uint16_t)n);
+  tud_pump_task();
+
+  cdc_printf("SOL: N=%" PRIu32 "  div=%u+%u/256  f_out=%" PRIu32 " Hz  err=%" PRId32 " Hz\n",s->N, (unsigned)s->pio_div_int, (unsigned)s->pio_div_frac, s->f_out_hz, s->err_hz);
   tud_cdc_write_flush();
-  for(int n=0;n<10;n++) {tud_task();}
+  tud_pump_task();
+
+  cdc_printf("HW : N=%" PRIu32 "  div=%u+%u/256  f_out=%" PRIu32 " Hz (est)\n",N_hw, (unsigned)di_hw, (unsigned)df_hw, fout_hw_est); 
+  tud_cdc_write_flush();
+  tud_pump_task();
 
 }
 
@@ -631,31 +628,6 @@ static void pio_square_wave(PIO pio, uint sm, uint offset, uint pin, float targe
 }
 #endif //SUPERHET
 
-#ifdef NOCALL
-#ifdef EEPROM
-/*----------------------------------------------------------------------------*/
-/* updateEEPROM                                                               */
-/*----------------------------------------------------------------------------*/
-void updateEEPROM() {
-
-  ADX_ddsPIO_t eeprom;
-  EEPROM_read(&eeprom);
-
-  cdc_printf("Configuration      mode(%d) band(%d)\n",ADX.mode,ADX.slot);
-  cdc_printf("Read EEPROM ID(%d) mode(%d) band(%d)\n",eeprom.ID,eeprom.mode,eeprom.slot);
-
-  //*--- Update configuration datadata
-  eeprom.ID = 0x01;
-  eeprom.mode = (uint8_t)ADX.mode;
-  eeprom.slot = (uint8_t)ADX.slot;
-
-  cdc_printf("Write EEPROM ID(%d) mode(%d) band(%d)\n",eeprom.ID,eeprom.mode,eeprom.slot);
-  EEPROM_write(&eeprom);
-
-}
-#endif //EEPROM
-#endif //NOCALL
-
 /*----------------------------------------------------------------------------*/
 /* Forces the clean up of the TUD task queue                                  */
 /*----------------------------------------------------------------------------*/
@@ -673,7 +645,7 @@ int slot2Band(int s) {
     s = 4;
   }
   int b=slot[s-1];
-  cdc_printf("Slot(%d) --> Band(%d)\n", s, b);
+  cdc_printf(" slot(%d) assigned as  band(%d)\n", s, b);
   return b;
 }
 /*----------------------------------------------------------------------------*/
@@ -695,7 +667,7 @@ switch(b) {
   default:
     i=6; break;
 }
-cdc_printf("band(%d) idx(%d)\n", b, i);
+cdc_printf("band(%d) is slot[%d]\n", b, i);
 return i;
 
 }
@@ -704,7 +676,7 @@ return i;
 /*----------------------------------------------------------------------------*/
 void Mode_assign() {
 
-  cdc_printf("Assigning mode(%d) for Band(%d)\n", ADX.mode, Band);
+  cdc_printf(" mode(%d) band(%d)\n", ADX.mode, Band);
   int b=band2idx(Band);
   ADX.frqFT8=Bands[b][ADX.mode-1];
   PioDCOSetFreq(&DCO, ADX.frqFT8, 0U);    //*--- Change frequency according to band and mode
@@ -730,7 +702,7 @@ void Mode_assign() {
 
 #endif //EEPROM
 
-  cdc_printf("Mode changed mode(%d) Band(%d) index(%d) freq(%ld)\n", ADX.mode, Band, b, ADX.frqFT8);
+  cdc_printf(" changed mode(%d) band(%d) index(%d) freq(%ld)\n", ADX.mode, Band, b, ADX.frqFT8);
 
 }
 
@@ -750,7 +722,7 @@ void Band_assign() {
   }
     
   Mode_assign();
-  cdc_printf("band_slot=%d mode=%d band=%d\n",ADX.slot, ADX.mode, Band);
+  cdc_printf("slot=%d mode=%d band=%d\n",ADX.slot, ADX.mode, Band);
 }
 //*==============================================================================================*
 //*                          Services and board management functions                             *
@@ -872,12 +844,12 @@ void ManualTX() {
   if (testButton(TXSW)) return;
 
   setTX(true);
-  cdc_printf("Manual TX activated\n");
+  cdc_printf(" TX activated\n");
 
   while(!testButton(TXSW));
   setTX(false);
 
-  cdc_printf("Manual TX deactivated\n");
+  cdc_printf(" TX deactivated\n");
 
 }
 /*----------------------------------------------------------------------------*/
@@ -916,13 +888,13 @@ void Band_Select() {
         ADX.slot=1;
      }
      while(testButton(DOWN)==false);
-     cdc_printf("<DOWN> Band_slot=%d\n", ADX.slot);
+     cdc_printf("<DOWN> slot=%d\n", ADX.slot);
   }
 
   if (!testButton(TXSW)) {
      gpio_put(TX,false);
      Band_assign();
-     cdc_printf("completed set Band_slot=%d\n", ADX.slot);
+     cdc_printf("completed set slot=%d\n", ADX.slot);
      return;
   }
 }
@@ -966,7 +938,7 @@ void checkButtons() {
         if (ADX.mode<1) ADX.mode=4;
         Mode_assign();
         while(!testButton(UP));
-        cdc_printf("UP Mode down button released\n");
+        cdc_printf("<UP> Mode down button released\n");
         PioDCOSetFreq(&DCO,ADX.frqFT8,0U);
 
         #ifdef SI4732
@@ -988,7 +960,7 @@ void checkButtons() {
   #ifndef CAT
   if (gpio_get(UP) && !gpio_get(DOWN) && Tx_Status == 0) {
     if (testButton(UP) && !testButton(DOWN)){
-        cdc_printf("DOWN mode pressed Band selection action started|n");
+        cdc_printf("<DOWN> mode pressed Band selection action started|n");
          ADX.mode=ADX.mode+1;
         if (ADX.mode>4) ADX.mode=1;
         Mode_assign();
@@ -1004,7 +976,7 @@ void checkButtons() {
         quad_set_frequency(&osc, ADX.frqFT8, false, &sol);
         dump_solution("Button ", &sol, osc.pio , osc.sm);
         #endif //QUAD
-        cdc_printf("Mode up mode pressed\n");
+        cdc_printf("up mode pressed\n");
      }
   }
   #endif //!CAT
@@ -1027,7 +999,7 @@ void checkButtons() {
 //*===============================================================================================*/
 void core1_entry()
 {
-    cdc_printf("Core 1: DCO worker started.\n");
+    cdc_printf("Core init, DCO worker started.\n");
 
     //*--- Set the DCO initial (default) frequency
 
@@ -1071,6 +1043,24 @@ void TUDstart(){
   }
 
 }
+//*----------------------------------------------------------------------------*/
+//* Update the EEPROM values with the current operating values                 */                             
+//*----------------------------------------------------------------------------*/
+void __attribute__((unused)) resetEEPROM() {
+
+  ADX_ddsPIO_t eeprom;
+  
+  eeprom.ID    = 0x01;
+  eeprom.mode  = DEFAULT_MODE;
+  eeprom.slot  = DEFAULT_SLOT;
+  eeprom.volume= DEFAULT_VOLUME;
+  eeprom.frqFT8= GEN_FRQ_HZ;
+  eeprom.frqbfo= FREQ_BFO;
+
+  EEPROM_write(&eeprom);
+  cdc_printf("EEPROM configuration reset\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
+
+}
 
 //*----------------------------------------------------------------------------*/
 //* Update the EEPROM values with the current operating values                 */                             
@@ -1087,7 +1077,7 @@ void __attribute__((unused)) updateEEPROM() {
   eeprom.frqbfo=ADX.frqbfo;
 
   EEPROM_write(&eeprom);
-  cdc_printf("EEPROM configuration updated\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
+  cdc_printf("EEPROM configuration updated\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
 
 }
 //*----------------------------------------------------------------------------*/
@@ -1109,7 +1099,7 @@ void __attribute__((unused)) readEEPROM() {
        ADX.frqFT8=eeprom.frqFT8;
        ADX.frqbfo=eeprom.frqbfo;
        ADX.volume=eeprom.volume;
-       cdc_printf("EEPROM configuration recovered\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
+       cdc_printf("EEPROM configuration recovered\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
       }     
 }
 
@@ -1145,8 +1135,9 @@ void resetDefaults() {
      return;
   }
 
-  //*--- If pressed wait till release and the reset to factory defaults
+   //*--- If pressed wait till release and the reset to factory defaults
 
+  cdc_printf("Release TX button to reset\n");
   gpio_put(PICO_DEFAULT_LED_PIN,1); 
   blink=false;
   t=to_ms_since_boot(get_absolute_time());
@@ -1156,12 +1147,12 @@ void resetDefaults() {
         t=to_ms_since_boot(get_absolute_time());
         blink=!blink;
         gpio_put(PICO_DEFAULT_LED_PIN,blink); 
-      }
+    }
   }
 
   gpio_put(PICO_DEFAULT_LED_PIN,0);  //*--- Turn on left when Serial monitor has been opened
   tud_pump_task();
-  updateEEPROM();
+  resetEEPROM();
 
 }
 //*----------------------------------------------------------------------------*/
@@ -1172,7 +1163,7 @@ void ADXinit(){
   ADX.mode   = DEFAULT_MODE;
   ADX.slot   = DEFAULT_SLOT;
   ADX.volume = DEFAULT_VOLUME;
-  ADX.frqFT8 = FT8_BASE_HZ;
+  ADX.frqFT8 = GEN_FRQ_HZ;
   ADX.frqbfo = FREQ_BFO;
   Band       = slot2Band(ADX.slot);
 
@@ -1949,7 +1940,7 @@ static void si4732_set_frequency(si4732_t *radio, uint32_t f) {
 
   uint32_t fx = f/1000;
   si4732_status_t rc = si4732_tune(radio, fx);
-  cdc_printf("si4732: (tune AM) f=%lu kHz rc=%d last=0x%02X\n",
+  cdc_printf("f=%lu kHz rc=%d last=0x%02X\n",
              (unsigned long)fx, (int)rc, radio->last_status);
   tud_pump_task();
   sleep_ms(200);
@@ -1960,7 +1951,7 @@ static void si4732_set_frequency(si4732_t *radio, uint32_t f) {
   uint8_t rssi=0, snr=0;
   bool stc=false;
   rc = si4732_get_tune_status(radio, true, &rf, &rssi, &snr,&stc);
-  cdc_printf("si4732: (get tune status) rc=(%d) freq=%lu (mode=%d) rssi=%u snr=%u stc(%d) last=0x%02X\n",
+  cdc_printf("rc=(%d) freq=%lu (mode=%d) rssi=%u snr=%u stc(%d) last=0x%02X\n",
               (int)rc, (unsigned long)rf, (int)radio->mode, rssi, snr, stc, radio->last_status);
 
 }
@@ -1977,7 +1968,7 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
 //*---------------------------------------------------------------------------------*/
  static si4732_status_t  si4732_setup(si4732_t *radio) {
 
-  cdc_printf("si4732: Starting setup procedure\n");
+  cdc_printf("Starting setup procedure\n");
 
   //*--- Ensure the RESET pin stays high at the start
   gpio_put(RST_PIN,1);
@@ -1985,47 +1976,47 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   //*--- Initialize device
 
   si4732_status_t rc = si4732_init(radio, I2C_PORT, SI4732_I2C_ADDR_DEFAULT, SDA_PIN, SCL_PIN, RST_PIN, 400000);
-  cdc_printf("si4732: (init) rc=(%d) present=%d last=0x%02X\n", (int)rc, (int)radio->present, radio->last_status);
+  cdc_printf("init rc=(%d) present=%d last=0x%02X\n", (int)rc, (int)radio->present, radio->last_status);
 
   //*--- If init went ok then power up (boot the internal engine)
 
   if (rc == SI4732_OK) {
 
       rc = si4732_power_down(radio);
-      cdc_printf("si4732: (power down) AM/SSB rc=(%d) last_status=0x%02X\n",(int)rc, radio->last_status);
+      cdc_printf("power down AM/SSB rc=(%d) last_status=0x%02X\n",(int)rc, radio->last_status);
       tud_pump_task();
       sleep_ms(200);
 
       rc = si4732_power_up_am(radio, false);
-      cdc_printf("si4732: (power up) AM/SSB rc=(%d) last_status=0x%02X\n",(int)rc, radio->last_status);
+      cdc_printf("power up AM/SSB rc=(%d) last_status=0x%02X\n",(int)rc, radio->last_status);
       tud_pump_task();
       sleep_ms(200);
 
        //*--- If the power up went wrong message it
 
      if (rc != SI4732_OK) {
-        cdc_printf("si4732: (power up) failure to power up device rc(%d)\n",rc);
+        cdc_printf("power up failure to power up device rc(%d)\n",rc);
         return (si4732_status_t)SI4732_POWER_FAILURE;
      }
   } else {
-     cdc_printf("si4732: (power) failure to initialize device rc(%d)\n",rc);
+     cdc_printf("power failure to initialize device rc(%d)\n",rc);
      return (si4732_status_t)SI4732_INIT_FAILURE;
   }
   
     //*--- Apply default volume, this is fixed since the transceiver has no volume control
 
   if (si4732_vol > 64) {
-     cdc_printf("si4732: (volume) out of range\n");
+     cdc_printf("volume out of range\n");
      si4732_vol=63;
   }
 
   rc = si4732_set_volume(radio, si4732_vol);
-  cdc_printf("si4732: (set volume) vol(%d) rc=%d last_status=0x%02X\n",(int)si4732_vol,(int)rc, radio->last_status);
+  cdc_printf("set volume vol(%d) rc=%d last_status=0x%02X\n",(int)si4732_vol,(int)rc, radio->last_status);
 
   //*--- Unmute the receiver
 
   rc = si4732_set_mute(radio, false, false);
-  cdc_printf("si4732: (set mute) rc=(%d) last_status=0x%02X\n",(int)rc, radio->last_status);
+  cdc_printf("set mute rc=(%d) last_status=0x%02X\n",(int)rc, radio->last_status);
 
   //*--- Now set Ham 20m band ---
 
@@ -2033,13 +2024,13 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   si4732_band_t b = si4732_band_preset(bp, radio->region_profile);
   b.mode = SI4732_MODE_AM;                 // <-- importante: primero AM
 
-  cdc_printf("si4732: (band preset) mode(%d) bottom(%lu) top(%lu)\n",
+  cdc_printf("band preset mode(%d) bottom(%lu) top(%lu)\n",
             (int)b.mode, (unsigned long)b.min, (unsigned long)b.max);
   tud_pump_task();
   sleep_ms(200);
 
   rc = si4732_set_band(radio, &b);
-  cdc_printf("si4732: (set band) rc(%d)\n", (int)rc);
+  cdc_printf("set band rc(%d)\n", (int)rc);
   tud_pump_task();
   sleep_ms(200);
 
@@ -2055,7 +2046,7 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   uint16_t am_bot=0, am_top=0;
   si4732_get_property(radio, 0x3400, &am_bot);
   si4732_get_property(radio, 0x3401, &am_top);
-  cdc_printf("si4732: ERROR band NOT applied (bot=%u top=%u), abort tune\n", am_bot, am_top);
+  cdc_printf("WARNING band NOT applied (bot=%u top=%u)\n", am_bot, am_top);
 
   //*--- Tune on the default frequency
   
@@ -2063,37 +2054,37 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
 
   //*--- Now start the process to reset to SSB, handshake and load the patch
 
-  cdc_printf("si4732: NOW it reset to SSB");
+  cdc_printf("NOW it reset to SSB");
   
   //*--- first power down
   rc = si4732_power_down(radio);
-  cdc_printf("si4732: (power down) rc=%d\n", (int)rc);
+  cdc_printf("power down rc=%d\n", (int)rc);
   tud_pump_task();
   sleep_ms(200);
   
   //*--- then reset the chip
   (void)si4732_reset_pulse(radio, 10, 100);
-  cdc_printf("si4732: (reset pulse) rc=%d\n", (int)rc);
+  cdc_printf("reset pulse rc=%d\n", (int)rc);
   sleep_ms(200);
 
   //*--- Then power up for AM with patch flag activated
   rc = si4732_power_up_am(radio, true);    
-  cdc_printf("si4732: (power up patch) rc=%d\n", (int)rc);
+  cdc_printf("power up patch rc=%d\n", (int)rc);
   tud_pump_task();
   sleep_ms(200);
 
   //*--- Load SSB patch
 
-  cdc_printf("si4732: before patch: present=%d mode=%d last=0x%02X\n",
+  cdc_printf("Status before patch: present=%d mode=%d last=0x%02X\n",
              radio->present, radio->mode, radio->last_status);
   rc = si4732_load_patch(radio, si4732_ssb_patch, si4732_ssb_patch_len);
-  cdc_printf("si4732: (load patch) rc=%d\n", (int)rc);
+  cdc_printf("load patch) rc=%d\n", (int)rc);
   
   if (rc != SI4732_OK) {
      (void)si4732_power_down(radio);
      (void)si4732_reset_pulse(radio, 10, 100);
      (void)si4732_power_up_am(radio, true);
-     cdc_printf("si4732: load failed chip reset performed\n");
+     cdc_printf("load patch failed chip reset performed\n");
   }
 
   tud_pump_task();
@@ -2102,7 +2093,7 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   //*--- Now place the driver in SSB mode
   //radio->mode = SI4732_MODE_SSB;
   rc=si4732_ssb_enter(radio);
-  cdc_printf("si4732: (ssb mode) enter SSB mode rc(%d)\n",rc);
+  cdc_printf("ssb mode enter SSB mode rc(%d)\n",rc);
 
   //*--- Apply the band required
   si4732_band_t b2 = si4732_band_preset(SI4732_BAND_HAM_20M, radio->region_profile);
@@ -2110,7 +2101,7 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
 
   //*--- Set band
   rc = si4732_set_band(radio, &b2);
-  cdc_printf("si4732: (set band post-patch) rc=%d\n", (int)rc);
+  cdc_printf("set band post-patch) rc=%d\n", (int)rc);
   si4732_dump_am_seek_props(radio);
   tud_pump_task();
   sleep_ms(200);
@@ -2118,7 +2109,7 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   //*--- Tune on the default frequency
   
   si4732_set_frequency(radio,ADX.frqFT8);
-
-  cdc_printf("si4732: Setup completed\n");
+  cdc_printf("Frequency set to %ld Hz\n",ADX.frqFT8);
+  cdc_printf("Setup completed\n");
   return (si4732_status_t)SI4732_INIT_OK;
 }
