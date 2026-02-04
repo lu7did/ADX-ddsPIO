@@ -143,7 +143,7 @@ Features
 
 ## ADX-ddsPIO Firmware (Version 1.3)
 
-* Quadrature based receiver (SDR)
+* Quadrature based receiver (SDR) support (quadrature clock available)
 
 ## ADX-ddsPIO Firmware (Version 2.0)
 
@@ -160,7 +160,6 @@ Work in progress
 ```
 
 
-* Quadrature clock support.
 
 
 ## Build environment
