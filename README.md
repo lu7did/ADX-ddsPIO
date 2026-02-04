@@ -148,9 +148,14 @@ Features
 ## ADX-ddsPIO Firmware (Version 2.0)
 
 * Si4732 based receiver chipset support
-* USB (MSC) drive filesystem implementation to store external configuration (CONFIG.SYS)
+
+The firmware is completed at this stage and able to sustain QSO as shown in the following picture
+where a contact is been made between the board (dubbed as LU2EIC) and my 20m digital FT8 station
+running as LU7DZ.
+![Alt Text](doc/ADX-ddsPIO_MaidenQSO_si4732.png?raw=true "ADX-ddsPIO Maiden QSO")
 
 ```
+USB (MSC) drive filesystem implementation to store external configuration (CONFIG.SYS) 
 Work in progress
 ```
 
@@ -260,13 +265,7 @@ This is a sample of a CONFIG.SYS file managed by the system
 "band": "1",
 "audiosampling": "48000",
 "pll_sys_mhz": "270",
-"frqFT8": "14074000",
 "frqbfo": "446400",
-"si4732region": "ar",
-"si4732mode": "ssb",
-"si4732band": "20m",
-"si4732vol": "50",
-"si4732mute": "0"
 
 }
 ```
