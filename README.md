@@ -285,6 +285,11 @@ The logic is as follows:
 * If the CONFIG.SYS file is erased then the EEPROM configuration will prevail.
 * If the hard reset is made then the factory defaults will be loaded again.
 
+
+```
+This feature isn't operational at this point as it is work in progress to integrate an USB CDC+MSC+Audio
+```
+
 ## Clock Architecture
 
 The board supports and the firmware implements several clock models which can be configured
