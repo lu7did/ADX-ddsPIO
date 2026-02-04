@@ -228,6 +228,7 @@
 #include "hardware/rtc.h"
 #include "pico/util/datetime.h"
 #include "ADX-ddsPIO.h"
+#include <ctype.h>
 
 #ifdef SI4732
 #include "si4732.h"
@@ -439,9 +440,17 @@ static volatile bool cdc_dtr = false;
 #ifdef SI4732
 si4732_t radio;
 #endif //SI4732
+
+#ifdef FS
+uint8_t JSON[2048];
+ADX_ddsPIO_t fs;
+ADX_ddsPIO_t fs_read;
+
+#endif //FS
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
 //*==============================================================================================*
+
 int slot2Band(int s);
 void core1_entry(void);
 void cdc_write(char *, uint16_t);
@@ -488,43 +497,454 @@ void __attribute__((unused)) resetEEPROM();
 
 #ifdef FS
 
-// APIs expuestas por usb_msc_ramdisk.c
+bool msc_read_config_json(uint8_t* out, uint32_t out_sz, uint32_t* out_len);
+bool json_get_value(const char* json, const char* key, char* out, uint32_t out_sz);
+bool msc_write_config_json(const uint8_t* json, uint32_t len, bool commit_now);
+
+//*--- FS handling API API
+
 void msc_boot_prepare(void);
+const uint8_t* msc_disk_ro_ptr(void);
+uint32_t msc_disk_size_bytes(void);
 bool usb_msc_fw_write_config_sys(const uint8_t* data, uint32_t len, bool commit_now);
+#endif //FS
 
-// (opcional) si querés leer/parsear antes de decidir: te lo doy en el próximo paso
-// bool msc_read_config_sys(char *out, uint32_t out_sz, uint32_t *out_len);
 
+#ifdef FS
+//*==============================================================================================*
+//*                      Tools to manage the FileSystem contents                                 *
+//* This is a simple, low capacity, FAT-12 filesystem intended to contain a configuration file   *
+//* called CONFIG.SYS (yes, like the old era DOS system) with the main variables of the board    *
+//* it might contain other files within the limits of it's capacity but won't be updated by the  *
+//* firmware. 
+//*==============================================================================================*
+
+//*----------------------------------------------------------------------------
+//*  review if the existing configuration file needs to be replaced  
+//*----------------------------------------------------------------------------
 static bool need_replace_config(void)
 {
-  // TODO: tu lógica real:
-  // - leer contenido
-  // - verificar si existe
-  // - comparar con condición programática
-  // Por ahora, placeholder:
-  return true;
+  
+  uint32_t n = 0;
+
+  //*--- Read CONFIG.SYS file (JSON format)
+  if (!msc_read_config_json(JSON, sizeof(JSON), &n)) {
+
+     fs.ID = 1;
+     fs.mode = ADX.mode;
+     fs.slot = ADX.slot;
+     fs.volume = ADX.volume;
+     fs.frqFT8 = ADX.frqFT8;
+     fs.frqbfo = ADX.frqbfo;
+
+     sprintf((char *)JSON,"{\n"             \
+                         "\"ID\" : 1\n" \
+                         "\"mode\" : %d\n" \
+                         "\"slot\" : %d\n" \
+                         "\"volume\" : %d\n" \
+                         "\"frqFT8\" : %ld\n" \
+                         "\"frqbfo\" : %ld\n" \
+                         "}\n",
+                         fs.mode,fs.slot,fs.volume,fs.frqFT8,fs.frqbfo);
+   
+    //*--- file doesn't exists, return true so the upcall might generate it
+    return true;
+  }
+
+  char val[64];
+
+  if (json_get_value((const char*)JSON,"mode",val,sizeof(val))) {
+     fs_read.mode = (uint8_t)atoi(val);
+  } else {
+     fs_read.mode = 0;
+  }
+
+  if (json_get_value((const char*)JSON,"slot",val,sizeof(val))){
+     fs_read.slot = (uint8_t)atoi(val);
+  } else {
+    fs_read.slot = 0;
+  }
+
+  if (json_get_value((const char*)JSON,"vol",val,sizeof(val))){
+     fs_read.volume = (uint8_t)atoi(val);
+  } else {
+     fs_read.volume = 0;
+  }
+
+  if (json_get_value((const char*)JSON,"frqFT8",val,sizeof(val))){
+     fs_read.frqFT8 = (uint32_t)atol(val);
+  } else {
+     fs_read.frqFT8 = 0;
+  }
+
+  if (!json_get_value((const char*)JSON,"frqbfo",val,sizeof(val))){
+     fs_read.frqbfo = (uint32_t)atol(val);
+  } else {
+     fs_read.frqbfo = 0;
+  }
+
+
+  //*--- Return false if no update on the file is needed
+  return false;
 }
 
+//*----------------------------------------------------------------------------
+//*  this is a process that takes place before the MSC system is published  
+//*----------------------------------------------------------------------------
 static void boot_config_phase(void)
 {
   //*--- Read RAMDisk from Flash memory
   msc_boot_prepare();
 
-  //*--- Check if a change is needed
+  //*--- Check if a change is neededb (FALSE), otherwise assume the file needs to be regenerated
   if (!need_replace_config()) return;
 
-  //*--- Recreate file 
-  char cfg[512];
-  int n = snprintf(cfg, sizeof(cfg),
-                   "CALL=LU7DZ\r\n"
-                   "MODE=FT8\r\n"
-                   "FREQ=%lu\r\n",
-                   (unsigned long)14074000);
+  (void)msc_write_config_json(JSON, strlen((char*)JSON), true);
+  
+}
 
-  if (n <= 0) return;
+//*----------------------------------------------------------------------------
+//*  helpers to manage disk operations over the RAMDisk 
+//*----------------------------------------------------------------------------
+static inline uint16_t rd16_ro(const uint8_t* p, uint32_t off)
+{
+  return (uint16_t)(p[off] | ((uint16_t)p[off + 1] << 8));
+}
 
-  //*--- write CONFIG.SYS at the RAMDisk and commit to flash
-  usb_msc_fw_write_config_sys((const uint8_t*)cfg, (uint32_t)n, true);
+static inline uint32_t rd32_ro(const uint8_t* p, uint32_t off)
+{
+  return (uint32_t)p[off] |
+         ((uint32_t)p[off + 1] << 8) |
+         ((uint32_t)p[off + 2] << 16) |
+         ((uint32_t)p[off + 3] << 24);
+}
+
+static uint16_t fat12_next_cluster(const uint8_t* fat, uint32_t fat_bytes, uint16_t cl)
+{
+  // FAT12 entry: 12 bits
+  uint32_t i = (uint32_t)cl + ((uint32_t)cl / 2u);
+  if (i + 1u >= fat_bytes) return 0x0FFFu;
+
+  uint16_t v = (uint16_t)(fat[i] | ((uint16_t)fat[i + 1u] << 8));
+  if (cl & 1u) v >>= 4;
+  else        v &= 0x0FFFu;
+
+  return (uint16_t)(v & 0x0FFFu);
+}
+
+static bool fat_parse_layout(const uint8_t* disk, uint32_t disk_bytes,
+                             uint32_t* fat_off, uint32_t* fat_bytes,
+                             uint32_t* root_off, uint32_t* root_bytes,
+                             uint32_t* data_off, uint32_t* bytes_per_cluster,
+                             uint8_t*  nfats_out,
+                             bool*     is_fat12_out)
+{
+  if (disk_bytes < 512u) return false;
+
+  uint16_t bps      = rd16_ro(disk, 11);
+  uint8_t  spc      = disk[13];
+  uint16_t rsvd     = rd16_ro(disk, 14);
+  uint8_t  nfats    = disk[16];
+  uint16_t root_ent = rd16_ro(disk, 17);
+  uint16_t tot16    = rd16_ro(disk, 19);
+  uint16_t spf16    = rd16_ro(disk, 22);
+  uint32_t tot32    = rd32_ro(disk, 32);
+
+  uint32_t tot_sec = tot16 ? (uint32_t)tot16 : tot32;
+
+  if (bps == 0 || spc == 0 || rsvd == 0 || nfats == 0 || root_ent == 0 || spf16 == 0 || tot_sec == 0) return false;
+
+  uint32_t bpc = (uint32_t)bps * (uint32_t)spc;
+
+  uint32_t fo = (uint32_t)rsvd * (uint32_t)bps;
+  uint32_t fb = (uint32_t)spf16 * (uint32_t)bps;
+
+  uint32_t ro = fo + (uint32_t)nfats * fb;
+  uint32_t rb = (uint32_t)root_ent * 32u;
+  uint32_t doff = ro + rb;
+
+  if (fo + fb > disk_bytes) return false;
+  if (ro + rb > disk_bytes) return false;
+  if (doff >= disk_bytes) return false;
+
+  // Estimar FAT12 vs FAT16 por cantidad de clusters (regla estándar)
+  uint32_t data_bytes = disk_bytes - doff;
+  if (bpc == 0) return false;
+  uint32_t clusters = data_bytes / bpc;
+
+  bool is_fat12 = (clusters < 4085u); // FAT12 threshold
+
+  *fat_off = fo;
+  *fat_bytes = fb;
+  *root_off = ro;
+  *root_bytes = rb;
+  *data_off = doff;
+  *bytes_per_cluster = bpc;
+  *nfats_out = nfats;
+  *is_fat12_out = is_fat12;
+  return true;
+}
+
+static bool fat_root_find_83(const uint8_t* disk, uint32_t root_off, uint32_t root_bytes,
+                            const char name11[11], uint32_t* ent_off_out)
+{
+  for (uint32_t o = 0; o + 32u <= root_bytes; o += 32u) {
+    const uint8_t* e = disk + root_off + o;
+
+    if (e[0] == 0x00) break;        // fin de directorio
+    if (e[0] == 0xE5) continue;     // borrado
+    if (e[11] == 0x0F) continue;    // LFN
+
+    if (memcmp(e, name11, 11) == 0) {
+      *ent_off_out = root_off + o;
+      return true;
+    }
+  }
+  return false;
+}
+
+//*--- read the CONFIG.SYS file 
+
+bool msc_read_config_json(uint8_t* out, uint32_t out_sz, uint32_t* out_len)
+{
+  if (!out || out_sz == 0) return false;
+  if (out_len) *out_len = 0;
+
+  const uint8_t* disk = msc_disk_ro_ptr();
+  uint32_t disk_bytes = msc_disk_size_bytes();
+
+  uint32_t fat_off, fat_bytes, root_off, root_bytes, data_off, bpc;
+  uint8_t nfats;
+  bool is_fat12;
+
+  if (!fat_parse_layout(disk, disk_bytes, &fat_off, &fat_bytes, &root_off, &root_bytes,
+                        &data_off, &bpc, &nfats, &is_fat12)) {
+    return false;
+  }
+
+  const char name11[11] = { 'C','O','N','F','I','G',' ',' ','S','Y','S' };
+
+  uint32_t ent_off = 0;
+  if (!fat_root_find_83(disk, root_off, root_bytes, name11, &ent_off)) {
+    return false; // no existe
+  }
+
+  uint16_t first_cluster = rd16_ro(disk, ent_off + 26);
+  uint32_t file_size     = rd32_ro(disk, ent_off + 28);
+
+  if (file_size == 0) {
+    out[0] = 0;
+    if (out_len) *out_len = 0;
+    return true;
+  }
+
+  //*--- validate size 
+
+  if (file_size >= out_sz) {
+
+    //*--- format as a string
+    file_size = out_sz - 1u;
+  }
+
+  const uint8_t* fat1 = disk + fat_off;
+
+  uint32_t copied = 0;
+  uint16_t cl = first_cluster;
+
+  //*--- valid clusters starts with 2
+  if (cl < 2u) return false;
+
+  while (copied < file_size) {
+    uint32_t cl_index = (uint32_t)(cl - 2u);
+    uint32_t src_off  = data_off + cl_index * bpc;
+
+    if (src_off + bpc > disk_bytes) return false;
+
+    uint32_t chunk = file_size - copied;
+    if (chunk > bpc) chunk = bpc;
+
+    memcpy(out + copied, disk + src_off, chunk);
+    copied += chunk;
+
+    if (copied >= file_size) break;
+
+    //*--- next cluster 
+
+    if (is_fat12) {
+      uint16_t nxt = fat12_next_cluster(fat1, fat_bytes, cl);
+      if (nxt >= 0x0FF8u) break; // end-of-chain
+      if (nxt < 2u) return false;
+      cl = nxt;
+    } else {
+      //*--- uses FAT16 to help the host to format properly if needed
+      uint32_t idx = (uint32_t)cl * 2u;
+      if (idx + 1u >= fat_bytes) return false;
+      uint16_t nxt = (uint16_t)(fat1[idx] | ((uint16_t)fat1[idx + 1u] << 8));
+      if (nxt >= 0xFFF8u) break;
+      if (nxt < 2u) return false;
+      cl = nxt;
+    }
+  }
+
+  out[copied] = 0; //*--- terminator, either as a TEXT or JSON file
+  if (out_len) *out_len = copied;
+  return true;
+}
+
+//*----------------------------------------------------------------------------
+//*  this is a simple JSON file parser, no frills, escapes, fancy nests 
+//*----------------------------------------------------------------------------
+static const char* json_skip_ws(const char* s)
+{
+  while (*s && (unsigned char)*s <= 0x20) s++;
+  return s;
+}
+
+//*--- Look for key
+
+static bool json_match_key(const char* p, const char* key, const char** after_key)
+{
+  //*--- (p) points to the start of a JSON string
+  if (*p != '"') return false;
+  p++;
+  const char* k = key;
+
+  while (*p && *p != '"' && *k) {
+    if (*p != *k) return false;
+    p++; k++;
+  }
+  if (*k != 0) return false;   //*--- key not ended
+  if (*p != '"') return false; //*--- string not closed
+  p++;                         //*--- after the " character
+
+  if (after_key) *after_key = p;
+  return true;
+}
+
+static bool json_copy_string_value(const char* p, char* out, uint32_t out_sz, const char** after_val)
+{
+  //*--- (p) points to the first char after the initial quote
+  uint32_t n = 0;
+  while (*p && *p != '"') {
+    //*--- minimum support for escape characters
+    if (*p == '\\' && p[1]) {
+      char esc = p[1];
+      if (esc == '"' || esc == '\\' || esc == '/') {
+         p++; 
+      }
+      //*-- other escapes
+    }
+    if (n + 1u < out_sz) {
+      out[n] = *p;
+    }  
+    n++;
+    p++;
+  }
+  
+  if (*p != '"') return false;
+  
+  p++; //*--- uses clossure
+
+  //*--- safe ending
+  if (out_sz) {
+    uint32_t w = (n < (out_sz - 1u)) ? n : (out_sz - 1u);
+    out[w] = 0;
+  }
+  if (after_val) *after_val = p;
+  return true;
+}
+
+static bool json_copy_literal_value(const char* p, char* out, uint32_t out_sz, const char** after_val)
+{
+  // number / true / false / null  (hasta , } o whitespace)
+  uint32_t n = 0;
+  while (*p && *p != ',' && *p != '}' && (unsigned char)*p > 0x20) {
+    if (n + 1u < out_sz) out[n] = *p;
+    n++;
+    p++;
+  }
+  if (out_sz) {
+    uint32_t w = (n < (out_sz - 1u)) ? n : (out_sz - 1u);
+    out[w] = 0;
+  }
+  if (after_val) *after_val = p;
+  return (n > 0);
+}
+
+bool json_get_value(const char* json, const char* key, char* out, uint32_t out_sz)
+{
+  if (!json || !key || !out || out_sz == 0) return false;
+  out[0] = 0;
+
+  const char* p = json_skip_ws(json);
+  if (*p != '{') return false;
+  p++;
+
+  while (*p) {
+    p = json_skip_ws(p);
+    if (*p == '}') return false; //*--- end of string, not found
+
+    //*---  search for key string
+
+    const char* after_key = NULL;
+    if (*p != '"') return false;
+
+    //*--- compare with keyword 
+    if (!json_match_key(p, key, &after_key)) {
+      //*--- jump over if not the one
+      p++; //*--- within the string
+      while (*p && *p != '"') {
+        if (*p == '\\' && p[1]) p += 2;
+        else p++;
+      }
+      if (*p != '"') return false;
+      p++;
+      p = json_skip_ws(p);
+      if (*p != ':') return false;
+      p++;
+      p = json_skip_ws(p);
+      //*--- jump over
+      if (*p == '"') {
+        p++;
+        while (*p && *p != '"') {
+          if (*p == '\\' && p[1]) p += 2;
+          else p++;
+        }
+        if (*p != '"') return false;
+        p++;
+      } else {
+        while (*p && *p != ',' && *p != '}') p++;
+      }
+      p = json_skip_ws(p);
+      if (*p == ',') { p++; continue; }
+      if (*p == '}') return false;
+      continue;
+    }
+
+    //*--- key found 
+    p = json_skip_ws(after_key);
+    if (*p != ':') return false;
+    p++;
+    p = json_skip_ws(p);
+
+    if (*p == '"') {
+      p++;
+      return json_copy_string_value(p, out, out_sz, NULL);
+    } else {
+      return json_copy_literal_value(p, out, out_sz, NULL);
+    }
+  }
+
+  return false;
+}
+//*--- write the JSON file and commit to flash if indicated
+
+bool msc_write_config_json(const uint8_t* json, uint32_t len, bool commit_now)
+{
+  if (!json) return false;
+
+  // Reutiliza tu writer FAT12/16 que crea/reemplaza CONFIG.SYS
+  return usb_msc_fw_write_config_sys(json, len, commit_now);
 }
 
 #endif //IF
@@ -1321,9 +1741,9 @@ int main(void)
   ADXinit();
 
   // --- fase determinística de configuración (sin USB) ---
+  #ifdef FS
   boot_config_phase();
-
-
+  #endif //FS
 
   TUDstart();
 
@@ -1332,14 +1752,28 @@ int main(void)
   #endif //WAITSERIAL
   
   cdc_printf("%s version(%s) build(%s)\n",PROGNAME,VERSION,BUILD);
+  tud_pump_task();
+
   ADXsetup();
 
   #if EEPROM
   //*--- Sense if the TXSW button is pressed on startup, if so reset EEPROM, then read EEPROM back
   resetDefaults();
+  tud_pump_task();
+
   readEEPROM();
+  tud_pump_task();
+
   #endif //EEPROM
 
+  cdc_printf("Content of CONFIG.SYS file\n%s",(const char*)JSON);
+  cdc_printf("Recovered values\n"    \
+             "mode=%d\n"  \
+             "slot=%d\n"  \
+             "volume=%d\n"  \
+             "frqFT8=%ld\n"  \
+             "frqbfo=%ld\n",fs_read.mode,fs_read.slot,fs_read.volume,fs_read.frqFT8,fs_read.frqbfo);          
+  tud_pump_task();
   #ifdef RTC
   //*----------- Setup RTC, this is only used to sync seconds   ---------------*
   rtc_init();
@@ -1366,7 +1800,8 @@ int main(void)
  
   cdc_printf("DCO sub-system initializing...\n");
   PioDCOInit(&DCO, CLK1, PIOclkhz,true);
-  
+  tud_pump_task();
+
   //*--- Start the quadrature oscilator
 
   #ifdef QUAD
@@ -1394,6 +1829,7 @@ int main(void)
   #ifdef SI4732
   si4732_status_t s=si4732_setup(&radio);
   cdc_printf("Si4732 initialization procedure completed rc(%d)\n",s);
+  tud_pump_task();
   #endif //SI4732 
    
   //*--- Wireless library poll

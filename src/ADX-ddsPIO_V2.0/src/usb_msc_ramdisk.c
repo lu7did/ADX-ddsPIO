@@ -42,6 +42,9 @@ static void __not_in_flash_func(msc_commit_dirty_to_flash)(void);
 static uint8_t  msc_disk[MSC_DISK_BYTES];
 static uint16_t dirty_mask = 0;
 
+// Exponer la imagen del disco en RAM para lectura desde main.c (solo lectura)
+const uint8_t* msc_disk_ro_ptr(void) { msc_init_once(); return msc_disk; }
+uint32_t       msc_disk_size_bytes(void) { return MSC_DISK_BYTES; }
 
 // --- API de boot (firmware) ---
 // Prepara msc_disk[] desde flash o default. Seguro de llamar antes de tusb_init().
