@@ -117,7 +117,7 @@ are:
 
 The firmware is completed at this stage and able to sustain QSO as shown in the following picture
 where a contact is been made between the board (dubbed as LU2EIC) and my 20m digital FT8 station
-running as LU7DZ.
+running as LU7DZ using a direct conversion receiver setup.
 ![Alt Text](doc/ADX-ddsPIO_MaidenQSO.png?raw=true "ADX-ddsPIO Maiden QSO")
 Although the RF setup is close to trivial, just few meters distance, the activity has been held
 "over the air" and shows the firmware is able to properly encode and decode signals both at the
@@ -152,7 +152,7 @@ Features
 
 The firmware is completed at this stage and able to sustain QSO as shown in the following picture
 where a contact is been made between the board (dubbed as LU2EIC) and my 20m digital FT8 station
-running as LU7DZ.
+running as LU7DZ using the Si4732 chip as a receiver.
 ![Alt Text](doc/ADX-ddsPIO_MaidenQSO_si4732.png?raw=true "ADX-ddsPIO Maiden QSO")
 
 
