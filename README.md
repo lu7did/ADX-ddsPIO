@@ -148,18 +148,12 @@ Features
 ## ADX-ddsPIO Firmware (Version 2.0)
 
 * Si4732 based receiver chipset support
+* USB (MSC) drive filesystem implementation to store external configuration (CONFIG.SYS) 
 
 The firmware is completed at this stage and able to sustain QSO as shown in the following picture
 where a contact is been made between the board (dubbed as LU2EIC) and my 20m digital FT8 station
 running as LU7DZ.
 ![Alt Text](doc/ADX-ddsPIO_MaidenQSO_si4732.png?raw=true "ADX-ddsPIO Maiden QSO")
-
-```
-USB (MSC) drive filesystem implementation to store external configuration (CONFIG.SYS) 
-Work in progress
-```
-
-
 
 
 ## Build environment
@@ -252,41 +246,77 @@ The pinout assignment for this version is shown in the following table:
 
 ## File System (FS) architecture
 
-A FatFS filesystem is implemented using a USB (MSC) interface, although the space is very
+A simple FAT-16 (MS-DOS) filesystem is implemented using a USB (MSC) interface, although the space is very
 limited it can be used to store any file on it. The firmware uses just one of them called
-CONFIG.SYS which stores a master configuration for the board.
+*CONFIG.SYS* which stores a master configuration for the board.
 
 This is a sample of a CONFIG.SYS file managed by the system
 
 ```
 {
-"mode": "1",
-"band": "1",
-"audiosampling": "48000",
-"pll_sys_mhz": "270",
-"frqbfo": "446400",
-
+{
+"ID" : 1
+"mode" : 4
+"slot" : 3
+"volume" : 60
+"frqFT8" : 14074000
+"frqbfo" : 446400
 }
 ```
 
-The filesystem has been implemented using a simple FAT-16 format (old DOS format) which 
-only supports 8.3 files (which MUST BE uppercase).
+Because of it's simplicity the filesystem will not support directories.
 
 The logic is as follows:
 
 * The main default configuration (sort of a factory default) is stored as constants defined at build time.
 * If EEPROM is enabled the factory defaults are stored in EEPROM to make them persistent.
-* When te board boots up the EEPROM (if enabled) is read.
-* If the filesystem is enabled a attempt to read a file called CONFIG.SYS is made.
-* CONFIG.SYS override the content of the EEPROM.
-* The contents is then saved on EEPROM.
-* Then the CONFIG.SYS file is regenerated, unless changed externally the contents will become the configuration.
-* If the CONFIG.SYS file is erased then the EEPROM configuration will prevail.
-* If the hard reset is made then the factory defaults will be loaded again.
+* If FS is enabled will override the EEPROM directive.
+* Either the content of the EEPROM or the FS will override the factory defaults.
 
+## Master configuration
+
+The configuration at build time is set by a number of #define clauses
+```
+#define  DEBUG      1     //Will enable the traces to be sent thru Serial Monitor, also the boot will stop until it is enabled
+#define  EEPROM     1     //Enable EEPROM simulation in flash memory
+#define  SUPERHET   1     //Enable the creation of a 455 KHz BFO signal
+#define  QUAD       1     //Enable the creation of a Quadrature oscilator signal (SDR operation)
+#define  SI4732     1     //Enable the support for the Si4732 chip
+#define  WAITSERIAL 1     //Enable waiting for the Serial Monitor to be up to continue loading
+#define  FS         1     //Enable file system FAT-16
+#define  RTC        1     //Enable real time clock and time sync (partially implemented)
+#define  CAT        1     //Enable CAT support
 
 ```
-This feature isn't operational at this point as it is work in progress to integrate an USB CDC+MSC+Audio
+
+Some of the features conflicts among them so there is a dependency filter setup as follows
+
+```
+#ifdef FS                        //EEPROM emulation or USB file system, FS prevails
+#undef EEPROM
+#endif //FS
+
+#ifdef SI4732                    //If Si4732 chipset enabled it's the dominant receiver
+#undef SUPERHET
+#undef QUAD
+#undef RTC
+#endif //SI4732
+
+#ifdef CAT                      //If CAT enabled USB can not be used to debug
+#undef DEBUG
+#undef RTC
+#endif //CAT  
+
+#ifdef QUAD                     //If Quadrature oscillator activated all other clocks disabled
+#undef SUPERHET
+#undef SI4732
+#endif //QUAD 
+
+#ifndef DEBUG                   //If not in DEBUG mode will not wait for Serial Monitor to activate
+#undef WAITSERIAL
+#undef RTC
+#endif //!DEBUG
+
 ```
 
 ## Clock Architecture
