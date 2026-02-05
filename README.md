@@ -289,7 +289,7 @@ File system or not stored is configured at build tiime by means of the configura
 * (not EEPROM && not FS) the configuration will not be persistent across reboots, any change made during operation
   will be lost once the board is powered down.
 * (EEPROM && not FS) the configuration will be persistent across reboots, it will start with the defaults but any change
-  will be stored in EEPROM and recoevered on the next boot.
+  will be stored in EEPROM and recovered in the next boot.
 * (not EEPROM && FS) the configuration will be taken from the CONFIG.SYS file and override the board defaults, however
   any change made won't be saved into the CONFIG.SYS file and therefore will be lost when the board is powered down.
   However, changes made externally on the CONFIG.SYS file will be taken on the next boot and on. All changes made 
