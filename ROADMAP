@@ -24,14 +24,22 @@ Integrating               Module                      Result
 (QP_7C)                   [QP_7C-rp2040]     ---->    [ADX-ddsPIO]   (Version 1.x) USB Audio (basic ADX DC)
                                                       |    
                                                       |    
-                                                      |    
-(ADX-rp2040)              [adx-rp2040.c]     ---->    [ADX-ddsPIO]   (Version 2.x) CAT Command Support
+(ADX-rp2040)              [adx-rp2040.c]     ---->    [ADX-ddsPIO]   (Version 1.x) CAT Command Support
                                                       |                            ADX Superhet mod
-                                                      |                            GPS Discipline
-                                                      |                            Support Raspberry Pi Pico W
+                                                      |    
+(ADX-rp2040)              [adx-rp2040.c]     ---->    [ADX-ddsPIO]   (Version 1.x) EEPROM (emulated) configuration
+                                                      |                            Quadrature oscillator (SDR) receivers
                                                       |    
                                                       |    
+(ADX-rp2040)              [adx-rp2040,c]     ---->    [ADX-ddsPIO]   (Version 2.x) Si4732 Receiver Support
+                                                      |                            USB MSC configuration
+                                                      .
+                                                      .
                                                       |    
-(ADX-rp2040)              [adx-rp2040,c]     ---->    [ADX-ddsPIO]   (Version 3.x) Si4732 Receiver Support
+                                                      |    
+(ADX-rp2040)              [adx-rp2040.c]     ---->    [ADX-ddsPIO]   (Version 3.x) GPS disciplined
+                                                      |                            Beacon mode (WSPR/FT8)
+                                                      |                            PCB design
+                                                      |                 
 
 ```

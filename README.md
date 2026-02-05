@@ -56,6 +56,12 @@ This project relies *heavily* on the superb work made by several authors:
   differences with the original code were quite large so the actual final code was refactored in the process.
   [link](https://github.com/lu7did/ADX-rp2040)
 
+* An early effort called RDX-rp2040 was originally developed as a stand alone FT8 transceiver able to
+  operate without a PC, the project reach the prototype stage and stays there since. Part of the hardware
+  and the si4732 utilization comes out of it,  not being an optimal implementation the board designed
+  for that project can also be reused.
+  [link](https://github.com/lu7did/RDX-rp2040)
+
 * Hans Summers (G0UPL) developed the original QCX transceiver, which creates a whole
   family of high performance, yet affordable,  homebrew transceivers.
 
@@ -269,8 +275,36 @@ The logic is as follows:
 
 * The main default configuration (sort of a factory default) is stored as constants defined at build time.
 * If EEPROM is enabled the factory defaults are stored in EEPROM to make them persistent.
-* If FS is enabled will override the EEPROM directive.
+* If FS is enabled will override the EEPROM directive and take configuration from the CONFIG.SYS file.
+* If the CONFIG.SYS file is erased the next boot the default configuration will be taken and a new CONFIG.SYS file created.
 * Either the content of the EEPROM or the FS will override the factory defaults.
+* Any change in the CONFIG.SYS file will be made permanent by properly *EJECT* the USB device in the host computer.
+
+
+### Use case EEPROM vs File System
+
+Both methods are sort of redundant and will not operate at the same time, whether the configuration is stored in EEPROM,
+File system or not stored is configured at build tiime by means of the configuration options choosen.
+
+* (not EEPROM && not FS) the configuration will not be persistent across reboots, any change made during operation
+  will be lost once the board is powered down.
+* (EEPROM && not FS) the configuration will be persistent across reboots, it will start with the defaults but any change
+  will be stored in EEPROM and recoevered on the next boot.
+* (not EEPROM && FS) the configuration will be taken from the CONFIG.SYS file and override the board defaults, however
+  any change made won't be saved into the CONFIG.SYS file and therefore will be lost when the board is powered down.
+  However, changes made externally on the CONFIG.SYS file will be taken on the next boot and on. All changes made 
+  externally on the CONFIG.SYS file will require the media to be ejected to become permanent.
+* (EEPROM && FS) if this configuration is detected FS will be taken and EEPROM discarded at bootup.
+
+
+### Configuration clean up
+
+The board defaults can be changed and made effective by changing the configuration options and recompiling the firmware.
+
+* (not EEPROM && not FS) no configuration to clean up, powering down and up the board will restore the defaults.
+* (EEPROM and not FS) powering up the board with the TX switch pressed will reset the EEPROM to the board defaults.
+* (FS and not EEPROM) erasing the CONFIG.SYS file (or editing it) and ejecting the USB media will clean up the configuration.
+* (FS and EEPROM) FS will prevail.
 
 ## Master configuration
 
@@ -288,7 +322,7 @@ The configuration at build time is set by a number of #define clauses
 
 ```
 
-Some of the features conflicts among them so there is a dependency filter setup as follows
+Some of the features conflicts among them so there is a dependency filter setup as follows that should not be modified.
 
 ```
 #ifdef FS                        //EEPROM emulation or USB file system, FS prevails
