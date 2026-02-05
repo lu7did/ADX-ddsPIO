@@ -254,7 +254,6 @@ This is a sample of a CONFIG.SYS file managed by the system
 
 ```
 {
-{
 "ID" : 1
 "mode" : 4
 "slot" : 3
