@@ -179,6 +179,10 @@
 //*                                Configuration consistency rules                               *
 //*==============================================================================================*
 
+#ifdef FS                        //EEPROM emulation or USB file system, FS prevails
+#undef EEPROM
+#endif //FS
+
 #ifdef SI4732                    //If Si4732 chipset enabled it's the dominant receiver
 #undef SUPERHET
 #undef QUAD
@@ -554,38 +558,27 @@ static bool need_replace_config(void)
   char val[64];
 
   if (json_get_value((const char*)JSON,"mode",val,sizeof(val))) {
-     fs_read.mode = (uint8_t)atoi(val);
-  } else {
-     fs_read.mode = 0;
+     ADX.mode = (uint8_t)atoi(val);
   }
 
   if (json_get_value((const char*)JSON,"slot",val,sizeof(val))){
-     fs_read.slot = (uint8_t)atoi(val);
-  } else {
-    fs_read.slot = 0;
+     ADX.slot = (uint8_t)atoi(val);
   }
 
   if (json_get_value((const char*)JSON,"vol",val,sizeof(val))){
-     fs_read.volume = (uint8_t)atoi(val);
-  } else {
-     fs_read.volume = 0;
+     ADX.volume = (uint8_t)atoi(val);
   }
 
   if (json_get_value((const char*)JSON,"frqFT8",val,sizeof(val))){
-     fs_read.frqFT8 = (uint32_t)atol(val);
-  } else {
-     fs_read.frqFT8 = 0;
+     ADX.frqFT8 = (uint32_t)atol(val);
   }
 
   if (!json_get_value((const char*)JSON,"frqbfo",val,sizeof(val))){
-     fs_read.frqbfo = (uint32_t)atol(val);
-  } else {
-     fs_read.frqbfo = 0;
+     ADX.frqbfo = (uint32_t)atol(val);
   }
 
-
   //*--- Return false if no update on the file is needed
-  return false;
+  return true;
 }
 
 //*----------------------------------------------------------------------------
@@ -1525,6 +1518,7 @@ void TUDstart(){
 //*----------------------------------------------------------------------------*/
 //* Update the EEPROM values with the current operating values                 */                             
 //*----------------------------------------------------------------------------*/
+#ifdef EEPROM
 void __attribute__((unused)) resetEEPROM() {
 
   ADX_ddsPIO_t eeprom;
@@ -1559,6 +1553,7 @@ void __attribute__((unused)) updateEEPROM() {
   cdc_printf("EEPROM configuration updated\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
 
 }
+
 //*----------------------------------------------------------------------------*/
 //* Read the EEPROM values and use them as the operating defintion             */
 //*----------------------------------------------------------------------------*/
@@ -1581,7 +1576,7 @@ void __attribute__((unused)) readEEPROM() {
        cdc_printf("EEPROM configuration recovered\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
       }     
 }
-
+#endif //EEPROM
 //*----------------------------------------------------------------------------*/
 //* Wait for the serial monitor to open before continuing                      */                             
 //*----------------------------------------------------------------------------*/
@@ -1631,8 +1626,10 @@ void resetDefaults() {
 
   gpio_put(PICO_DEFAULT_LED_PIN,0);  //*--- Turn on left when Serial monitor has been opened
   tud_pump_task();
-  resetEEPROM();
 
+  #ifdef EEPROM
+  resetEEPROM();
+  #endif //EEPROM
 }
 //*----------------------------------------------------------------------------*/
 //* Setup the default configuration of the board                               */                             
@@ -1710,7 +1707,7 @@ void ADXsetup(){
   
     //*--- End of ADX control board initialization
     cdc_printf("ADX I/O control board initialized\n");
-
+    tud_pump_task();
 }
 
 //*===============================================================================================*/
@@ -1755,6 +1752,7 @@ int main(void)
   tud_pump_task();
 
   ADXsetup();
+  tud_pump_task();
 
   #if EEPROM
   //*--- Sense if the TXSW button is pressed on startup, if so reset EEPROM, then read EEPROM back
@@ -1767,6 +1765,7 @@ int main(void)
   #endif //EEPROM
 
   cdc_printf("Content of CONFIG.SYS file\n%s",(const char*)JSON);
+  tud_pump_task();
   cdc_printf("Recovered values\n"    \
              "mode=%d\n"  \
              "slot=%d\n"  \
