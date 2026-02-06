@@ -383,7 +383,6 @@
 //*==============================================================================================*
 
 ADX_ddsPIO_t ADX;                      //*--- System Variables
-
 char hi[128];
 uint8_t marker=0;
 uint32_t t;
@@ -391,8 +390,6 @@ bool blink=false;
 
 //*--- Control block of PIO running the DCO
 PioDco DCO; /* External in order to access in both cores. */
-
-//PioDco DCO2;
 
 //*--- for ADC offset at transceiver
 int32_t adc_offset = 0;   
@@ -448,8 +445,7 @@ si4732_t radio;
 #ifdef FS
 uint8_t JSON[2048];
 ADX_ddsPIO_t fs;
-ADX_ddsPIO_t fs_read;
-
+bool resetFS = false;
 #endif //FS
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
@@ -501,9 +497,11 @@ void __attribute__((unused)) resetEEPROM();
 
 #ifdef FS
 
+
 bool msc_read_config_json(uint8_t* out, uint32_t out_sz, uint32_t* out_len);
 bool json_get_value(const char* json, const char* key, char* out, uint32_t out_sz);
 bool msc_write_config_json(const uint8_t* json, uint32_t len, bool commit_now);
+bool usb_msc_factory_reset(bool commit_now);
 
 //*--- FS handling API API
 
@@ -660,7 +658,8 @@ static bool fat_parse_layout(const uint8_t* disk, uint32_t disk_bytes,
   if (ro + rb > disk_bytes) return false;
   if (doff >= disk_bytes) return false;
 
-  // Estimar FAT12 vs FAT16 por cantidad de clusters (regla estándar)
+  //*--- Estimate FAT16 or FAT12 using cluster qty (standard rule)
+
   uint32_t data_bytes = disk_bytes - doff;
   if (bpc == 0) return false;
   uint32_t clusters = data_bytes / bpc;
@@ -684,8 +683,8 @@ static bool fat_root_find_83(const uint8_t* disk, uint32_t root_off, uint32_t ro
   for (uint32_t o = 0; o + 32u <= root_bytes; o += 32u) {
     const uint8_t* e = disk + root_off + o;
 
-    if (e[0] == 0x00) break;        // fin de directorio
-    if (e[0] == 0xE5) continue;     // borrado
+    if (e[0] == 0x00) break;        // End of directory
+    if (e[0] == 0xE5) continue;     // erase
     if (e[11] == 0x0F) continue;    // LFN
 
     if (memcmp(e, name11, 11) == 0) {
@@ -936,7 +935,7 @@ bool msc_write_config_json(const uint8_t* json, uint32_t len, bool commit_now)
 {
   if (!json) return false;
 
-  // Reutiliza tu writer FAT12/16 que crea/reemplaza CONFIG.SYS
+  //*--- reuse FAT16 to create or replace CONFIG.SYS
   return usb_msc_fw_write_config_sys(json, len, commit_now);
 }
 
@@ -1653,6 +1652,10 @@ void ADXinit(){
   cyw43_arch_init(); 
   #endif //!PICOW
 
+  gpio_init(TXSW);
+  gpio_set_dir(TXSW, GPIO_IN);
+  gpio_pull_up(TXSW);
+
 
 }
 
@@ -1739,6 +1742,26 @@ int main(void)
 
   // --- fase determinística de configuración (sin USB) ---
   #ifdef FS
+ 
+  //*--- Check to reset to defaults and commit
+
+  if (!gpio_get(TXSW)) {
+     gpio_put(PICO_DEFAULT_LED_PIN,1); 
+     blink=false;
+     t=to_ms_since_boot(get_absolute_time());
+
+    while(!gpio_get(TXSW)) {
+       if (to_ms_since_boot(get_absolute_time())-t > 100) {
+          t=to_ms_since_boot(get_absolute_time());
+          blink=!blink;
+          gpio_put(PICO_DEFAULT_LED_PIN,blink); 
+       }
+    }
+    usb_msc_factory_reset(true);
+    resetFS=true;
+  }
+
+  //*--- Read FS
   boot_config_phase();
   #endif //FS
 
@@ -1764,15 +1787,20 @@ int main(void)
 
   #endif //EEPROM
 
+  #ifdef FS
+  if (resetFS) {
+     cdc_printf("File system has been RESET\n");
+  }
   cdc_printf("Content of CONFIG.SYS file\n%s",(const char*)JSON);
   tud_pump_task();
-  cdc_printf("Recovered values\n"    \
+  cdc_printf("CONFIG.SYS recovered values\n"    \
              "mode=%d\n"  \
              "slot=%d\n"  \
              "volume=%d\n"  \
              "frqFT8=%ld\n"  \
-             "frqbfo=%ld\n",fs_read.mode,fs_read.slot,fs_read.volume,fs_read.frqFT8,fs_read.frqbfo);          
+             "frqbfo=%ld\n",fs.mode,fs.slot,fs.volume,fs.frqFT8,fs.frqbfo);          
   tud_pump_task();
+  #endif //FS
   #ifdef RTC
   //*----------- Setup RTC, this is only used to sync seconds   ---------------*
   rtc_init();

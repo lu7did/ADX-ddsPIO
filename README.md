@@ -253,8 +253,15 @@ The pinout assignment for this version is shown in the following table:
 ## File System (FS) architecture
 
 A simple FAT-16 (MS-DOS) filesystem is implemented using a USB (MSC) interface, although the space is very
-limited it can be used to store any file on it. The firmware uses just one of them called
-*CONFIG.SYS* which stores a master configuration for the board.
+limited it can be used to store any file on it. When plugged the name of the inserted device will be 
+*ADXDISK*.
+
+The firmware uses just one of them called *CONFIG.SYS* which stores a master configuration for the board, if
+the board is initiated with the file system empty (first boot) a CONFIG.SYS file with the default configuration
+will be written. In order to reset the board content (and the flash memory containing the configuration) 
+the power up needs to be made while keep pressing the TX switch (the default LED will flash quickly), upon
+release the file content will be erased and the CONFIG.SYS file regenerated with the default configuration
+values.
 
 This is a sample of a CONFIG.SYS file managed by the system
 

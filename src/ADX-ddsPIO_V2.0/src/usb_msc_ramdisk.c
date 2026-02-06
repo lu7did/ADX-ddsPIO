@@ -33,7 +33,21 @@ _Static_assert(sizeof(fat12_64k_img) == MSC_DISK_BYTES, "fat12_64k_img size must
 #endif
 #endif
 
-// ---- Prototipos internos
+/*
+#include "fat12_64k.h"
+#include "tusb.h"            // for tud_mounted()
+#include <string.h>
+*/
+// If your file already has these, don't duplicate—reuse them.
+
+//extern void msc_commit_dirty_to_flash(void);  // or make a non-static wrapper
+//extern void msc_init_once(void);              // or call your init
+//extern uint8_t  msc_disk[];                   // if msc_disk is static, do it in the same file
+//extern uint16_t dirty_mask;
+
+
+
+//*--- Internal Prototypes
 static void mark_dirty_range(uint32_t addr, uint32_t len);
 static void msc_init_once(void);
 static void __not_in_flash_func(msc_commit_dirty_to_flash)(void);
@@ -42,19 +56,43 @@ static void __not_in_flash_func(msc_commit_dirty_to_flash)(void);
 static uint8_t  msc_disk[MSC_DISK_BYTES];
 static uint16_t dirty_mask = 0;
 
-// Exponer la imagen del disco en RAM para lectura desde main.c (solo lectura)
+//*--- Make RAMdisk image available from main.c (read only)
 const uint8_t* msc_disk_ro_ptr(void) { msc_init_once(); return msc_disk; }
 uint32_t       msc_disk_size_bytes(void) { return MSC_DISK_BYTES; }
+bool usb_msc_factory_reset(bool commit_now);
 
 // --- API de boot (firmware) ---
-// Prepara msc_disk[] desde flash o default. Seguro de llamar antes de tusb_init().
+//*--- Prepare msc_disk[] from flash (MUST call before tud_init())
 void msc_boot_prepare(void)
 {
-  // reuse tu init actual
+  //*--- Reuse current init
+
   msc_init_once();
 }
 
-// Commit explícito (por si querés forzarlo desde firmware)
+bool usb_msc_factory_reset(bool commit_now)
+{
+  // Safety: never modify while host has mounted the device
+  if (tud_mounted()) return false;
+
+  // Ensure RAM disk exists
+  msc_init_once();
+
+  // Reset RAM disk to default image
+  memcpy(msc_disk, fat12_64k_img, (size_t)fat12_64k_img_len);
+
+  // Mark whole disk dirty (simple + safe for small 64KB disk)
+  dirty_mask = 0xFFFFu;
+
+  if (commit_now) {
+    msc_commit_dirty_to_flash();
+  }
+
+  return true;
+}
+
+
+//*--- Explicit commit
 void msc_boot_commit_now(void)
 {
   msc_init_once();
