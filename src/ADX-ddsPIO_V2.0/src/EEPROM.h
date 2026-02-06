@@ -19,8 +19,6 @@
 //*---------------------------------------------------------------------------------------*
 //* Define a 256 bytes storage area for the run time configuration 
 //*---------------------------------------------------------------------------------------*
-//#define EEPROM_SIZE         4096
-//#define FLASH_TARGET_OFFSET (PICO_FLASH_SIZE_BYTES - EEPROM_SIZE)
 #define FLASH_TARGET_OFFSET (1024 * 1024) 
 #define FLASH_SECTOR_SIZE    4096 
 

@@ -47,7 +47,8 @@ typedef enum {
   SI4732_ERR_I2C = -1,
   SI4732_ERR_TIMEOUT = -2,
   SI4732_ERR_ARG = -3,
-  SI4732_ERR_DEVICE = -4
+  SI4732_ERR_DEVICE = -4,
+  SI4732_ERR_PARAM = -5
 
 } si4732_status_t;
 
@@ -107,6 +108,19 @@ typedef enum {
 
 } si4732_band_preset_t;
 
+#define SI473X_PROP_AM_CHANNEL_FILTER 0x3102
+
+typedef enum {
+  SI473X_AM_BW_6KHZ  = 0,
+  SI473X_AM_BW_4KHZ  = 1,
+  SI473X_AM_BW_3KHZ  = 2,
+  SI473X_AM_BW_2KHZ  = 3,
+  SI473X_AM_BW_1KHZ  = 4,
+  SI473X_AM_BW_1_8KHZ= 5,
+  SI473X_AM_BW_2_5KHZ= 6
+} si473x_am_bw_t;
+
+// Configura el ancho de banda AM/SSB y opcionalmente el filtro AMPLFLT.
 
 
 
@@ -131,6 +145,12 @@ typedef struct {
  //*---------------------------------------------------------------------------------------*
  //*                                 Prototypes                                            *
  //*---------------------------------------------------------------------------------------*
+ // Agregar cerca de tus typedefs/enums:
+
+si4732_status_t si4732_set_am_bandwidth(si4732_t *dev,
+                                        si473x_am_bw_t bw,
+                                        bool power_line_noise_reject,
+                                        uint32_t timeout_ms);
 
 //*--- init 
 si4732_status_t si4732_init(si4732_t *dev,

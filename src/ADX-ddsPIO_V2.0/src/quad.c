@@ -260,42 +260,6 @@ bool quad_start(quad_osc_t *q,
   }
 
 
-
-//#define QUICKFIX
-  #ifdef QUICKFIX 
-
-  //*---- DEBUG
-  //*---- This is a temporal fix to test the PIO management separate from
-  //*---- the optimization algorithm, basically it starts the operation wieh
-  //*---- a predefined (manually optimized) solution for 3.5 MHz
-if (f_hz == 3500000u) {
-
-  //*--- Force 270 MHz as the board clock
-  set_sys_clock_khz(270000, true);
-
-  pio_sm_set_enabled(q->pio, q->sm, false);
-  pio_sm_restart(q->pio, q->sm);
-  pio_sm_clear_fifos(q->pio, q->sm);
-
-  //*--- clkdiv = 19 + 73/256  => ~3.500101 MHz
-  pio_sm_set_clkdiv_int_frac(q->pio, q->sm, 19, 73);
-  pio_sm_exec(q->pio, q->sm, pio_encode_jmp(q->offset));
-  pio_sm_set_enabled(q->pio, q->sm, true);
-  q->running = true;
-
-  //*--- Format solution structure with a manually set solution
-
-  if (sol_out) {
-    sol_out->f_req_hz = f_hz;
-    sol_out->clk_sys_hz = 270000000u;
-    sol_out->pio_div_int = 19;
-    sol_out->pio_div_frac = 73;
-  }
-  return true;
-}
-//*--- 
-#endif //QUICKFIX
-
   //*--- This is the standard operation with optimization
   //*--- Stop the SM to avoid erratic inconsistent states
   pio_sm_set_enabled(q->pio, q->sm, false);

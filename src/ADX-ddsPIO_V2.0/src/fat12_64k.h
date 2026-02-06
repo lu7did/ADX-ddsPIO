@@ -1,3 +1,13 @@
+
+/*
+ * =======================================================================================
+ * fast12_64k
+ * (c) Dr. Pedro E. Colla (LU7DZ) <pedro.colla@gmail.com>
+ * 
+ * This is the empty image of a FAT12 64K disk used to format the filesystem
+ * implementing a file called ADXDISK 
+ * =======================================================================================*/
+
 unsigned char fat12_64k_img[] = {
   0xeb, 0x3c, 0x90, 0x42, 0x53, 0x44, 0x20, 0x20, 0x34, 0x2e, 0x34, 0x00,
   0x02, 0x01, 0x01, 0x00, 0x02, 0x00, 0x02, 0x80, 0x00, 0xf0, 0x01, 0x00,

@@ -640,8 +640,58 @@ si4732_band_t si4732_band_preset(si4732_band_preset_t p, si4732_region_profile_t
     b.step = 1;
     b.spacing = 1;
     break;
-  case SI4732_BAND_HAM_20M:
+  case SI4732_BAND_HAM_80M:
     b.mode = SI4732_MODE_SSB;
+    b.min = 3500;
+    b.max = 4000;
+    b.step = 1;
+    b.spacing = 1;
+    break;
+  case SI4732_BAND_HAM_160M:
+    b.mode = SI4732_MODE_SSB;
+    b.min = 1800;
+    b.max = 1900;
+    b.step = 1;
+    b.spacing = 1;
+    break;
+  case SI4732_BAND_HAM_30M:
+    b.mode = SI4732_MODE_SSB;
+    b.min = 10000;
+    b.max = 10100;
+    b.step = 1;
+    b.spacing = 1;
+    break;
+  case SI4732_BAND_HAM_17M:
+    b.mode = SI4732_MODE_SSB;
+    b.min = 18000;
+    b.max = 18200;
+    b.step = 1;
+    b.spacing = 1;
+    break;
+  case SI4732_BAND_HAM_15M:
+    b.mode = SI4732_MODE_SSB;
+    b.min = 21000;
+    b.max = 21500;
+    b.step = 1;
+    b.spacing = 1;
+    break;
+  case SI4732_BAND_HAM_12M:
+    b.mode = SI4732_MODE_SSB;
+    b.min = 24000;
+    b.max = 24500;
+    b.step = 1;
+    b.spacing = 1;
+    break;
+  case SI4732_BAND_HAM_10M:
+    b.mode = SI4732_MODE_SSB;
+    b.min = 28000;
+    b.max = 29000;
+    b.step = 1;
+    b.spacing = 1;
+    break;
+  case SI4732_BAND_HAM_20M:
+
+  b.mode = SI4732_MODE_SSB;
     b.min = 14000;
     b.max = 14250;
     b.step = 1;
@@ -659,6 +709,7 @@ si4732_band_t si4732_band_preset(si4732_band_preset_t p, si4732_region_profile_t
   }
   return b;
 }
+
 
 //*--- Set specific band
 
@@ -1127,4 +1178,20 @@ si4732_status_t cmd_write_read(si4732_t *dev,
     return rc;
 
   return i2c_read_bytes(dev, resp, resp_len);
+}
+si4732_status_t si4732_set_am_bandwidth(si4732_t *dev,
+                                        si473x_am_bw_t bw,
+                                        bool power_line_noise_reject,
+                                        uint32_t timeout_ms)
+{
+  if (!dev) return SI4732_ERR_PARAM;
+  if ((uint8_t)bw > 6) return SI4732_ERR_PARAM;
+  if (timeout_ms == 0) return SI4732_ERR_PARAM;
+  
+  // AM_CHANNEL_FILTER: bit8 = AMPLFLT, bits3:0 = AMCHFLT :contentReference[oaicite:3]{index=3}
+  
+  uint16_t v = (uint16_t)((uint8_t)bw & 0x0F);
+  if (power_line_noise_reject) v |= (1u << 8);
+
+  return si4732_set_property(dev, SI473X_PROP_AM_CHANNEL_FILTER, v);
 }

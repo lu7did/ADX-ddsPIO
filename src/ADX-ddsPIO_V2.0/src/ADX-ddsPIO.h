@@ -27,7 +27,8 @@ typedef struct {
     uint8_t  volume;
     uint32_t frqFT8;
     uint32_t frqbfo;
-    uint8_t  reserved[116];
+    uint8_t  bw;
+    uint8_t  reserved[115];
 } ADX_ddsPIO_t;
 
 #endif

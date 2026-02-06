@@ -445,7 +445,6 @@ si4732_t radio;
 #ifdef FS
 uint8_t JSON[2048];
 ADX_ddsPIO_t fs;
-bool resetFS = false;
 #endif //FS
 //*==============================================================================================*
 //*                                  Prototypes                                                  *
@@ -484,7 +483,7 @@ static void si4732_dump_am_seek_props(si4732_t *r);
 char    si4732_region[]=SI4732_DEFAULT_REGION;
 char    si4732_mode[]=SI4732_DEFAULT_MODE;
 char    si4732_band[]=SI4732_DEFAULT_BAND;
-uint8_t si4732_vol=SI4732_DEFAULT_VOLUME;
+//uint8_t si4732_vol=SI4732_DEFAULT_VOLUME;
 bool    si4732_mute=false;
 #endif //SI4732
 
@@ -536,6 +535,7 @@ static bool need_replace_config(void)
      fs.mode = ADX.mode;
      fs.slot = ADX.slot;
      fs.volume = ADX.volume;
+     fs.bw = ADX.bw;
      fs.frqFT8 = ADX.frqFT8;
      fs.frqbfo = ADX.frqbfo;
 
@@ -544,10 +544,11 @@ static bool need_replace_config(void)
                          "\"mode\" : %d\n" \
                          "\"slot\" : %d\n" \
                          "\"volume\" : %d\n" \
+                         "\"bandwidth\" : %d\n" \
                          "\"frqFT8\" : %ld\n" \
                          "\"frqbfo\" : %ld\n" \
                          "}\n",
-                         fs.mode,fs.slot,fs.volume,fs.frqFT8,fs.frqbfo);
+                         fs.mode,fs.slot,fs.volume,fs.bw,fs.frqFT8,fs.frqbfo);
    
     //*--- file doesn't exists, return true so the upcall might generate it
     return true;
@@ -563,8 +564,12 @@ static bool need_replace_config(void)
      ADX.slot = (uint8_t)atoi(val);
   }
 
-  if (json_get_value((const char*)JSON,"vol",val,sizeof(val))){
+  if (json_get_value((const char*)JSON,"volume",val,sizeof(val))){
      ADX.volume = (uint8_t)atoi(val);
+  }
+
+  if (json_get_value((const char*)JSON,"bandwidth",val,sizeof(val))){
+     ADX.bw = (uint8_t)atoi(val);
   }
 
   if (json_get_value((const char*)JSON,"frqFT8",val,sizeof(val))){
@@ -1526,11 +1531,12 @@ void __attribute__((unused)) resetEEPROM() {
   eeprom.mode  = DEFAULT_MODE;
   eeprom.slot  = DEFAULT_SLOT;
   eeprom.volume= DEFAULT_VOLUME;
+  eeprom.bw    = SI473X_AM_BW_4KHZ;
   eeprom.frqFT8= GEN_FRQ_HZ;
   eeprom.frqbfo= FREQ_BFO;
 
   EEPROM_write(&eeprom);
-  cdc_printf("EEPROM configuration reset\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
+  cdc_printf("EEPROM configuration reset\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d) bandwidth(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume,ADX.bw);
 
 }
 
@@ -1545,11 +1551,12 @@ void __attribute__((unused)) updateEEPROM() {
   eeprom.mode  = (uint8_t)ADX.mode;
   eeprom.slot  = (uint8_t)ADX.slot;
   eeprom.volume=ADX.volume;
+  eeprom.bw    =ADX.bw;
   eeprom.frqFT8=ADX.frqFT8;
   eeprom.frqbfo=ADX.frqbfo;
 
   EEPROM_write(&eeprom);
-  cdc_printf("EEPROM configuration updated\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
+  cdc_printf("EEPROM configuration updated\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d) bandwidth(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume,ADX.bw);
 
 }
 
@@ -1572,7 +1579,8 @@ void __attribute__((unused)) readEEPROM() {
        ADX.frqFT8=eeprom.frqFT8;
        ADX.frqbfo=eeprom.frqbfo;
        ADX.volume=eeprom.volume;
-       cdc_printf("EEPROM configuration recovered\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume);
+       ADX.bw=eeprom.bw;
+       cdc_printf("EEPROM configuration recovered\nID(%d) mode(%d) slot(%d) f(%ld) bfo(%ld) volume(%d) bandwidth(%d)\n",eeprom.ID,ADX.mode,ADX.slot,ADX.frqFT8,ADX.frqbfo,ADX.volume,ADX.bw);
       }     
 }
 #endif //EEPROM
@@ -1599,15 +1607,17 @@ void waitserial() {
   tud_pump_task();
 
 }
+#if defined(FS) || defined(EEPROM)
 //*----------------------------------------------------------------------------*/
 //* Check for TXSW pressed on start up and reset if detected                   */
 //*----------------------------------------------------------------------------*/
-void resetDefaults() {
+bool resetDefaults() {
 
   if (gpio_get(TXSW)) {               //If TXSW is high then leave
-     return;
+     return false;
   }
 
+  #ifdef EEPROM
    //*--- If pressed wait till release and the reset to factory defaults
 
   cdc_printf("Release TX button to reset\n");
@@ -1626,10 +1636,29 @@ void resetDefaults() {
   gpio_put(PICO_DEFAULT_LED_PIN,0);  //*--- Turn on left when Serial monitor has been opened
   tud_pump_task();
 
-  #ifdef EEPROM
   resetEEPROM();
-  #endif //EEPROM
+  return true;
+#endif //EEPROM
+
+#if FS
+
+gpio_put(PICO_DEFAULT_LED_PIN,1); 
+blink=false;
+t=to_ms_since_boot(get_absolute_time());
+
+while(!gpio_get(TXSW)) {
+  if (to_ms_since_boot(get_absolute_time())-t > 100) {
+    t=to_ms_since_boot(get_absolute_time());
+    blink=!blink;
+    gpio_put(PICO_DEFAULT_LED_PIN,blink); 
+  }
+}  
+usb_msc_factory_reset(true); 
+return true;
+#endif //FS
+
 }
+#endif //FS || EEPROM
 //*----------------------------------------------------------------------------*/
 //* Setup the default configuration of the board                               */                             
 //*----------------------------------------------------------------------------*/
@@ -1638,6 +1667,7 @@ void ADXinit(){
   ADX.mode   = DEFAULT_MODE;
   ADX.slot   = DEFAULT_SLOT;
   ADX.volume = DEFAULT_VOLUME;
+  ADX.bw     = SI473X_AM_BW_4KHZ;
   ADX.frqFT8 = GEN_FRQ_HZ;
   ADX.frqbfo = FREQ_BFO;
   Band       = slot2Band(ADX.slot);
@@ -1745,22 +1775,10 @@ int main(void)
  
   //*--- Check to reset to defaults and commit
 
-  if (!gpio_get(TXSW)) {
-     gpio_put(PICO_DEFAULT_LED_PIN,1); 
-     blink=false;
-     t=to_ms_since_boot(get_absolute_time());
-
-    while(!gpio_get(TXSW)) {
-       if (to_ms_since_boot(get_absolute_time())-t > 100) {
-          t=to_ms_since_boot(get_absolute_time());
-          blink=!blink;
-          gpio_put(PICO_DEFAULT_LED_PIN,blink); 
-       }
-    }
-    usb_msc_factory_reset(true);
-    resetFS=true;
-  }
-
+  #ifdef FS
+  bool resetConfig=resetDefaults();
+  #endif //FS
+  
   //*--- Read FS
   boot_config_phase();
   #endif //FS
@@ -1779,16 +1797,15 @@ int main(void)
 
   #if EEPROM
   //*--- Sense if the TXSW button is pressed on startup, if so reset EEPROM, then read EEPROM back
-  resetDefaults();
+  bool resetConfig=resetDefaults();
+  cdc_printf("EEPROM configuration has been RESET\n");
   tud_pump_task();
-
   readEEPROM();
   tud_pump_task();
-
   #endif //EEPROM
 
   #ifdef FS
-  if (resetFS) {
+  if (resetConfig) {
      cdc_printf("File system has been RESET\n");
   }
   cdc_printf("Content of CONFIG.SYS file\n%s",(const char*)JSON);
@@ -1797,10 +1814,12 @@ int main(void)
              "mode=%d\n"  \
              "slot=%d\n"  \
              "volume=%d\n"  \
+             "bandwidth=%d\n"  \
              "frqFT8=%ld\n"  \
-             "frqbfo=%ld\n",fs.mode,fs.slot,fs.volume,fs.frqFT8,fs.frqbfo);          
+             "frqbfo=%ld\n",fs.mode,fs.slot,fs.volume,fs.bw,fs.frqFT8,fs.frqbfo);          
   tud_pump_task();
   #endif //FS
+
   #ifdef RTC
   //*----------- Setup RTC, this is only used to sync seconds   ---------------*
   rtc_init();
@@ -2533,13 +2552,13 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   
     //*--- Apply default volume, this is fixed since the transceiver has no volume control
 
-  if (si4732_vol > 64) {
+  if (ADX.volume > 64) {
      cdc_printf("volume out of range\n");
-     si4732_vol=63;
+     ADX.volume=63;
   }
 
-  rc = si4732_set_volume(radio, si4732_vol);
-  cdc_printf("set volume vol(%d) rc=%d last_status=0x%02X\n",(int)si4732_vol,(int)rc, radio->last_status);
+  rc = si4732_set_volume(radio, ADX.volume);
+  cdc_printf("set volume vol(%d) rc=%d last_status=0x%02X\n",(int)ADX.volume,(int)rc, radio->last_status);
 
   //*--- Unmute the receiver
 
@@ -2622,6 +2641,14 @@ static void si4732_dump_am_seek_props(si4732_t *r) {
   //radio->mode = SI4732_MODE_SSB;
   rc=si4732_ssb_enter(radio);
   cdc_printf("ssb mode enter SSB mode rc(%d)\n",rc);
+
+  if (ADX.bw > 6){
+     ADX.bw=SI473X_AM_BW_4KHZ; 
+  }
+  rc = si4732_set_am_bandwidth(radio,ADX.bw , true, 200);
+  cdc_printf("set bandwidth(%d) rc(%d)\n",ADX.bw, rc);
+  tud_pump_task();
+  sleep_ms(400);
 
   //*--- Apply the band required
   si4732_band_t b2 = si4732_band_preset(SI4732_BAND_HAM_20M, radio->region_profile);
