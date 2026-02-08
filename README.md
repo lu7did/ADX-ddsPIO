@@ -19,7 +19,7 @@ which requires additional circuitry.
 As an evolution of that project the goal to reduce the footprint of the transceiver, trying to remove the 
 signal generator function (Si5351 based), this effort leads to this project.
 
-The project aims to achiveve Several (experimental) goals:
+The project aims to achiveve several (experimental) goals:
 
 * Port the ADX firmware to the rp2040 (already done with the [ADX-rp2040](https://www.github.com/lu7did/ADX-rp2040)
 * Design and develop a hardware board to support the project
@@ -33,7 +33,10 @@ Basic specs for this transceiver would be:
 
 * Operate in any of the HF bands (160m to 10m), attempts to marginal use on 6m will be made.
 * 2-3W output (WSPR,FT8;JS8,FT4).
-* Different alternatives for receiver: DC (CD2003GP), superhet (CD20023GP) and digital (Si4732)
+* Different alternatives for receiver:
+	*  DC (CD2003GP).
+	*  Ssuperhet (CD20023GP)
+	*  Digital (Si4732 based)
 * SWR protection.
 * Beacon mode (WSPR,FT8).
 * ATU reset output.
@@ -193,7 +196,8 @@ The Raspberry Pi Pico W (wireless) is **not supported**.
 
 ## Circuit Design Si4732 based Receiver (version 2.x)
 
-This circuit is largely based on the former RDX_rp2040 design
+This circuit is largely based on the former RDX_rp2040 project design and it's compatible
+with that board design with just minor mods.
 ![Alt Text](doc/ADX-ddsPIO_V2.x_si4732-Schematic.png?raw=true "Transceiver Circuit (Version 2.x)")
 
 
@@ -236,7 +240,8 @@ The main differences with the verion 0.x:
 
 ## Circuit Design Direct Conversion Receiver (version 1.x)
 
-This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA)).
+This circuit is largely based on the original ADX transceiver [link](https://github.com/WB2CBA/ADX) by Barb ([WB2CBA](https://www.qrz.com/db/WB2CBA))
+modified for the rp2040 processor at the ADX-rp2040 project.
 ![Alt Text](doc/ADX-ddsPIO_V1.x_DC-Schematic.png?raw=true "Transceiver Circuit (Version 1.x) Direct Conversion")
 
 The main differences with the original ADX circuit are:
@@ -267,10 +272,11 @@ This is a sample of a CONFIG.SYS file managed by the system
 
 ```
 {
-"ID" : 1
-"mode" : 4
-"slot" : 3
-"volume" : 60
+"ID" : 1,
+"mode" : 4,
+"slot" : 3,
+"volume" : 60,
+"bandwidth" : 1,
 "frqFT8" : 14074000
 "frqbfo" : 446400
 }
@@ -281,11 +287,13 @@ Because of it's simplicity the filesystem will not support directories.
 The logic is as follows:
 
 * The main default configuration (sort of a factory default) is stored as constants defined at build time.
-* If EEPROM is enabled the factory defaults are stored in EEPROM to make them persistent.
-* If FS is enabled will override the EEPROM directive and take configuration from the CONFIG.SYS file.
-* If the CONFIG.SYS file is erased the next boot the default configuration will be taken and a new CONFIG.SYS file created.
+* If EEPROM is enabled
+	* the factory defaults are stored in EEPROM to make them persistent.
+* If FS is enabled 
+	* will override the EEPROM directive and take configuration from the CONFIG.SYS file.
+	* If the CONFIG.SYS file is erased the next boot the default configuration will be taken and a new CONFIG.SYS file created.
+	* Any change in the CONFIG.SYS file will be made permanent by properly *EJECT* the USB device in the host computer.
 * Either the content of the EEPROM or the FS will override the factory defaults.
-* Any change in the CONFIG.SYS file will be made permanent by properly *EJECT* the USB device in the host computer.
 
 
 ### Use case EEPROM vs File System
